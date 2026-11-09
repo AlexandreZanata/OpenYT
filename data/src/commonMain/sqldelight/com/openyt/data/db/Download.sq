@@ -29,7 +29,8 @@ CREATE TABLE library_entry (
     kind TEXT NOT NULL,
     file_path TEXT NOT NULL,
     size_bytes INTEGER,
-    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    thumbnail_url TEXT
 );
 
 CREATE TABLE app_settings (
@@ -87,8 +88,8 @@ selectAllLibrary:
 SELECT * FROM library_entry ORDER BY created_at DESC, id ASC;
 
 insertLibraryEntry:
-INSERT OR REPLACE INTO library_entry(id, title, kind, file_path, size_bytes)
-VALUES (:id, :title, :kind, :file_path, :size_bytes);
+INSERT OR REPLACE INTO library_entry(id, title, kind, file_path, size_bytes, thumbnail_url)
+VALUES (:id, :title, :kind, :file_path, :size_bytes, :thumbnail_url);
 
 deleteLibraryEntry:
 DELETE FROM library_entry WHERE id = :id;

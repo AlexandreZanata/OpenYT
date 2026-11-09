@@ -75,4 +75,31 @@ object LibraryQuery {
 
         return (byPath + byContent).map { it.id }.toSet()
     }
+
+    /**
+     * Ids that can be removed to leave one entry per duplicate group. The first
+     * entry in each group (newest, since the repository orders by creation) is kept.
+     * This only removes library records; files are never deleted.
+     */
+    fun duplicateRemovalIds(entries: List<LibraryEntry>): Set<String> {
+        val ids = mutableSetOf<String>()
+
+        fun mark(groups: Collection<List<LibraryEntry>>) {
+            groups.filter { it.size > 1 }.forEach { group ->
+                group.drop(1).forEach { ids += it.id }
+            }
+        }
+
+        mark(
+            entries.filter { it.filePath.isNotBlank() }
+                .groupBy { it.filePath }
+                .values,
+        )
+        mark(
+            entries.filter { it.sizeBytes != null }
+                .groupBy { it.title.trim().lowercase() to it.sizeBytes }
+                .values,
+        )
+        return ids
+    }
 }

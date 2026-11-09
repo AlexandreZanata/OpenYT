@@ -7,4 +7,5 @@ data class LibraryEntry(
     val filePath: String,
     val sizeBytes: Long? = null,
     val createdAtEpochMillis: Long = 0,
+    val thumbnailUrl: String? = null,
 )

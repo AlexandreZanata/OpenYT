@@ -217,6 +217,7 @@ class DownloadCoordinator(
                 kind = updated.request.kind,
                 filePath = event.filePath,
                 sizeBytes = event.sizeBytes,
+                thumbnailUrl = updated.media.thumbnailUrl,
             )
             _library.update { entries ->
                 listOf(entry) + entries.filterNot { it.id == entry.id }

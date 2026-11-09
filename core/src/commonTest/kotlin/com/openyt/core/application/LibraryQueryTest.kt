@@ -57,6 +57,7 @@ class LibraryQueryTest {
         )
 
         assertEquals(setOf("1", "2", "3", "4"), LibraryQuery.duplicateIds(entries))
+        assertEquals(setOf("2", "4"), LibraryQuery.duplicateRemovalIds(entries))
     }
 
     @Test
@@ -88,6 +89,7 @@ class LibraryQueryTest {
 
         val duplicateCount = LibraryQuery.duplicateIds(entries).size
         assertTrue(duplicateCount > 0)
+        assertTrue(LibraryQuery.duplicateRemovalIds(entries).isNotEmpty())
 
         val missingResult = LibraryQuery.apply(entries, missing, LibraryFilter(missingOnly = true))
         assertEquals(3, missingResult.size)

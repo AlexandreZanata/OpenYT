@@ -33,7 +33,14 @@ class SqlDelightDownloadRepositoryTest {
                 ),
             )
             repository.insertLibraryEntry(
-                LibraryEntry("download-1", "Sample media", MediaKind.VIDEO, "/tmp/video.mp4", 1234),
+                LibraryEntry(
+                    "download-1",
+                    "Sample media",
+                    MediaKind.VIDEO,
+                    "/tmp/video.mp4",
+                    1234,
+                    thumbnailUrl = "https://example.com/t.jpg",
+                ),
             )
             database = createOpenYtDatabase(file.absolutePath)
             repository = SqlDelightDownloadRepository(database)
@@ -49,6 +56,7 @@ class SqlDelightDownloadRepositoryTest {
             assertEquals(1, library.size)
             assertEquals("Sample media", library.single().title)
             assertEquals(1234L, library.single().sizeBytes)
+            assertEquals("https://example.com/t.jpg", library.single().thumbnailUrl)
         } finally {
             file.delete()
         }

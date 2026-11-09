@@ -78,10 +78,103 @@ class SettingsRepositoryTest {
         }
     }
 
+    @Test
+    fun migratesVersionThreeLibraryAndBackfillsThumbnail() = runBlocking {
+        val file = File.createTempFile("openyt-v3-", ".db").apply { delete() }
+        try {
+            createVersionThreeDatabase(file)
+
+            val database = createOpenYtDatabase(file.absolutePath)
+            val library = SqlDelightDownloadRepository(database).loadLibrary()
+            assertEquals(1, library.size)
+            assertEquals("https://example.com/thumb.jpg", library.single().thumbnailUrl)
+        } finally {
+            file.delete()
+        }
+    }
+
     private fun inMemoryDatabase(): OpenYtDatabase {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         OpenYtDatabase.Schema.create(driver)
         return OpenYtDatabase(driver)
+    }
+
+    private fun createVersionThreeDatabase(file: File) {
+        DriverManager.getConnection("jdbc:sqlite:${file.absolutePath}").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeUpdate(
+                    """
+                    CREATE TABLE download_task (
+                        seq INTEGER PRIMARY KEY AUTOINCREMENT,
+                        id TEXT NOT NULL UNIQUE,
+                        source_id TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        author TEXT,
+                        source TEXT NOT NULL,
+                        url TEXT NOT NULL,
+                        webpage_url TEXT NOT NULL,
+                        duration_seconds INTEGER,
+                        thumbnail_url TEXT,
+                        kind TEXT NOT NULL,
+                        format_id TEXT,
+                        destination_directory TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        percent REAL NOT NULL DEFAULT 0,
+                        speed_bytes_per_second INTEGER,
+                        eta_seconds INTEGER,
+                        file_path TEXT,
+                        size_bytes INTEGER,
+                        failure_kind TEXT,
+                        failure_detail TEXT,
+                        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+                    )
+                    """.trimIndent(),
+                )
+                statement.executeUpdate(
+                    """
+                    CREATE TABLE library_entry (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        kind TEXT NOT NULL,
+                        file_path TEXT NOT NULL,
+                        size_bytes INTEGER,
+                        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+                    )
+                    """.trimIndent(),
+                )
+                statement.executeUpdate(
+                    """
+                    CREATE TABLE app_settings (
+                        id INTEGER PRIMARY KEY CHECK (id = 1),
+                        theme_mode TEXT NOT NULL DEFAULT 'SYSTEM',
+                        language TEXT NOT NULL DEFAULT 'PT_BR',
+                        max_concurrent INTEGER NOT NULL DEFAULT 2,
+                        downloads_directory TEXT
+                    )
+                    """.trimIndent(),
+                )
+                statement.executeUpdate(
+                    """
+                    INSERT INTO download_task(
+                        id, source_id, title, source, url, webpage_url, thumbnail_url, kind,
+                        destination_directory, status, percent, file_path, size_bytes
+                    ) VALUES (
+                        'download-1', 'abc', 'Old media', 'youtube',
+                        'https://example.com/watch', 'https://example.com/watch',
+                        'https://example.com/thumb.jpg', 'VIDEO', '/tmp/openyt',
+                        'COMPLETED', 100, '/tmp/openyt/video.mp4', 1000
+                    )
+                    """.trimIndent(),
+                )
+                statement.executeUpdate(
+                    """
+                    INSERT INTO library_entry(id, title, kind, file_path, size_bytes)
+                    VALUES ('download-1', 'Old media', 'VIDEO', '/tmp/openyt/video.mp4', 1000)
+                    """.trimIndent(),
+                )
+                statement.executeUpdate("PRAGMA user_version = 3")
+            }
+        }
     }
 
     private fun createVersionTwoDatabase(file: File) {

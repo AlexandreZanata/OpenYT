@@ -1,0 +1,9 @@
+ALTER TABLE library_entry ADD COLUMN thumbnail_url TEXT;
+
+UPDATE library_entry
+SET thumbnail_url = (
+    SELECT download_task.thumbnail_url
+    FROM download_task
+    WHERE download_task.id = library_entry.id
+)
+WHERE thumbnail_url IS NULL;
