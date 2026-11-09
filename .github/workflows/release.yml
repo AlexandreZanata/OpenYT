@@ -95,7 +95,10 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          find desktopApp/build/compose/logs -type f -print -exec sh -c 'echo "----- $1"; cat "$1"' _ {} \; || true
+          for f in desktopApp/build/compose/logs/createDistributable/*.txt; do
+            echo "----- $f"
+            cat "$f" || true
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
