@@ -13,6 +13,7 @@ import com.clipbau.engine.ytdlp.YtDlpErrorMapper
 import com.clipbau.engine.ytdlp.YtDlpJsonParser
 import com.clipbau.engine.ytdlp.YtDlpOutputParser
 import com.clipbau.engine.ytdlp.YtDlpProgressParser
+import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import java.io.File
@@ -74,6 +75,7 @@ class AndroidYtDlpEngine(
             }
 
             val directory = File(request.destinationDirectory).apply { mkdirs() }
+            val tempDirectory = File(directory, ".clipbau-tmp-$downloadId").apply { mkdirs() }
             send(DownloadEvent.Starting)
 
             try {
@@ -83,6 +85,7 @@ class AndroidYtDlpEngine(
                         addOption("--newline")
                         addOption("--no-quiet")
                         addOption("-P", directory.absolutePath)
+                        addOption("--paths", "temp:${tempDirectory.absolutePath}")
                         addOption("-o", request.fileNameTemplate)
                         addOption("--print", "after_move:filepath")
                         addOption("--progress-template", PROGRESS_TEMPLATE)
@@ -121,6 +124,8 @@ class AndroidYtDlpEngine(
                 send(DownloadEvent.Canceled)
             } catch (e: Exception) {
                 send(DownloadEvent.Failed(YtDlpErrorMapper.fromToolOutput(e.message.orEmpty())))
+            } finally {
+                tempDirectory.deleteRecursively()
             }
         }.flowOn(Dispatchers.IO)
 
@@ -159,6 +164,7 @@ class AndroidYtDlpEngine(
             if (initialized) return@withLock null
             try {
                 withContext(Dispatchers.IO) {
+                    FFmpeg.getInstance().init(context.applicationContext)
                     YoutubeDL.getInstance().init(context.applicationContext)
                 }
                 initialized = true

@@ -11,6 +11,10 @@ class ExecutableLocator {
 
     fun findFfmpeg(): String? = find("CLIPBAU_FFMPEG", listOf("ffmpeg"))
 
+    fun findFfprobe(): String? = find("CLIPBAU_FFPROBE", listOf("ffprobe"))
+
+    fun findJsRuntime(): String? = find("CLIPBAU_JS_RUNTIME", listOf("deno", "node"))
+
     private fun find(envVar: String, names: List<String>): String? {
         System.getenv(envVar)?.let { candidate ->
             if (isExecutable(candidate)) return candidate

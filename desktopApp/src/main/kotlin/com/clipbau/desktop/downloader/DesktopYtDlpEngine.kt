@@ -40,16 +40,19 @@ class DesktopYtDlpEngine(
         val binary = locator.findYtDlp()
             ?: return@withContext EngineResult.Failure(DownloadFailure.DependencyMissing("yt-dlp"))
 
-        val output = runCapture(
-            listOf(
-                binary,
-                "--dump-single-json",
-                "--no-warnings",
-                "--no-playlist",
-                "--skip-download",
-                url,
-            ),
-        )
+        val arguments = buildList {
+            add(binary)
+            add("--dump-single-json")
+            add("--no-warnings")
+            add("--no-playlist")
+            add("--skip-download")
+            locator.findJsRuntime()?.let {
+                add("--js-runtimes")
+                add(it)
+            }
+            add(url)
+        }
+        val output = runCapture(arguments)
         if (output.exitCode != 0) {
             EngineResult.Failure(YtDlpErrorMapper.fromToolOutput(output.stderr))
         } else {
@@ -71,6 +74,7 @@ class DesktopYtDlpEngine(
             }
 
             val directory = File(request.destinationDirectory).apply { mkdirs() }
+            val tempDirectory = File(directory, ".clipbau-tmp-$downloadId").apply { mkdirs() }
             val arguments = buildList {
                 add(binary)
                 add("--no-playlist")
@@ -78,6 +82,8 @@ class DesktopYtDlpEngine(
                 add("--no-quiet")
                 add("-P")
                 add(directory.absolutePath)
+                add("--paths")
+                add("temp:${tempDirectory.absolutePath}")
                 add("-o")
                 add(request.fileNameTemplate)
                 add("--print")
@@ -102,6 +108,10 @@ class DesktopYtDlpEngine(
                 }
                 locator.findFfmpeg()?.let {
                     add("--ffmpeg-location")
+                    add(it)
+                }
+                locator.findJsRuntime()?.let {
+                    add("--js-runtimes")
                     add(it)
                 }
                 add(request.url)
@@ -164,6 +174,7 @@ class DesktopYtDlpEngine(
                 processes.remove(downloadId)
                 canceled.remove(downloadId)
                 if (process.isAlive) killTree(process)
+                tempDirectory.deleteRecursively()
             }
         }.flowOn(Dispatchers.IO)
 
