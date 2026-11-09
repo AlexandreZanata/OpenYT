@@ -44,8 +44,8 @@ storage permission, window chrome) is injected through small ports.
 
 ## Persistence and queue
 
-SQLDelight/SQLite stores the queue snapshot and library (`download_task`,
-`library_entry`). On startup, tasks left active are marked `INTERRUPTED`; nothing is
+SQLDelight/SQLite stores the queue snapshot, library, and app settings
+(`download_task`, `library_entry`, `app_settings`). On startup, tasks left active are marked `INTERRUPTED`; nothing is
 auto-resumed. Retry creates a fresh task. Removing a library entry deletes only the
 record, never the file. Temporary directories are per task and cleaned at completion,
 cancellation, and startup. See ADR-0005.

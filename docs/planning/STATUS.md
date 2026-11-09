@@ -55,27 +55,53 @@ Validation:
   the library entry; removing the library entry kept the 59 MB file on disk.
 - CI green on Linux build and desktop compile matrix.
 
+## Phase 4 completed
+
+- Android share-sheet intake (`ACTION_SEND`, `text/plain`): the first http(s) URL is
+  extracted, validated, and inspected automatically; `singleTop` handles shares while
+  the app is open.
+- Settings persist in SQLite (`app_settings`, schema v2 with a `1.sqm` migration):
+  theme (system/light/dark), language (pt-BR/en), and concurrent downloads (1–4).
+  Theme and language apply immediately and survive process restarts.
+- Concurrency can be changed at runtime; queued downloads start when a slot opens
+  and cancelling a queued task prevents it from starting.
+- Accessibility: screen titles expose heading semantics, download status uses a
+  polite live region, progress bars expose a spoken description, navigation icons
+  and concurrency buttons have content descriptions; UI verified at 1.3× font scale.
+- Database migration v1→v2 was applied on a real device with existing queue and
+  library rows preserved.
+
+Validation:
+
+- 34 core tests, 13 engine tests, 8 data tests, 6 Android device tests.
+- Share intent delivered to the package and auto-inspected "Big Buck Bunny" on the
+  device (MIUI routes `ACTION_SEND` through its resolver unless the package is
+  targeted explicitly; the installed filter is verified).
+- Settings changed to English/Dark/3, force-stopped, relaunched, and restored;
+  then reset to pt-BR/System/2 and restored again.
+- Font scale 1.3 rendered correctly; progress semantics exposed "Big Buck Bunny: 0%".
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
-- Concurrency is fixed at two downloads and not user-configurable.
-- Schema v1 has no migration step yet; corrupt databases disable persistence with a
-  logged error and the app continues in memory.
+- Share intake accepts `text/plain` only; `ACTION_VIEW`, multiple-item shares, and
+  the system chooser selection flow are not covered by automated tests.
+- Download folder is fixed to app-specific storage; SAF selection is not implemented.
 - No pause support (engine only supports cancellation).
 - No subtitle download, collections, media playback, search, or filters yet.
 - Only arm64-v8a Android artifacts; no ABI splits.
 - Windows/macOS desktop compile is verified in CI, but runtime downloads, JS runtime
   detection, and packaging are not.
-- Strings are centralized but not yet backed by Compose resources.
-- No i18n locale switching yet (pt-BR is the default; English strings exist).
-- App settings (folder, language, theme, concurrency) are not persisted.
+- Strings are centralized in Kotlin but not yet backed by Compose resources.
+- Corrupt databases disable persistence with a logged error and the app continues in
+  memory.
 
-## Next step (Phase 4/6)
+## Next step (Phase 5/6)
 
-1. Android share-sheet intake and a complete inspect → download → library flow.
-2. Accessibility pass (TalkBack, focus, contrast, scaling) and Compose resources.
-3. Library search, filters, collections, missing-file detection, and duplicates.
-4. Persist app settings and make concurrency configurable.
-5. Add structured diagnostics with redaction and release packaging.
+1. Desktop layout pass: sidebar, drag-and-drop links/files, keyboard shortcuts, and
+   multi-selection.
+2. Library search, filters, collections, missing-file detection, and duplicates.
+3. SAF folder selection and storage usage on Android.
+4. Structured diagnostics with redaction and release packaging.
 
 Every claim above must be backed by a command or test recorded in the repository.

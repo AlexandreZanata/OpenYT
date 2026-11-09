@@ -69,10 +69,11 @@ Install the debug APK on a connected device:
 
 ## Current status
 
-- Paste a URL, inspect metadata/formats, choose video or audio, download with
-  progress, cancel/retry, and manage a persistent local Library.
+- Paste or share a URL, inspect metadata/formats, choose video or audio, download
+  with progress, cancel/retry, and manage a persistent local Library.
 - Queue and Library survive app restarts; interrupted downloads can be retried.
 - Removing a Library entry never deletes the downloaded file.
+- Theme, language (pt-BR/en), and download concurrency are persisted locally.
 - Phase 0 viability report: `docs/planning/PHASE_0_VIABILITY.md`
 - Project status and limitations: `docs/planning/STATUS.md`
 - Architecture and module rules: `docs/architecture/OVERVIEW.md`

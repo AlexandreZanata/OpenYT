@@ -19,8 +19,9 @@ Use SQLDelight 2.4 with SQLite on both targets:
   `~/Library/Application Support/OpenYT`).
 
 Schema version 1 stores `download_task` (queue snapshot) and `library_entry`
-(completed media). Future schema changes use `.sqm` migration files; version 1 has
-no migration step.
+(completed media). Schema version 2 adds `app_settings` (theme, language, concurrent
+downloads) and is applied through `1.sqm`; version 1 databases migrate without losing
+queue or library rows. Future changes use additional `.sqm` files.
 
 ## Recovery semantics
 
@@ -35,8 +36,9 @@ no migration step.
   transitions cannot be reordered by a slow database.
 - Duplicate active requests (same URL, kind, and format) return the existing task
   id instead of creating another job.
-- At most two downloads run concurrently in this version; queued tasks wait for a
-  permit.
+- Concurrent downloads are limited (default 2, configurable 1–4 in Settings); queued
+  tasks wait for a slot. Cancelling a queued task prevents it from starting.
+- Settings (theme, language, concurrency) are persisted in the same SQLite database.
 
 ## Library semantics
 
