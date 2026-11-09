@@ -81,27 +81,52 @@ Validation:
   then reset to pt-BR/System/2 and restored again.
 - Font scale 1.3 rendered correctly; progress semantics exposed "Big Buck Bunny: 0%".
 
+## Phase 5 completed
+
+- Desktop layout uses a persistent sidebar and wide-screen list actions; a native
+  folder chooser lets the user pick the download directory, persisted in settings.
+- Desktop drag-and-drop accepts dropped text/URI links, extracts the first http(s)
+  URL, and runs the same inspect flow as a share.
+- Keyboard shortcuts: Ctrl+1…Ctrl+4 switch tabs; Ctrl+Q quits the desktop app.
+- Wide desktop lists support multi-selection for batch remove (library) and dismiss
+  (finished downloads).
+- Compose Desktop packaging configured for deb/rpm/msi/dmg; the Linux `.deb`
+  (`openyt_0.1.0_amd64.deb`) was built and the extracted `/opt/openyt` app was
+  launched successfully with the bundled runtime and SQLite persistence.
+- Packaging fix: the runtime includes the `java.sql` module, required by the JDBC
+  SQLDelight driver; without it the packaged app silently fell back to in-memory.
+
+Validation:
+
+- Desktop drop parser tests pass; 35 core, 13 engine, 9 data, and 6 desktop tests.
+- Linux package metadata verified (package `openyt`, version `0.1.0`, maintainer,
+  description); the installed-layout binary runs from the extracted deb.
+- Desktop app screenshot: `docs/assets/phase5-desktop.png`.
+- Android v2→v3 database migration preserved queue and settings; 6 device tests pass.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
-- Share intake accepts `text/plain` only; `ACTION_VIEW`, multiple-item shares, and
-  the system chooser selection flow are not covered by automated tests.
-- Download folder is fixed to app-specific storage; SAF selection is not implemented.
+- Share intake accepts `text/plain` only; `ACTION_VIEW` and multiple-item shares are
+  not implemented.
+- Desktop drag-and-drop accepts links only; local file import is not implemented.
+- Desktop folder chooser and multi-selection are not covered by UI automation in the
+  current headless environment; their persistence and parsing are unit-tested.
+- Windows/macOS packages are configured but not built or validated.
+- Download folder on Android is still app-specific; SAF selection and storage usage
+  are pending.
 - No pause support (engine only supports cancellation).
 - No subtitle download, collections, media playback, search, or filters yet.
 - Only arm64-v8a Android artifacts; no ABI splits.
-- Windows/macOS desktop compile is verified in CI, but runtime downloads, JS runtime
-  detection, and packaging are not.
 - Strings are centralized in Kotlin but not yet backed by Compose resources.
 - Corrupt databases disable persistence with a logged error and the app continues in
   memory.
 
-## Next step (Phase 5/6)
+## Next step (Phase 6)
 
-1. Desktop layout pass: sidebar, drag-and-drop links/files, keyboard shortcuts, and
-   multi-selection.
-2. Library search, filters, collections, missing-file detection, and duplicates.
-3. SAF folder selection and storage usage on Android.
-4. Structured diagnostics with redaction and release packaging.
+1. Library search, filters, collections, missing-file detection, and duplicates.
+2. SAF folder selection, storage usage, and import of existing files on Android.
+3. Structured diagnostics with redaction and release packaging hardening.
+4. Versioning and update strategy.
 
 Every claim above must be backed by a command or test recorded in the repository.

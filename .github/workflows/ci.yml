@@ -47,6 +47,7 @@ jobs:
           :desktopApp:test
           :androidApp:assembleDebug
           :androidApp:assembleDebugAndroidTest
+          :desktopApp:packageDeb
           --console=plain
           --stacktrace
 
@@ -55,6 +56,13 @@ jobs:
         with:
           name: openyt-debug-apk
           path: androidApp/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload Linux deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: openyt-linux-deb
+          path: desktopApp/build/compose/binaries/main/deb/*.deb
           if-no-files-found: error
 
   desktop-compile:

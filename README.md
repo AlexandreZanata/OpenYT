@@ -59,6 +59,8 @@ Requirements:
 ./gradlew :core:allTests
 ./gradlew :androidApp:assembleDebug
 ./gradlew :desktopApp:run
+./gradlew :desktopApp:createDistributable
+./gradlew :desktopApp:packageDeb
 ```
 
 Install the debug APK on a connected device:
@@ -74,6 +76,8 @@ Install the debug APK on a connected device:
 - Queue and Library survive app restarts; interrupted downloads can be retried.
 - Removing a Library entry never deletes the downloaded file.
 - Theme, language (pt-BR/en), and download concurrency are persisted locally.
+- Desktop: sidebar layout, dropped-link intake, Ctrl+1…4/Ctrl+Q shortcuts, folder
+  selection, multi-selection, and a Linux `.deb` package.
 - Phase 0 viability report: `docs/planning/PHASE_0_VIABILITY.md`
 - Project status and limitations: `docs/planning/STATUS.md`
 - Architecture and module rules: `docs/architecture/OVERVIEW.md`

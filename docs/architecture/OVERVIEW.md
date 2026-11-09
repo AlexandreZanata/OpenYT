@@ -56,7 +56,9 @@ cancellation, and startup. See ADR-0005.
   which bundles Python 3.12, yt-dlp, FFmpeg, and QuickJS. The wrapper is GPL-3.0,
   so the app is GPL-3.0. See ADR-0002.
 - **Desktop**: yt-dlp and FFmpeg are external executables invoked with structured
-  argument lists (never a shell). See ADR-0003.
+  argument lists (never a shell). See ADR-0003. The host adds a native folder
+  chooser, an AWT drop target for links, and a jpackage distribution with the
+  `java.sql` module. See ADR-0007.
 - **Windows/macOS**: not yet validated; the desktop engine isolates OS differences
   behind a process port so validation can follow without touching the core.
 
