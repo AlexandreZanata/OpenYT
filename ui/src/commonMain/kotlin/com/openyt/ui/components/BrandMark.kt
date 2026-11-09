@@ -18,7 +18,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.openyt.ui.i18n.LocalStrings
 
@@ -66,7 +68,9 @@ fun BrandMark(
             Text(
                 strings.appName,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
             )
         }
     }
