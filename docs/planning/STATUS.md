@@ -19,23 +19,39 @@ Updated: 2026-11-09
   - Shared Compose UI (pt-BR strings, black/white theme, adaptive navigation).
   - CI: Linux unit/build job and cross-OS desktop compile matrix.
 
+## Phase 2 completed
+
+- Download action in the UI with video/audio selection and concrete format choice.
+- In-session Downloads list with progress, speed, ETA, cancel, dismiss, and
+  structured errors; completed files appear in the Library tab.
+- Per-task temporary directories (`--paths temp:...`) are removed on completion,
+  failure, and cancellation.
+- Android real device (arm64): YouTube video download with FFmpeg merge and audio
+  extraction to m4a pass; cancellation cleans temporary files; all 5 network tests
+  pass.
+- Linux desktop: YouTube merge is validated with `ffprobe`, confirming both video
+  and audio streams; progress and cancel pass.
+- Fixes discovered by real execution: call `FFmpeg.getInstance().init()` in addition
+  to `YoutubeDL.init()`, pass `--no-quiet` when using `--print`, and keep per-task
+  temp paths.
+
 ## Known limitations
 
-- No persistent queue or database yet; downloads are not started from the UI.
-- No download action in the UI; only inspection is wired.
-- Android YouTube metadata is verified; YouTube download/merge is not yet verified.
+- No persistent queue or database yet; tasks and the Library are session-only.
+- No pause support (engine only supports cancellation).
+- No subtitle download, collections, or media playback yet.
 - Only arm64-v8a Android artifacts; no ABI splits.
-- Windows/macOS desktop compile is verified in CI, but runtime downloads and
-  packaging are not.
+- Windows/macOS desktop compile is verified in CI, but runtime downloads, JS runtime
+  detection, and packaging are not.
 - Strings are centralized but not yet backed by Compose resources.
 - No i18n locale switching yet (pt-BR is the default; English strings exist).
 
-## Next step (Phase 2)
+## Next step (Phase 3)
 
-1. Add the download action and format selection to the UI.
-2. Verify Android YouTube download with merge and the bundled QuickJS/EJS path.
-3. Add persisted queue and SQLite with migrations (Phase 3).
+1. Persist queue and task state in SQLite with versioned migrations and recovery.
+2. Persist library entries and distinguish "remove from library" from "delete file".
+3. Add configurable concurrency, retry/backoff, and duplicate detection.
 4. Add structured diagnostics with redaction.
-5. Add release packaging once runtime behavior is verified.
+5. Add release packaging once persistence behavior is verified.
 
 Every claim above must be backed by a command or test recorded in the repository.

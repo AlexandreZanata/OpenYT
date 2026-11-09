@@ -20,6 +20,8 @@ Invoke a user-provisioned or app-managed yt-dlp executable through a process por
 - Progress is parsed from machine-readable output (`--newline`, `--progress-template`).
 - Cancellation destroys the process tree and cleans task-scoped temporary files.
 - FFmpeg/FFprobe paths are passed explicitly when needed.
+- A supported JavaScript runtime (Deno or Node) is detected and passed with
+  `--js-runtimes`; EJS is required for complete YouTube format availability.
 
 Do not implement a silent self-updater. A future managed update flow must verify a
 checksum/signature and require user action.

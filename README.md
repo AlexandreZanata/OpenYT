@@ -6,9 +6,9 @@ ClipBaú lets a user paste or share a media URL, inspect available formats, down
 authorized content, and organize it in a local library. There is no account and no
 backend: the app runs entirely on the device.
 
-> Status: Phase 0 (viability) complete on Linux and Android; Phase 1 (foundation)
-> in progress. Only features listed under "Current status" are implemented. Do not
-> infer support from this document.
+> Status: Phase 0 (viability) and Phase 2 (download flow) validated on Linux and a
+> real Android device; Phase 1 foundation complete. Persistent storage (Phase 3) is
+> not implemented. Only features listed under "Current status" are implied.
 
 ## Stack
 
@@ -68,7 +68,10 @@ Install the debug APK on a connected device:
 
 ## Current status
 
+- Paste a URL, inspect metadata/formats, choose video or audio, download with
+  progress, cancel, and see completed files in the session Library.
 - Phase 0 viability report: `docs/planning/PHASE_0_VIABILITY.md`
+- Project status and limitations: `docs/planning/STATUS.md`
 - Architecture and module rules: `docs/architecture/OVERVIEW.md`
 - Decisions: `docs/adr/`
 

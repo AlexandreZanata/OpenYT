@@ -12,8 +12,10 @@ import java.util.Collections
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -31,6 +33,8 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class AndroidEngineNetworkTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+    private val YOUTUBE_URL = "https://www.youtube.com/watch?v=jNQXAC9IVRw"
 
     @Test
     fun inspectsPublicMetadata() = runBlocking {
@@ -58,6 +62,63 @@ class AndroidEngineNetworkTest {
         val media = (result as EngineResult.Success).value
         assertEquals("Me at the zoo", media.title)
         assertTrue("expected at least one format", media.formats.isNotEmpty())
+    }
+
+    @Test
+    fun downloadsAndMergesYouTubeVideo(): Unit = runBlocking {
+        val engine = AndroidYtDlpEngine(context)
+        val directory = File(context.cacheDir, "clipbau-merge-test")
+        directory.deleteRecursively()
+        directory.mkdirs()
+
+        val inspection = withTimeout(180_000) { engine.inspect(YOUTUBE_URL) }
+        assertTrue("inspection failed: $inspection", inspection is EngineResult.Success)
+
+        val request = DownloadRequest(
+            url = YOUTUBE_URL,
+            kind = MediaKind.VIDEO,
+            formatId = null,
+            destinationDirectory = directory.absolutePath,
+        )
+        val events = withTimeout(600_000) { engine.download(request, "merge-test").toList() }
+        val completed = events.filterIsInstance<DownloadEvent.Completed>().lastOrNull()
+        assertTrue("expected completion, events=$events", completed != null)
+
+        val file = File(completed!!.filePath)
+        assertTrue("final file is missing: ${file.absolutePath}", file.isFile)
+        assertTrue("final file is empty", file.length() > 0)
+        assertTrue(
+            "unexpected container: ${file.extension}",
+            file.extension.lowercase() in setOf("mp4", "webm", "mkv"),
+        )
+        directory.deleteRecursively()
+    }
+
+    @Test
+    fun extractsAudioFromYouTube(): Unit = runBlocking {
+        val engine = AndroidYtDlpEngine(context)
+        val directory = File(context.cacheDir, "clipbau-audio-test")
+        directory.deleteRecursively()
+        directory.mkdirs()
+
+        val inspection = withTimeout(180_000) { engine.inspect(YOUTUBE_URL) }
+        assertTrue("inspection failed: $inspection", inspection is EngineResult.Success)
+
+        val request = DownloadRequest(
+            url = YOUTUBE_URL,
+            kind = MediaKind.AUDIO,
+            formatId = null,
+            destinationDirectory = directory.absolutePath,
+        )
+        val events = withTimeout(600_000) { engine.download(request, "audio-test").toList() }
+        val completed = events.filterIsInstance<DownloadEvent.Completed>().lastOrNull()
+        assertTrue("expected completion, events=$events", completed != null)
+
+        val file = File(completed!!.filePath)
+        assertTrue("final file is missing: ${file.absolutePath}", file.isFile)
+        assertTrue("final file is empty", file.length() > 0)
+        assertEquals("m4a", file.extension.lowercase())
+        directory.deleteRecursively()
     }
 
     @Test
@@ -112,6 +173,8 @@ class AndroidEngineNetworkTest {
             "expected cancellation, events=$events",
             events.lastOrNull() is DownloadEvent.Canceled,
         )
+        val leftovers = directory.listFiles()?.map { it.name }.orEmpty()
+        assertTrue("temporary files were not cleaned: $leftovers", leftovers.isEmpty())
         directory.deleteRecursively()
         Unit
     }

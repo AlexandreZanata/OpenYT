@@ -73,13 +73,16 @@ On-device execution (real Xiaomi 2311DRK48G, Android 16 / API 36, arm64-v8a) pas
 | Metadata from archive.org | PASS — "Big Buck Bunny", 3 formats |
 | Metadata from YouTube (`jNQXAC9IVRw`) | PASS — "Me at the zoo", 24 formats |
 | Real download (332 MB AVI, single format) | PASS — file written to app storage |
+| YouTube video download + FFmpeg merge | PASS — final container contains video and audio |
+| YouTube audio extraction | PASS — m4a file produced |
 | Progress events | PASS after adding `--no-quiet` (see below) |
 | Cancel during download | PASS — `CanceledException` mapped to `Canceled` |
-| UI end-to-end (URL → inspect → rendered formats) | PASS — see `docs/assets/phase0-android-inspection.png` |
+| UI end-to-end (URL → inspect → download → library) | PASS — see `docs/assets/phase2-android-*.png` |
 
 The executed yt-dlp is the wrapper's bundled 2025.11.12. An explicit update path
-exists but was not exercised; full YouTube download and merge remain to be verified
-in Phase 2.
+exists but was not exercised. Both `YoutubeDL.init()` and `FFmpeg.getInstance().init()`
+must be called: the ffmpeg artifact extracts its shared libraries separately. Without
+the second call, merge/audio post-processing fails.
 
 ## Viability matrix
 
@@ -119,5 +122,8 @@ in Phase 2.
 - Linux metadata, download, integrity, EJS: **PASS** (executed).
 - Android runtime integration: **PASS** — metadata, YouTube metadata, download,
   progress, cancellation, and UI flow verified on a real device.
-- Android YouTube download/merge: **PENDING** (Phase 2).
+- Android YouTube download/merge: **PASS** — video+audio merge and m4a audio
+  extraction verified on a real device (Phase 2).
+- Desktop YouTube download/merge: **PASS** — merged file validated with `ffprobe`
+  (video and audio streams present).
 - Windows/macOS: **NOT STARTED**.

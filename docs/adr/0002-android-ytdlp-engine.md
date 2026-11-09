@@ -37,6 +37,17 @@ License consequence: linking this GPL-3.0 wrapper makes ClipBaú GPL-3.0.
 - Native library size is large; restrict to arm64-v8a initially and split APKs later.
 - The wrapper targets older compile SDKs; validate on Android 16 (API 36).
 
+## Toolchain initialization
+
+`YoutubeDL.init(context)` alone is insufficient. The `ffmpeg` artifact exposes a
+separate `FFmpeg.getInstance().init(context)` that extracts `libffmpeg.zip.so` into
+`noBackupFilesDir/youtubedl-android/packages/ffmpeg`. Without it, ffmpeg/ffprobe fail
+at runtime (`libavdevice.so.61` missing), breaking merge and audio extraction. Both
+initializers are called before any engine work.
+
+Temporary files are isolated per task with `--paths temp:<task-dir>` and removed on
+completion, failure, or cancellation.
+
 ## Verification required before claiming YouTube support
 
 Real-device run of: init, metadata inspect, format list, download, merge, progress,

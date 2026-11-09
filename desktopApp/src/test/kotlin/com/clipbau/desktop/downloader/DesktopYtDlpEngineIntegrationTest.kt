@@ -124,6 +124,57 @@ class DesktopYtDlpEngineIntegrationTest {
             events.lastOrNull() is DownloadEvent.Canceled,
             "expected cancellation, events=$events",
         )
+        val leftovers = directory.listFiles()?.map { it.name }.orEmpty()
+        assertTrue(leftovers.isEmpty(), "temporary files were not cleaned: $leftovers")
         directory.deleteRecursively()
+    }
+
+    @Test
+    fun downloadsAndMergesYouTubeWithFfmpeg(): Unit = runBlocking {
+        val youtube = "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+        val inspection = withTimeout(180_000) { engine.inspect(youtube) }
+        assertTrue(inspection is EngineResult.Success, "inspection failed: $inspection")
+
+        val directory = File(System.getProperty("java.io.tmpdir"), "clipbau-desktop-merge")
+        directory.deleteRecursively()
+        val request = DownloadRequest(
+            url = youtube,
+            kind = MediaKind.VIDEO,
+            formatId = null,
+            destinationDirectory = directory.absolutePath,
+        )
+
+        val events = withTimeout(600_000) {
+            engine.download(request, "desktop-merge").toList()
+        }
+        val completed = events.filterIsInstance<DownloadEvent.Completed>().lastOrNull()
+        assertTrue(completed != null, "expected completion, events=$events")
+
+        val file = File(completed!!.filePath)
+        assertTrue(file.isFile, "final file is missing")
+        assertTrue(file.length() > 0, "final file is empty")
+
+        val ffprobe = ExecutableLocator().findFfprobe()
+        assertTrue(ffprobe != null, "ffprobe is required for this test")
+        val streams = runFfprobe(ffprobe!!, file)
+        assertTrue(streams.contains("video"), "missing video stream: $streams")
+        assertTrue(streams.contains("audio"), "missing audio stream: $streams")
+        directory.deleteRecursively()
+    }
+
+    private fun runFfprobe(binary: String, file: File): String {
+        val process = ProcessBuilder(
+            binary,
+            "-v",
+            "error",
+            "-show_entries",
+            "stream=codec_type",
+            "-of",
+            "csv=p=0",
+            file.absolutePath,
+        ).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText()
+        process.waitFor()
+        return output
     }
 }
