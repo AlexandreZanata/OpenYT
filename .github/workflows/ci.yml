@@ -45,6 +45,7 @@ jobs:
           :engine-ytdlp:desktopTest
           :desktopApp:test
           :androidApp:assembleDebug
+          :androidApp:assembleDebugAndroidTest
           --console=plain
           --stacktrace
 
