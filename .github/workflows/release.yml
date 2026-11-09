@@ -71,7 +71,7 @@ jobs:
             task: packageMsi
             artifact: windows-msi
             path: desktopApp/build/compose/binaries/main/msi/*.msi
-          - os: macos-latest
+          - os: macos-14
             task: packageDmg
             artifact: macos-dmg
             path: desktopApp/build/compose/binaries/main/dmg/*.dmg
@@ -95,10 +95,17 @@ jobs:
         if: failure()
         shell: bash
         run: |
+          uname -a || true
+          sw_vers || true
+          "$JAVA_HOME/bin/jpackage" --version || true
+          echo "----- args"
+          cat desktopApp/build/compose/tmp/createDistributable.args.txt || true
+          echo "----- logs"
           for f in desktopApp/build/compose/logs/createDistributable/*.txt; do
             echo "----- $f"
             cat "$f" || true
           done
+          ls -la desktopApp/build/compose/binaries/main/app || true
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
