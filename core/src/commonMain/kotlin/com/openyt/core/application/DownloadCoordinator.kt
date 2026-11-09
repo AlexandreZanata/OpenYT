@@ -117,6 +117,17 @@ class DownloadCoordinator(
         scope.launch { engine.cancel(id) }
     }
 
+    fun addLibraryEntries(entries: List<LibraryEntry>) {
+        if (entries.isEmpty()) return
+        val ids = entries.map { it.id }.toSet()
+        _library.update { current ->
+            entries + current.filterNot { it.id in ids }
+        }
+        entries.forEach { entry ->
+            persist { repository?.insertLibraryEntry(entry) }
+        }
+    }
+
     fun retry(id: String) {
         val previous = _tasks.value.firstOrNull { it.id == id } ?: return
         if (previous.status.isActive) return

@@ -24,6 +24,9 @@ import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.SqlDelightSettingsRepository
 import com.openyt.data.createOpenYtDatabase
 import com.openyt.data.defaultDatabasePath
+import com.openyt.desktop.diagnostics.DesktopDiagnosticsProvider
+import com.openyt.desktop.diagnostics.DesktopUpdateChecker
+import com.openyt.desktop.diagnostics.DesktopUrlOpener
 import com.openyt.desktop.downloader.DesktopMediaProbe
 import com.openyt.desktop.downloader.DesktopYtDlpEngine
 import com.openyt.desktop.share.DesktopMediaActions
@@ -52,6 +55,11 @@ fun main() = application {
     val mediaProbe = remember { DesktopMediaProbe() }
     val mediaActions = remember { DesktopMediaActions() }
     val downloadsDirectory = remember { defaultDownloadsDirectory() }
+    val diagnosticsProvider = remember {
+        DesktopDiagnosticsProvider(engine, downloadsDirectory)
+    }
+    val updateChecker = remember { DesktopUpdateChecker() }
+    val urlOpener = remember { DesktopUrlOpener() }
     val folderPicker = remember { FolderPicker { current -> DesktopFolderPicker.pick(current) } }
     var sharedUrl by remember { mutableStateOf<String?>(null) }
 
@@ -107,6 +115,9 @@ fun main() = application {
             libraryController = libraryController,
             mediaProbe = mediaProbe,
             mediaActions = mediaActions,
+            diagnosticsProvider = diagnosticsProvider,
+            updateChecker = updateChecker,
+            urlOpener = urlOpener,
             downloadsDirectory = downloadsDirectory,
             fileAvailability = FileAvailability { File(it).isFile },
             initialSharedUrl = sharedUrl,
