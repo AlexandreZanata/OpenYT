@@ -240,11 +240,14 @@ Validation:
 Validation:
 
 - `:androidApp:assembleRelease` builds a signed (debug key fallback) APK locally.
-- `openyt_0.6.0_amd64.deb` builds with correct metadata.
+- `openyt_1.0.0_amd64.deb` builds with correct metadata.
 - Android screenshots: `docs/assets/phase11-android-codex-identity.png` and
   `phase11-android-codex-dark.png`.
-- The release workflow runs on the next `main` push; Windows/macOS build results
-  are reported by GitHub Actions.
+- Release **v1.0.0** published successfully by the workflow with
+  `androidApp-release.apk`, `openyt_1.0.0_amd64.deb`, `OpenYT-1.0.0.msi`,
+  `OpenYT-1.0.0.dmg`, and `SHA256SUMS.txt`.
+- macOS `jpackage` rejects zero-major versions; the first release uses 1.0.0 and
+  the constraint is documented in `RELEASE_PIPELINE.md`.
 
 ## Known limitations
 

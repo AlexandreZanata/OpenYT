@@ -71,6 +71,9 @@ Install the debug APK on a connected device:
 
 ## Releases
 
+Latest: [v1.0.0](https://github.com/AlexandreZanata/OpenYT/releases/tag/v1.0.0)
+(Android APK, Linux deb, Windows MSI, macOS DMG, checksums).
+
 Every push to `main` builds and publishes Android, Linux, Windows, and macOS
 artifacts through `.github/workflows/release.yml`. The version lives in
 `gradle.properties` (`openyt.version`). Android signing is optional; without
