@@ -17,6 +17,7 @@ dependencies {
     implementation(project(":data"))
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.junit)
@@ -30,7 +31,7 @@ compose.desktop {
             targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Msi, TargetFormat.Dmg)
             modules("java.sql")
             packageName = "OpenYT"
-            packageVersion = "0.3.0"
+            packageVersion = "0.4.0"
             description = "Local-first media downloader and library"
             vendor = "OpenYT"
             licenseFile.set(rootProject.file("LICENSE"))
