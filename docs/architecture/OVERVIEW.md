@@ -9,6 +9,7 @@ shared Compose UI, and thin platform hosts.
 core/        Pure Kotlin Multiplatform (JVM + Android)
   domain/      Models, value objects, structured errors
   application/ Use cases and ports (DownloadEngine, repositories)
+engine-ytdlp/ Pure Kotlin yt-dlp JSON/progress/error parsing (no process or I/O)
 ui/          Compose Multiplatform screens and design system
 androidApp/  Android host: Activity, platform port implementations
 desktopApp/  Desktop host: main window, platform port implementations

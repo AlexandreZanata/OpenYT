@@ -45,6 +45,11 @@ Conclusion: the desktop path works. EJS is mandatory for complete YouTube suppor
 Node >= 22 or Deno >= 2.3 satisfy it. The official standalone binary already ships
 the EJS scripts; only a runtime is needed.
 
+Implementation finding: yt-dlp's `--print` implies `--quiet`, which suppresses
+download progress. Both engines pass `--no-quiet` alongside
+`--print after_move:filepath`; without it the download completes with no progress
+events (observed on Linux and Android).
+
 ## Evidence — Android
 
 `io.github.junkfood02.youtubedl-android` 0.18.1 (published 2025-11-16) was inspected
@@ -60,10 +65,21 @@ at source level:
 | ABIs | arm64-v8a, armeabi-v7a, x86, x86_64 |
 | License | GPL-3.0 |
 
-On-device execution of metadata, download, progress, cancel, and failure handling is
-**pending** and tracked in Phase 0 acceptance. No Android support is claimed until
-the debug APK runs on the connected device and the executed yt-dlp version is
-recorded.
+On-device execution (real Xiaomi 2311DRK48G, Android 16 / API 36, arm64-v8a) passed:
+
+| Check | Result |
+|-------|--------|
+| Engine init (Python/yt-dlp/FFmpeg/QuickJS extraction) | PASS |
+| Metadata from archive.org | PASS — "Big Buck Bunny", 3 formats |
+| Metadata from YouTube (`jNQXAC9IVRw`) | PASS — "Me at the zoo", 24 formats |
+| Real download (332 MB AVI, single format) | PASS — file written to app storage |
+| Progress events | PASS after adding `--no-quiet` (see below) |
+| Cancel during download | PASS — `CanceledException` mapped to `Canceled` |
+| UI end-to-end (URL → inspect → rendered formats) | PASS — see `docs/assets/phase0-android-inspection.png` |
+
+The executed yt-dlp is the wrapper's bundled 2025.11.12. An explicit update path
+exists but was not exercised; full YouTube download and merge remain to be verified
+in Phase 2.
 
 ## Viability matrix
 
@@ -101,5 +117,7 @@ recorded.
 ## Acceptance status
 
 - Linux metadata, download, integrity, EJS: **PASS** (executed).
-- Android runtime integration: **PASS/PENDING** (updated by the device PoC commit).
+- Android runtime integration: **PASS** — metadata, YouTube metadata, download,
+  progress, cancellation, and UI flow verified on a real device.
+- Android YouTube download/merge: **PENDING** (Phase 2).
 - Windows/macOS: **NOT STARTED**.

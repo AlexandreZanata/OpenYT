@@ -6,9 +6,9 @@ ClipBaú lets a user paste or share a media URL, inspect available formats, down
 authorized content, and organize it in a local library. There is no account and no
 backend: the app runs entirely on the device.
 
-> Status: Phase 0 (viability) complete on Linux; Phase 1 (foundation) in progress.
-> Only features listed under "Current status" are implemented. Do not infer
-> support from this document.
+> Status: Phase 0 (viability) complete on Linux and Android; Phase 1 (foundation)
+> in progress. Only features listed under "Current status" are implemented. Do not
+> infer support from this document.
 
 ## Stack
 
@@ -36,6 +36,7 @@ backend: the app runs entirely on the device.
 androidApp/     Android host application
 desktopApp/     Desktop (Compose JVM) host application
 core/           Pure Kotlin Multiplatform domain + application layer
+engine-ytdlp/   Shared yt-dlp output/error/progress parsing
 ui/             Shared Compose Multiplatform UI and design system
 docs/           Architecture, ADRs, planning, product, security, testing
 ```

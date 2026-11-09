@@ -14,6 +14,9 @@ dependencies {
     implementation(project(":engine-ytdlp"))
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutines.core)
+
+    testImplementation(kotlin("test"))
+    testImplementation(libs.junit)
 }
 
 compose.desktop {
