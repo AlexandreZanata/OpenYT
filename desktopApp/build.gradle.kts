@@ -10,6 +10,29 @@ kotlin {
     jvmToolchain(17)
 }
 
+val appVersion = providers.gradleProperty("openyt.version").get()
+val generatedVersionDir = layout.buildDirectory.dir("generated/version")
+
+val generateVersionResource by tasks.registering {
+    inputs.property("version", appVersion)
+    outputs.dir(generatedVersionDir)
+    doLast {
+        val file = generatedVersionDir.get().file("openyt-version.properties").asFile
+        file.parentFile?.mkdirs()
+        file.writeText("version=$appVersion\n")
+    }
+}
+
+sourceSets {
+    main {
+        resources.srcDir(generatedVersionDir)
+    }
+}
+
+tasks.named("processResources") {
+    dependsOn(generateVersionResource)
+}
+
 dependencies {
     implementation(project(":ui"))
     implementation(project(":core"))
