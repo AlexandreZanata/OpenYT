@@ -84,6 +84,7 @@ class SqlDelightDownloadRepository(
                 kind = parseKind(row.kind),
                 filePath = row.file_path,
                 sizeBytes = row.size_bytes,
+                createdAtEpochMillis = row.created_at,
             )
         }
     }

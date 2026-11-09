@@ -6,4 +6,5 @@ data class LibraryEntry(
     val kind: MediaKind,
     val filePath: String,
     val sizeBytes: Long? = null,
+    val createdAtEpochMillis: Long = 0,
 )
