@@ -67,11 +67,15 @@ object YtDlpJsonParser {
         val audioCodec = obj.string("acodec")
         val hasVideo = !videoCodec.isNullOrBlank() && videoCodec != "none"
         val hasAudio = !audioCodec.isNullOrBlank() && audioCodec != "none"
+        val width = obj.int("width")
+        val height = obj.int("height")
 
         val kind = when {
             hasVideo -> MediaKind.VIDEO
             hasAudio -> MediaKind.AUDIO
-            else -> return null
+            (width ?: 0) > 0 || (height ?: 0) > 0 -> MediaKind.VIDEO
+            container in AUDIO_CONTAINERS -> MediaKind.AUDIO
+            else -> MediaKind.VIDEO
         }
 
         return MediaFormat(
@@ -80,8 +84,8 @@ object YtDlpJsonParser {
             container = container,
             videoCodec = videoCodec.takeUnless { it == "none" },
             audioCodec = audioCodec.takeUnless { it == "none" },
-            width = obj.int("width"),
-            height = obj.int("height"),
+            width = width,
+            height = height,
             bitrateKbps = obj.double("tbr"),
             sizeBytes = obj.long("filesize") ?: obj.long("filesize_approx"),
             note = obj.string("format_note"),
@@ -105,4 +109,6 @@ object YtDlpJsonParser {
 
     private fun JsonObject.boolean(key: String): Boolean? =
         primitive(key)?.takeIf { !it.isString }?.content?.toBooleanStrictOrNull()
+
+    private val AUDIO_CONTAINERS = setOf("m4a", "mp3", "opus", "ogg", "oga", "wav", "flac", "aac")
 }

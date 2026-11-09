@@ -75,6 +75,7 @@ class DesktopYtDlpEngine(
                 add(binary)
                 add("--no-playlist")
                 add("--newline")
+                add("--no-quiet")
                 add("-P")
                 add(directory.absolutePath)
                 add("-o")

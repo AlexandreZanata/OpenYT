@@ -12,6 +12,7 @@ import com.clipbau.core.domain.MediaKind
 import com.clipbau.engine.ytdlp.YtDlpErrorMapper
 import com.clipbau.engine.ytdlp.YtDlpJsonParser
 import com.clipbau.engine.ytdlp.YtDlpOutputParser
+import com.clipbau.engine.ytdlp.YtDlpProgressParser
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import java.io.File
@@ -80,9 +81,11 @@ class AndroidYtDlpEngine(
                     val ytDlpRequest = YoutubeDLRequest(request.url).apply {
                         addOption("--no-playlist")
                         addOption("--newline")
+                        addOption("--no-quiet")
                         addOption("-P", directory.absolutePath)
                         addOption("-o", request.fileNameTemplate)
                         addOption("--print", "after_move:filepath")
+                        addOption("--progress-template", PROGRESS_TEMPLATE)
                         when (request.kind) {
                             MediaKind.AUDIO -> {
                                 addOption("-f", request.formatId ?: "bestaudio/best")
@@ -96,16 +99,13 @@ class AndroidYtDlpEngine(
                             MediaKind.SUBTITLE -> Unit
                         }
                     }
-                    YoutubeDL.getInstance().execute(ytDlpRequest, downloadId) { progress, eta, line ->
-                        if (progress in 0f..100f) {
-                            trySend(
-                                DownloadEvent.Progress(
-                                    percent = progress.toDouble(),
-                                    etaSeconds = eta.takeIf { it > 0 },
-                                ),
-                            )
-                        }
-                        if (line.contains("[Merger]") || line.contains("[ExtractAudio]")) {
+                    YoutubeDL.getInstance().execute(ytDlpRequest, downloadId) { _, _, line ->
+                        YtDlpProgressParser.parse(line)?.let { trySend(it) }
+                        if (
+                            line.contains("[Merger]") ||
+                            line.contains("[ExtractAudio]") ||
+                            line.contains("[FixupM4a]")
+                        ) {
                             trySend(DownloadEvent.Processing)
                         }
                     }
@@ -143,6 +143,15 @@ class AndroidYtDlpEngine(
     }
 
     override fun close() = Unit
+
+    private companion object {
+        const val PROGRESS_TEMPLATE =
+            "download:CLIPBAU_PROGRESS:%(progress._percent_str)s|" +
+                "%(progress.downloaded_bytes)s|" +
+                "%(progress.total_bytes_estimate)s|" +
+                "%(progress.speed)s|" +
+                "%(progress.eta)s"
+    }
 
     private suspend fun initialize(): DownloadFailure? {
         if (initialized) return null

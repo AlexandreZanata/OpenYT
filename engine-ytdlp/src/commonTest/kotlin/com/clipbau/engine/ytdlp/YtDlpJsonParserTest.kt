@@ -30,6 +30,18 @@ class YtDlpJsonParserTest {
     }
 
     @Test
+    fun keepsFormatsWithoutCodecMetadata() {
+        val result = YtDlpJsonParser.parseInspection(
+            """{"id":"x","title":"T","formats":[{"format_id":"0","ext":"ogv","vcodec":null,"acodec":null,"width":533,"height":300}]}""",
+        )
+
+        val media = assertIs<EngineResult.Success<MediaInfo>>(result).value
+        assertEquals(1, media.formats.size)
+        assertEquals(MediaKind.VIDEO, media.formats[0].kind)
+        assertEquals(533, media.formats[0].width)
+    }
+
+    @Test
     fun rejectsPlaylistDocuments() {
         val result = YtDlpJsonParser.parseInspection("""{"_type":"playlist","id":"p","title":"List"}""")
 
