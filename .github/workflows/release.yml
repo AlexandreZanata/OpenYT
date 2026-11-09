@@ -71,7 +71,7 @@ jobs:
             task: packageMsi
             artifact: windows-msi
             path: desktopApp/build/compose/binaries/main/msi/*.msi
-          - os: macos-14
+          - os: macos-latest
             task: packageDmg
             artifact: macos-dmg
             path: desktopApp/build/compose/binaries/main/dmg/*.dmg
