@@ -6,45 +6,97 @@ import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
+import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 /**
- * Coordinates in-session downloads and exposes immutable task snapshots.
+ * Owns the in-memory view of the persistent download queue and library.
  *
- * Persistence arrives in Phase 3; this coordinator is the single owner of active
- * jobs. At most one download per [enqueue] call; [enqueue] is expected to be called
- * from a single UI thread.
+ * Persistence is optional (useful in tests and previews). Writes are serialized
+ * through a channel so a slow database cannot reorder state transitions. Progress
+ * is persisted at 10% intervals; terminal states are always persisted.
+ *
+ * [enqueue] is expected to be called from a single UI thread.
  */
 class DownloadCoordinator(
     private val engine: DownloadEngine,
     private val scope: CoroutineScope,
+    private val repository: DownloadRepository? = null,
+    val maxConcurrentDownloads: Int = DEFAULT_MAX_CONCURRENT,
 ) {
+    init {
+        require(maxConcurrentDownloads > 0) { "maxConcurrentDownloads must be positive" }
+    }
+
     private val _tasks = MutableStateFlow<List<DownloadTask>>(emptyList())
     val tasks: StateFlow<List<DownloadTask>> = _tasks.asStateFlow()
 
+    private val _library = MutableStateFlow<List<LibraryEntry>>(emptyList())
+    val library: StateFlow<List<LibraryEntry>> = _library.asStateFlow()
+
+    private val permits = Semaphore(maxConcurrentDownloads)
+    private val persistence = Channel<suspend () -> Unit>(Channel.UNLIMITED)
+
     private var nextId = 0
+    private var restored = false
 
-    fun enqueue(media: MediaInfo, request: DownloadRequest): String {
-        val id = "download-${++nextId}"
-        _tasks.update { it + DownloadTask(id = id, media = media, request = request) }
-
+    init {
         scope.launch {
-            try {
-                engine.download(request, id).collect { event -> applyEvent(id, event) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                applyEvent(id, DownloadEvent.Failed(DownloadFailure.Unexpected(null)))
+            for (operation in persistence) {
+                runCatching { operation() }
             }
         }
-        return id
+    }
+
+    /**
+     * Loads persisted tasks and library entries. Active tasks from a previous
+     * process become [DownloadStatus.INTERRUPTED]; nothing is auto-resumed.
+     */
+    suspend fun restore() {
+        if (restored) return
+        restored = true
+        val repo = repository ?: return
+
+        runCatching {
+            repo.markActiveInterrupted()
+            val loadedTasks = repo.loadTasks()
+            val loadedLibrary = repo.loadLibrary()
+            _tasks.value = loadedTasks
+            _library.value = loadedLibrary
+            nextId = loadedTasks
+                .mapNotNull { it.id.removePrefix(TASK_ID_PREFIX).toIntOrNull() }
+                .maxOrNull() ?: 0
+        }
+    }
+
+    fun enqueue(media: MediaInfo, request: DownloadRequest): String {
+        val duplicate = _tasks.value.firstOrNull { task ->
+            task.status.isActive &&
+                task.request.url == request.url &&
+                task.request.kind == request.kind &&
+                task.request.formatId == request.formatId
+        }
+        if (duplicate != null) return duplicate.id
+
+        val task = DownloadTask(
+            id = nextTaskId(),
+            media = media,
+            request = request,
+        )
+        _tasks.update { it + task }
+        persist { repository?.insertTask(task) }
+        launchDownload(task)
+        return task.id
     }
 
     fun cancel(id: String) {
@@ -53,22 +105,92 @@ class DownloadCoordinator(
         scope.launch { engine.cancel(id) }
     }
 
+    fun retry(id: String) {
+        val previous = _tasks.value.firstOrNull { it.id == id } ?: return
+        if (previous.status.isActive) return
+
+        val task = previous.copy(
+            id = nextTaskId(),
+            status = DownloadStatus.QUEUED,
+            percent = 0.0,
+            speedBytesPerSecond = null,
+            etaSeconds = null,
+            filePath = null,
+            sizeBytes = null,
+            failure = null,
+        )
+        _tasks.update { it + task }
+        persist { repository?.insertTask(task) }
+        launchDownload(task)
+    }
+
     fun dismiss(id: String) {
-        _tasks.update { tasks ->
-            tasks.filterNot { it.id == id && it.status.isFinished }
-        }
+        val task = _tasks.value.firstOrNull { it.id == id } ?: return
+        if (!task.status.isFinished) return
+        _tasks.update { tasks -> tasks.filterNot { it.id == id } }
+        persist { repository?.deleteTask(id) }
     }
 
     fun clearFinished() {
+        val finished = _tasks.value.filter { it.status.isFinished }.map { it.id }
         _tasks.update { tasks -> tasks.filter { it.status.isActive } }
+        finished.forEach { id -> persist { repository?.deleteTask(id) } }
+    }
+
+    /** Removes the library record only; the file remains on disk. */
+    fun removeFromLibrary(id: String) {
+        _library.update { entries -> entries.filterNot { it.id == id } }
+        persist { repository?.deleteLibraryEntry(id) }
+    }
+
+    private fun launchDownload(task: DownloadTask) {
+        scope.launch {
+            permits.withPermit {
+                try {
+                    engine.download(task.request, task.id).collect { event ->
+                        applyEvent(task.id, event)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    applyEvent(task.id, DownloadEvent.Failed(DownloadFailure.Unexpected(null)))
+                }
+            }
+        }
     }
 
     private fun applyEvent(id: String, event: DownloadEvent) {
+        val previous = _tasks.value.firstOrNull { it.id == id } ?: return
         _tasks.update { tasks ->
-            tasks.map { task ->
-                if (task.id == id) task.apply(event) else task
-            }
+            tasks.map { task -> if (task.id == id) task.apply(event) else task }
         }
+        val updated = _tasks.value.firstOrNull { it.id == id } ?: return
+
+        val percentageBucketChanged =
+            (updated.percent.toInt() / PROGRESS_BUCKET) != (previous.percent.toInt() / PROGRESS_BUCKET)
+        if (event !is DownloadEvent.Progress || percentageBucketChanged) {
+            persist { repository?.updateTask(updated) }
+        }
+
+        if (event is DownloadEvent.Completed) {
+            val entry = LibraryEntry(
+                id = updated.id,
+                title = updated.media.title,
+                kind = updated.request.kind,
+                filePath = event.filePath,
+                sizeBytes = event.sizeBytes,
+            )
+            _library.update { entries ->
+                listOf(entry) + entries.filterNot { it.id == entry.id }
+            }
+            persist { repository?.insertLibraryEntry(entry) }
+        }
+    }
+
+    private fun nextTaskId(): String = "$TASK_ID_PREFIX${++nextId}"
+
+    private fun persist(operation: suspend () -> Unit) {
+        persistence.trySend(operation)
     }
 
     private fun DownloadTask.apply(event: DownloadEvent): DownloadTask = when (event) {
@@ -96,5 +218,11 @@ class DownloadCoordinator(
         )
 
         DownloadEvent.Canceled -> copy(status = DownloadStatus.CANCELED)
+    }
+
+    private companion object {
+        const val DEFAULT_MAX_CONCURRENT = 2
+        const val PROGRESS_BUCKET = 10
+        const val TASK_ID_PREFIX = "download-"
     }
 }

@@ -1,0 +1,79 @@
+CREATE TABLE download_task (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT NOT NULL UNIQUE,
+    source_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    author TEXT,
+    source TEXT NOT NULL,
+    url TEXT NOT NULL,
+    webpage_url TEXT NOT NULL,
+    duration_seconds INTEGER,
+    thumbnail_url TEXT,
+    kind TEXT NOT NULL,
+    format_id TEXT,
+    destination_directory TEXT NOT NULL,
+    status TEXT NOT NULL,
+    percent REAL NOT NULL DEFAULT 0,
+    speed_bytes_per_second INTEGER,
+    eta_seconds INTEGER,
+    file_path TEXT,
+    size_bytes INTEGER,
+    failure_kind TEXT,
+    failure_detail TEXT,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+);
+
+CREATE TABLE library_entry (
+    id TEXT NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    size_bytes INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+);
+
+selectAllTasks:
+SELECT * FROM download_task ORDER BY seq ASC;
+
+insertTask:
+INSERT OR REPLACE INTO download_task(
+    id, source_id, title, author, source, url, webpage_url, duration_seconds,
+    thumbnail_url, kind, format_id, destination_directory, status, percent,
+    speed_bytes_per_second, eta_seconds, file_path, size_bytes,
+    failure_kind, failure_detail
+) VALUES (
+    :id, :source_id, :title, :author, :source, :url, :webpage_url, :duration_seconds,
+    :thumbnail_url, :kind, :format_id, :destination_directory, :status, :percent,
+    :speed_bytes_per_second, :eta_seconds, :file_path, :size_bytes,
+    :failure_kind, :failure_detail
+);
+
+updateTask:
+UPDATE download_task SET
+    status = :status,
+    percent = :percent,
+    speed_bytes_per_second = :speed_bytes_per_second,
+    eta_seconds = :eta_seconds,
+    file_path = :file_path,
+    size_bytes = :size_bytes,
+    failure_kind = :failure_kind,
+    failure_detail = :failure_detail
+WHERE id = :id;
+
+deleteTask:
+DELETE FROM download_task WHERE id = :id;
+
+markActiveInterrupted:
+UPDATE download_task
+SET status = 'INTERRUPTED'
+WHERE status IN ('QUEUED', 'DOWNLOADING', 'PROCESSING');
+
+selectAllLibrary:
+SELECT * FROM library_entry ORDER BY created_at DESC, id ASC;
+
+insertLibraryEntry:
+INSERT OR REPLACE INTO library_entry(id, title, kind, file_path, size_bytes)
+VALUES (:id, :title, :kind, :file_path, :size_bytes);
+
+deleteLibraryEntry:
+DELETE FROM library_entry WHERE id = :id;

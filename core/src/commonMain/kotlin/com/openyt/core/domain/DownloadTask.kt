@@ -7,6 +7,7 @@ enum class DownloadStatus {
     COMPLETED,
     FAILED,
     CANCELED,
+    INTERRUPTED,
     ;
 
     val isActive: Boolean

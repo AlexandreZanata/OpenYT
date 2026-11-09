@@ -24,6 +24,7 @@ rootProject.name = "openyt"
 
 include(":core")
 include(":engine-ytdlp")
+include(":data")
 include(":ui")
 include(":androidApp")
 include(":desktopApp")
