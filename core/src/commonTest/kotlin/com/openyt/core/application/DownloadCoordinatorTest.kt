@@ -151,6 +151,25 @@ class DownloadCoordinatorTest {
     }
 
     @Test
+    fun doesNotReuseIdsReferencedByLibraryEntries() = runTest {
+        val repository = FakeRepository(
+            library = mutableListOf(
+                LibraryEntry("download-5", "Old media", com.openyt.core.domain.MediaKind.VIDEO, "/tmp/old", 1),
+            ),
+        )
+        val coordinator = DownloadCoordinator(
+            ImmediateEngine(listOf(DownloadEvent.Starting)),
+            coordinatorScope(),
+            repository,
+        )
+        coordinator.restore()
+
+        val id = coordinator.enqueue(FakeDownloadEngine.SAMPLE_MEDIA, request())
+
+        assertEquals("download-6", id)
+    }
+
+    @Test
     fun deduplicatesActiveRequestsWithSameTarget() = runTest {
         val coordinator = DownloadCoordinator(SuspendingEngine(), coordinatorScope())
 

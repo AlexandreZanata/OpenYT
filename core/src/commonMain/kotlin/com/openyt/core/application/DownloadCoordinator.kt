@@ -73,8 +73,8 @@ class DownloadCoordinator(
             val loadedLibrary = repo.loadLibrary()
             _tasks.value = loadedTasks
             _library.value = loadedLibrary
-            nextId = loadedTasks
-                .mapNotNull { it.id.removePrefix(TASK_ID_PREFIX).toIntOrNull() }
+            nextId = (loadedTasks.map { it.id } + loadedLibrary.map { it.id })
+                .mapNotNull { it.removePrefix(TASK_ID_PREFIX).toIntOrNull() }
                 .maxOrNull() ?: 0
         }
     }
