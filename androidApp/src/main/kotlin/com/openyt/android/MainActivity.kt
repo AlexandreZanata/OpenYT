@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.openyt.core.application.FileAvailability
+import com.openyt.android.share.AndroidMediaActions
 import com.openyt.core.application.ShareTextParser
 import com.openyt.ui.OpenYtApp
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val container = (application as OpenYtApplication).container
+        val mediaActions = AndroidMediaActions(this)
         setContent {
             val pendingSharedUrl by sharedUrl.collectAsState()
             OpenYtApp(
@@ -36,6 +38,7 @@ class MainActivity : ComponentActivity() {
                 settingsController = container.settingsController,
                 libraryController = container.libraryController,
                 mediaProbe = container.mediaProbe,
+                mediaActions = mediaActions,
                 downloadsDirectory = container.downloadsDirectory,
                 fileAvailability = FileAvailability { java.io.File(it).isFile },
                 initialSharedUrl = pendingSharedUrl,
