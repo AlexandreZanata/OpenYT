@@ -49,7 +49,8 @@ duplicate filters, and duplicate detection (same path or normalized title+size).
 File existence is checked through the `FileAvailability` port; the UI never touches
 the filesystem. Duplicate detection is advisory and never deletes files. Library
 entries persist a thumbnail URL; Coil loads it over the network with a placeholder
-fallback.
+fallback. Collections are a many-to-many relation persisted in `collection` and
+`collection_entry`; `LibraryController` owns them and never deletes media.
 
 ## Persistence and queue
 

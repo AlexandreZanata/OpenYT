@@ -15,6 +15,8 @@ returns a thumbnail URL in its metadata, but the UI did not display it.
 - Add a shared `MediaThumbnail` composable with a neutral placeholder icon. Images
   are decorative (`contentDescription = null`) because the title is adjacent.
 - Show thumbnails in the inspect result, Downloads cards, and Library cards.
+- Use a compact 96 dp thumbnail on narrow screens and a 240 dp thumbnail beside
+  the details column on wide desktop layouts.
 - Persist `library_entry.thumbnail_url` (schema v4). The migration backfills it from
   `download_task.thumbnail_url`, so existing entries gain thumbnails.
 - Never proxy thumbnails through a backend. They are fetched directly from the

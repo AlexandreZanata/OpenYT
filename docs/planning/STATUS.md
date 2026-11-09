@@ -148,6 +148,33 @@ Validation:
 - 39 core tests, 13 engine tests, 10 data tests, 6 desktop tests, 6 Android device
   tests. CI green.
 
+## Phase 8 completed (collections and desktop presentation)
+
+- Collections are implemented as many-to-many membership (schema v5): create,
+  rename rejection by duplicate name, assign/unassign entries, filter the library
+  by collection, and delete collections. Deleting a collection never deletes files
+  or library entries.
+- Collection membership is persisted in SQLite; deleting a library entry also
+  clears its memberships.
+- Desktop library and download cards use a 240 dp thumbnail on wide screens with
+  the details column beside it, a rounded/bordered image, and responsive actions.
+  Mobile keeps the compact 96 dp thumbnail.
+- Fixed a dark-theme desktop defect: the wide layout now paints the themed
+  background with `Surface`, so labels no longer render on an unthemed light
+  window.
+- Version bumped to 0.3.0 (Android versionCode 3; `openyt_0.3.0_amd64.deb`).
+
+Validation:
+
+- Android: created "Favoritos", assigned the YouTube entry, filtered by it, and
+  verified the persistent collection; screenshot in
+  `docs/assets/phase8-android-collections.png`.
+- Desktop: wide library rendered the larger thumbnail, collections, and filters on
+  a consistent dark theme; screenshot in
+  `docs/assets/phase8-desktop-large-thumbnail.png`.
+- Collections CRUD/membership covered by core and data tests; Linux `.deb` 0.3.0
+  built with correct metadata.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
@@ -160,7 +187,9 @@ Validation:
 - Download folder on Android is still app-specific; SAF selection and storage usage
   are pending.
 - No pause support (engine only supports cancellation).
-- Collections, media playback, and subtitle download are not implemented.
+- Media playback and subtitle download are not implemented.
+- Collections have no rename UI (duplicate names are rejected; delete/recreate is
+  available).
 - Thumbnails require the source URL; offline and uncached entries show the
   placeholder. No thumbnail files are stored permanently.
 - Duplicate handling is detection only; there is no bulk duplicate cleanup action.
@@ -174,7 +203,7 @@ Validation:
 
 ## Next step
 
-1. Collections and codec probing.
+1. Codec probing and technical metadata via FFprobe.
 2. SAF folder selection, storage usage, and import of existing files on Android.
 3. Structured diagnostics with redaction and Windows/macOS packaging validation.
 4. Release/update strategy and signing.

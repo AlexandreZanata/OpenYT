@@ -78,6 +78,9 @@ Install the debug APK on a connected device:
 - Library search, kind/availability/duplicate filters, title sorting, missing-file
   detection, safe duplicate cleanup, and technical detail dialogs.
 - Thumbnails in the inspect result, Downloads, and Library on Android and desktop.
+- Library collections: create, filter, and assign media; deleting a collection
+  never touches files or library entries.
+- Desktop uses larger responsive thumbnails and a themed wide layout.
 - Theme, language (pt-BR/en), and download concurrency are persisted locally.
 - Desktop: sidebar layout, dropped-link intake, Ctrl+1…4/Ctrl+Q shortcuts, folder
   selection, multi-selection, and a Linux `.deb` package.
