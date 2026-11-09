@@ -22,6 +22,9 @@ not include by default.
   engine and app scope.
 - Package with Compose Desktop `nativeDistributions`. Targets: deb, rpm, msi, dmg.
   Only the Linux `.deb` is built and validated in this phase.
+- Use the shared OpenYT painter for the running window. Supply a PNG on Linux,
+  an ICO on Windows, and an ICNS on macOS for native packaging. All three are
+  exported from the [shared artwork](../branding/openyt-app-icon.svg).
 - Include the `java.sql` module in the packaged runtime. Without it, the JDBC driver
   fails at startup and persistence silently falls back to memory.
 - Pin `packageVersion` to `0.1.0` until a release-versioning process exists.

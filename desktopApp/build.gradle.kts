@@ -36,9 +36,16 @@ compose.desktop {
             vendor = "OpenYT"
             licenseFile.set(rootProject.file("LICENSE"))
             linux {
+                iconFile.set(project.file("packaging/icons/openyt.png"))
                 debMaintainer = "163176324+AlexandreZanata@users.noreply.github.com"
                 appCategory = "AudioVideo"
                 menuGroup = "OpenYT"
+            }
+            windows {
+                iconFile.set(project.file("packaging/icons/openyt.ico"))
+            }
+            macOS {
+                iconFile.set(project.file("packaging/icons/openyt.icns"))
             }
         }
     }

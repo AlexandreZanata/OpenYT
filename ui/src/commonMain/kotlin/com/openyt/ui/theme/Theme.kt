@@ -7,10 +7,10 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val Ink = Color(0xFF0B0D0F)
-private val Paper = Color(0xFFF7F8F7)
-private val TealDark = Color(0xFF0F766E)
-private val TealLight = Color(0xFF5EEAD4)
+internal val Ink = Color(0xFF101010)
+internal val Paper = Color(0xFFF7F7F5)
+internal val TealDark = Color(0xFF0F766E)
+internal val TealLight = Color(0xFF5EEAD4)
 
 private val LightColors = lightColorScheme(
     primary = Ink,
