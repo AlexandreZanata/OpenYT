@@ -1,0 +1,6 @@
+CREATE TABLE app_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    theme_mode TEXT NOT NULL DEFAULT 'SYSTEM',
+    language TEXT NOT NULL DEFAULT 'PT_BR',
+    max_concurrent INTEGER NOT NULL DEFAULT 2
+);
