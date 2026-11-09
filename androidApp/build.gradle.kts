@@ -12,8 +12,8 @@ android {
         applicationId = "com.openyt.android"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 5
-        versionName = "0.5.0"
+        versionCode = providers.gradleProperty("openyt.versionCode").get().toInt()
+        versionName = providers.gradleProperty("openyt.version").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
@@ -31,9 +31,27 @@ android {
         }
     }
 
+    val releaseKeystore = System.getenv("OPENYT_KEYSTORE_PATH")?.takeIf { it.isNotBlank() }
+
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("OPENYT_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("OPENYT_KEY_ALIAS")
+                keyPassword = System.getenv("OPENYT_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = if (releaseKeystore != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
