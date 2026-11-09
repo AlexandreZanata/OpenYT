@@ -249,6 +249,31 @@ Validation:
 - macOS `jpackage` rejects zero-major versions; the first release uses 1.0.0 and
   the constraint is documented in `RELEASE_PIPELINE.md`.
 
+## Phase 12 completed (SAF import, diagnostics, update check)
+
+- Android import uses the Storage Access Framework document picker
+  (`OpenMultipleDocuments`) and copies selected video/audio files into
+  app-owned `downloads/imported/` storage. Imported entries are persisted,
+  probed, shareable, and appear in the library without broad storage permissions.
+- Diagnostics show app version, platform, engine, redacted paths, counts, and tool
+  availability. Paths are redacted (`~/...`), URLs lose credentials/queries, and
+  the formatted snapshot can be copied to the clipboard.
+- Update check queries the latest GitHub release, compares SemVer, and opens the
+  release page when a newer version exists. Automatic installation is intentionally
+  not enabled for unsigned artifacts.
+- Version bumped to 1.1.0 (Android versionCode 8).
+
+Validation:
+
+- Android SAF picker imported a real MP4 into `downloads/imported`; the library
+  showed the entry with share/open/details actions.
+- Diagnostics showed `1.1.0`, Android 16, redacted `~/downloads` and
+  `~/databases/openyt.db`, counts, and tool availability; clipboard copy confirmed.
+- Update check returned "no update" while the latest published release was older.
+- 50 core tests, 13 engine tests, 12 data tests, 9 desktop tests (4 network opt-in
+  skipped), and 8 Android device tests. Screenshot:
+  `docs/assets/phase12-android-diagnostics.png`.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
@@ -262,6 +287,11 @@ Validation:
   are pending.
 - No pause support (engine only supports cancellation).
 - Media playback and subtitle download are not implemented.
+- Import copies files into app storage; choosing an external SAF download
+  destination is not implemented.
+- Auto-update is a check + release link, not an automatic installer; artifacts are
+  unsigned (Windows/macOS) or debug-signed without Android secrets.
+- Desktop has no file import yet (Android-only SAF import).
 - Android probing may omit audio codec/bitrate when the extractor does not expose
   them; desktop probing requires FFprobe on the machine.
 - Collections have no rename UI (duplicate names are rejected; delete/recreate is
@@ -279,8 +309,8 @@ Validation:
 
 ## Next step
 
-1. SAF folder selection, storage usage, and import of existing files on Android.
-2. Structured diagnostics with redaction.
-3. Code signing/notarization for Windows and macOS, and an update strategy.
+1. SAF download destination selection and storage usage.
+2. Code signing/notarization for Windows and macOS.
+3. Signed auto-update/install flow and release channels.
 
 Every claim above must be backed by a command or test recorded in the repository.
