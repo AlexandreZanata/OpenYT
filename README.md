@@ -81,6 +81,9 @@ Install the debug APK on a connected device:
 - Library collections: create, filter, and assign media; deleting a collection
   never touches files or library entries.
 - Desktop uses larger responsive thumbnails and a themed wide layout.
+- Cohesive light/dark themes with a teal visual identity and an OpenYT brand mark.
+- Library details show technical metadata (duration, resolution, codecs, bitrate,
+  container) via platform probes.
 - Theme, language (pt-BR/en), and download concurrency are persisted locally.
 - Desktop: sidebar layout, dropped-link intake, Ctrl+1…4/Ctrl+Q shortcuts, folder
   selection, multi-selection, and a Linux `.deb` package.

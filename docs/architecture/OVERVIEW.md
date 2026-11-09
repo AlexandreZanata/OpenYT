@@ -52,6 +52,18 @@ entries persist a thumbnail URL; Coil loads it over the network with a placehold
 fallback. Collections are a many-to-many relation persisted in `collection` and
 `collection_entry`; `LibraryController` owns them and never deletes media.
 
+## Visual identity
+
+`ui/theme/Theme.kt` defines complete light and dark Material3 palettes, including
+surface container roles, so cards, navigation, chips, and backgrounds share one
+neutral scale with a teal accent. `BrandMark` provides the OpenYT glyph and wordmark.
+
+## Technical metadata
+
+`MediaProbe` is a core port for local file metadata. Android implements it with
+`MediaExtractor`/`MediaMetadataRetriever`; desktop runs FFprobe and parses JSON.
+The library details dialog probes on demand and never exposes raw tool output.
+
 ## Persistence and queue
 
 SQLDelight/SQLite stores the queue snapshot, library, and app settings

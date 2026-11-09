@@ -175,6 +175,33 @@ Validation:
 - Collections CRUD/membership covered by core and data tests; Linux `.deb` 0.3.0
   built with correct metadata.
 
+## Phase 9 completed (visual identity and technical details)
+
+- Reworked the Material3 palettes for light and dark themes with a coherent
+  black/neutral + teal identity. Selected chips, navigation indicators, progress,
+  and the brand mark use teal containers; no lavender/purple surface roles remain.
+  Surface container roles are defined explicitly, keeping cards and navigation bars
+  on the same neutral scale as the background.
+- Readable contrast in both themes; filters wrap with `FlowRow` instead of clipping.
+- Added the OpenYT brand mark (play glyph + wordmark) to the desktop sidebar and the
+  mobile Home header.
+- Added a `MediaProbe` port: Android uses `MediaExtractor` +
+  `MediaMetadataRetriever`; desktop uses FFprobe with a tested JSON parser. The
+  library details dialog shows duration, resolution, video/audio codecs, bitrate,
+  and container on demand.
+- Version bumped to 0.4.0 (Android versionCode 4; `openyt_0.4.0_amd64.deb`).
+
+Validation:
+
+- Android: dark Home/Library, light Library, and technical details
+  (0:18, 320x240, avc, mp4). Screenshots in `docs/assets/phase9-android-*`.
+- Desktop: dark theme with brand, teal chips, collections, and the 240 dp thumbnail;
+  screenshot in `docs/assets/phase9-desktop-dark.png`.
+- Desktop probe integration generated a 320x240 H.264/AAC fixture and read it back
+  through FFprobe.
+- 43 core tests, 13 engine tests, 12 data tests, 9 desktop tests (4 network opt-in
+  skipped), and 6 Android device tests. CI green.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
@@ -188,6 +215,8 @@ Validation:
   are pending.
 - No pause support (engine only supports cancellation).
 - Media playback and subtitle download are not implemented.
+- Android probing may omit audio codec/bitrate when the extractor does not expose
+  them; desktop probing requires FFprobe on the machine.
 - Collections have no rename UI (duplicate names are rejected; delete/recreate is
   available).
 - Thumbnails require the source URL; offline and uncached entries show the
@@ -203,9 +232,8 @@ Validation:
 
 ## Next step
 
-1. Codec probing and technical metadata via FFprobe.
-2. SAF folder selection, storage usage, and import of existing files on Android.
-3. Structured diagnostics with redaction and Windows/macOS packaging validation.
-4. Release/update strategy and signing.
+1. SAF folder selection, storage usage, and import of existing files on Android.
+2. Structured diagnostics with redaction.
+3. Windows/macOS packaging validation and release/update strategy.
 
 Every claim above must be backed by a command or test recorded in the repository.
