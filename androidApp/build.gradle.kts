@@ -51,6 +51,7 @@ dependencies {
     implementation(project(":ui"))
     implementation(project(":core"))
     implementation(project(":engine-ytdlp"))
+    implementation(project(":data"))
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.android)
@@ -58,6 +59,7 @@ dependencies {
     implementation(libs.youtubedl.android.library)
     implementation(libs.youtubedl.android.ffmpeg)
 
+    androidTestImplementation(project(":data"))
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)

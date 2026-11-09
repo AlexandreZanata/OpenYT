@@ -86,7 +86,7 @@ private fun AppShell(
 
                     1 -> DownloadsScreen(coordinator)
                     2 -> LibraryScreen(coordinator)
-                    else -> SettingsScreen(engine, downloadsDirectory)
+                    else -> SettingsScreen(engine, downloadsDirectory, coordinator.maxConcurrentDownloads)
                 }
             }
         }

@@ -65,6 +65,7 @@ fun DownloadsScreen(
                     DownloadTaskCard(
                         task = task,
                         onCancel = { coordinator.cancel(task.id) },
+                        onRetry = { coordinator.retry(task.id) },
                         onDismiss = { coordinator.dismiss(task.id) },
                     )
                 }
@@ -77,6 +78,7 @@ fun DownloadsScreen(
 private fun DownloadTaskCard(
     task: DownloadTask,
     onCancel: () -> Unit,
+    onRetry: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val strings = LocalStrings.current
@@ -129,10 +131,18 @@ private fun DownloadTaskCard(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (task.status.isActive) {
-                    TextButton(onClick = onCancel) { Text(strings.cancelAction) }
-                } else {
-                    TextButton(onClick = onDismiss) { Text(strings.dismissAction) }
+                when {
+                    task.status.isActive ->
+                        TextButton(onClick = onCancel) { Text(strings.cancelAction) }
+
+                    task.status == DownloadStatus.FAILED ||
+                        task.status == DownloadStatus.INTERRUPTED -> {
+                        TextButton(onClick = onRetry) { Text(strings.retryAction) }
+                        TextButton(onClick = onDismiss) { Text(strings.dismissAction) }
+                    }
+
+                    else ->
+                        TextButton(onClick = onDismiss) { Text(strings.dismissAction) }
                 }
             }
         }

@@ -28,6 +28,7 @@ import com.openyt.ui.i18n.LocalStrings
 fun SettingsScreen(
     engine: DownloadEngine,
     downloadsDirectory: String,
+    maxConcurrentDownloads: Int,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
@@ -48,6 +49,7 @@ fun SettingsScreen(
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SettingRow(strings.downloadFolderLabel, downloadsDirectory, maxLines = 2)
+                SettingRow(strings.concurrencyLabel, maxConcurrentDownloads.toString())
             }
         }
         Card(Modifier.fillMaxWidth()) {

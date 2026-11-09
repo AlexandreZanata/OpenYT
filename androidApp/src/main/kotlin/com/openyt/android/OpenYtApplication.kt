@@ -4,9 +4,13 @@ import android.app.Application
 import android.content.Context
 import com.openyt.android.downloader.AndroidYtDlpEngine
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.DownloadRepository
 import com.openyt.core.domain.DownloadEngine
+import com.openyt.data.SqlDelightDownloadRepository
+import com.openyt.data.createOpenYtDatabase
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
@@ -25,5 +29,20 @@ class AppContainer(context: Context) {
             .apply { mkdirs() }
             .absolutePath
 
-    val coordinator: DownloadCoordinator = DownloadCoordinator(engine, appScope)
+    private val database = runCatching { createOpenYtDatabase(appContext) }
+        .onFailure { android.util.Log.e("OpenYT", "database initialization failed: ${'$'}{it.message}") }
+
+    val repository: DownloadRepository? = database.getOrNull()?.let(::SqlDelightDownloadRepository)
+
+    val coordinator: DownloadCoordinator = DownloadCoordinator(engine, appScope, repository)
+
+    init {
+        cleanStaleTemporaryFiles(File(downloadsDirectory))
+        appScope.launch { coordinator.restore() }
+    }
+}
+
+private fun cleanStaleTemporaryFiles(directory: File) {
+    directory.listFiles { file -> file.isDirectory && file.name.startsWith(".openyt-tmp-") }
+        ?.forEach { it.deleteRecursively() }
 }

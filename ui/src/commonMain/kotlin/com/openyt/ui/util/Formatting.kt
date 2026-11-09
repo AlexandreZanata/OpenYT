@@ -73,4 +73,5 @@ fun statusLabel(status: DownloadStatus, strings: AppStrings): String = when (sta
     DownloadStatus.COMPLETED -> strings.statusCompleted
     DownloadStatus.FAILED -> strings.statusFailed
     DownloadStatus.CANCELED -> strings.statusCanceled
+    DownloadStatus.INTERRUPTED -> strings.statusInterrupted
 }
