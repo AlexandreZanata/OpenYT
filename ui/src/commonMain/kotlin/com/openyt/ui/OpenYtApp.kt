@@ -45,13 +45,17 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
+import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.MediaActions
+import com.openyt.core.application.MediaImporter
 import com.openyt.core.application.MediaProbe
 import com.openyt.core.application.SettingsController
+import com.openyt.core.application.UpdateChecker
+import com.openyt.core.application.UrlOpener
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.ThemeMode
@@ -74,6 +78,10 @@ fun OpenYtApp(
     libraryController: LibraryController,
     mediaProbe: MediaProbe,
     mediaActions: MediaActions,
+    mediaImporter: MediaImporter? = null,
+    diagnosticsProvider: DiagnosticsProvider,
+    updateChecker: UpdateChecker,
+    urlOpener: UrlOpener,
     downloadsDirectory: String,
     fileAvailability: FileAvailability,
     initialSharedUrl: String? = null,
@@ -107,6 +115,10 @@ fun OpenYtApp(
                     libraryController = libraryController,
                     mediaProbe = mediaProbe,
                     mediaActions = mediaActions,
+                    mediaImporter = mediaImporter,
+                    diagnosticsProvider = diagnosticsProvider,
+                    updateChecker = updateChecker,
+                    urlOpener = urlOpener,
                     downloadsDirectory = effectiveDownloadsDirectory,
                     fileAvailability = fileAvailability,
                     initialSharedUrl = initialSharedUrl,
@@ -133,6 +145,10 @@ private fun AppShell(
     libraryController: LibraryController,
     mediaProbe: MediaProbe,
     mediaActions: MediaActions,
+    mediaImporter: MediaImporter? = null,
+    diagnosticsProvider: DiagnosticsProvider,
+    updateChecker: UpdateChecker,
+    urlOpener: UrlOpener,
     downloadsDirectory: String,
     fileAvailability: FileAvailability,
     initialSharedUrl: String?,
@@ -185,8 +201,18 @@ private fun AppShell(
                     )
 
                     1 -> DownloadsScreen(coordinator, mediaActions)
-                    2 -> LibraryScreen(coordinator, fileAvailability, libraryController, mediaProbe, mediaActions)
-                    else -> SettingsScreen(engine, downloadsDirectory, settingsController, folderPicker)
+                    2 -> LibraryScreen(coordinator, fileAvailability, libraryController, mediaProbe, mediaActions, mediaImporter)
+                    else -> SettingsScreen(
+                        engine = engine,
+                        downloadsDirectory = downloadsDirectory,
+                        settingsController = settingsController,
+                        coordinator = coordinator,
+                        libraryController = libraryController,
+                        diagnosticsProvider = diagnosticsProvider,
+                        updateChecker = updateChecker,
+                        urlOpener = urlOpener,
+                        folderPicker = folderPicker,
+                    )
                 }
             }
         }

@@ -3,12 +3,16 @@ package com.openyt.android
 import android.app.Application
 import android.content.Context
 import com.openyt.android.downloader.AndroidYtDlpEngine
+import com.openyt.android.diagnostics.AndroidDiagnosticsProvider
+import com.openyt.android.diagnostics.AndroidUpdateChecker
 import com.openyt.android.probe.AndroidMediaProbe
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadRepository
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.MediaProbe
 import com.openyt.core.application.SettingsController
+import com.openyt.core.application.UpdateChecker
 import com.openyt.core.application.SettingsRepository
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.data.SqlDelightDownloadRepository
@@ -36,6 +40,11 @@ class AppContainer(context: Context) {
         File(appContext.getExternalFilesDir(null) ?: appContext.filesDir, "downloads")
             .apply { mkdirs() }
             .absolutePath
+
+    val diagnosticsProvider: DiagnosticsProvider =
+        AndroidDiagnosticsProvider(appContext, engine, downloadsDirectory)
+
+    val updateChecker: UpdateChecker = AndroidUpdateChecker()
 
     private val database = runCatching { createOpenYtDatabase(appContext) }
         .onFailure { android.util.Log.e("OpenYT", "database initialization failed: ${'$'}{it.message}") }

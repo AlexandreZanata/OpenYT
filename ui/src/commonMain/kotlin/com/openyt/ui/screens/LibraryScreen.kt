@@ -48,6 +48,7 @@ import com.openyt.core.application.LibraryFilter
 import com.openyt.core.application.LibraryItem
 import com.openyt.core.application.LibraryQuery
 import com.openyt.core.application.MediaActions
+import com.openyt.core.application.MediaImporter
 import com.openyt.core.application.MediaProbe
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaKind
@@ -69,6 +70,7 @@ fun LibraryScreen(
     libraryController: LibraryController,
     mediaProbe: MediaProbe,
     mediaActions: MediaActions,
+    mediaImporter: MediaImporter?,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
@@ -134,6 +136,17 @@ fun LibraryScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (mediaImporter?.canImport == true) {
+                    TextButton(
+                        onClick = {
+                            mediaImporter.pickAndImport { imported ->
+                                coordinator.addLibraryEntries(imported)
+                            }
+                        },
+                    ) {
+                        Text(strings.importAction)
+                    }
+                }
                 TextButton(onClick = { checkToken++ }) { Text(strings.verifyFiles) }
                 if (duplicateRemovalIds.isNotEmpty()) {
                     TextButton(onClick = { confirmRemoveDuplicates = true }) {
