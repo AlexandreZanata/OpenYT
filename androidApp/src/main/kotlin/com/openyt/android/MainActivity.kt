@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
                 coordinator = container.coordinator,
                 settingsController = container.settingsController,
                 libraryController = container.libraryController,
+                mediaProbe = container.mediaProbe,
                 downloadsDirectory = container.downloadsDirectory,
                 fileAvailability = FileAvailability { java.io.File(it).isFile },
                 initialSharedUrl = pendingSharedUrl,

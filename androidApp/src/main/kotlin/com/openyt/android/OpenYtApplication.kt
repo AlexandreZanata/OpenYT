@@ -3,9 +3,11 @@ package com.openyt.android
 import android.app.Application
 import android.content.Context
 import com.openyt.android.downloader.AndroidYtDlpEngine
+import com.openyt.android.probe.AndroidMediaProbe
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.DownloadRepository
 import com.openyt.core.application.LibraryController
+import com.openyt.core.application.MediaProbe
 import com.openyt.core.application.SettingsController
 import com.openyt.core.application.SettingsRepository
 import com.openyt.core.domain.DownloadEngine
@@ -27,6 +29,8 @@ class AppContainer(context: Context) {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     val engine: DownloadEngine = AndroidYtDlpEngine(appContext)
+
+    val mediaProbe: MediaProbe = AndroidMediaProbe()
 
     val downloadsDirectory: String =
         File(appContext.getExternalFilesDir(null) ?: appContext.filesDir, "downloads")

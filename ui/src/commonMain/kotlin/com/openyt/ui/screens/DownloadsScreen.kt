@@ -182,6 +182,8 @@ private fun DownloadTaskCard(
                     ) {
                         LinearProgressIndicator(
                             progress = { (task.percent / 100.0).toFloat().coerceIn(0f, 1f) },
+                            color = MaterialTheme.colorScheme.secondary,
+                            trackColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .semantics {

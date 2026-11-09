@@ -47,6 +47,7 @@ import com.openyt.core.domain.EngineResult
 import com.openyt.core.domain.MediaFormat
 import com.openyt.core.domain.MediaInfo
 import com.openyt.core.domain.MediaKind
+import com.openyt.ui.components.BrandMark
 import com.openyt.ui.components.MediaThumbnail
 import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.util.failureMessage
@@ -69,6 +70,7 @@ fun HomeScreen(
     onDownloadStarted: () -> Unit,
     initialSharedUrl: String? = null,
     onSharedUrlConsumed: () -> Unit = {},
+    showBrand: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
@@ -98,6 +100,9 @@ fun HomeScreen(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        if (showBrand) {
+            BrandMark()
+        }
         Text(
             strings.homeTitle,
             style = MaterialTheme.typography.headlineMedium,

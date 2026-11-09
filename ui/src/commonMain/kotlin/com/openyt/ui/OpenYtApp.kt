@@ -1,5 +1,6 @@
 package com.openyt.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -8,6 +9,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -32,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
@@ -45,10 +49,12 @@ import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.LibraryController
+import com.openyt.core.application.MediaProbe
 import com.openyt.core.application.SettingsController
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.ThemeMode
+import com.openyt.ui.components.BrandMark
 import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.i18n.EnStrings
 import com.openyt.ui.i18n.LocalStrings
@@ -65,6 +71,7 @@ fun OpenYtApp(
     coordinator: DownloadCoordinator,
     settingsController: SettingsController,
     libraryController: LibraryController,
+    mediaProbe: MediaProbe,
     downloadsDirectory: String,
     fileAvailability: FileAvailability,
     initialSharedUrl: String? = null,
@@ -96,6 +103,7 @@ fun OpenYtApp(
                     coordinator = coordinator,
                     settingsController = settingsController,
                     libraryController = libraryController,
+                    mediaProbe = mediaProbe,
                     downloadsDirectory = effectiveDownloadsDirectory,
                     fileAvailability = fileAvailability,
                     initialSharedUrl = initialSharedUrl,
@@ -120,6 +128,7 @@ private fun AppShell(
     coordinator: DownloadCoordinator,
     settingsController: SettingsController,
     libraryController: LibraryController,
+    mediaProbe: MediaProbe,
     downloadsDirectory: String,
     fileAvailability: FileAvailability,
     initialSharedUrl: String?,
@@ -168,10 +177,11 @@ private fun AppShell(
                         onDownloadStarted = { selected = 1 },
                         initialSharedUrl = initialSharedUrl,
                         onSharedUrlConsumed = onSharedUrlConsumed,
+                        showBrand = !wide,
                     )
 
                     1 -> DownloadsScreen(coordinator)
-                    2 -> LibraryScreen(coordinator, fileAvailability, libraryController)
+                    2 -> LibraryScreen(coordinator, fileAvailability, libraryController, mediaProbe)
                     else -> SettingsScreen(engine, downloadsDirectory, settingsController, folderPicker)
                 }
             }
@@ -179,14 +189,23 @@ private fun AppShell(
 
         if (wide) {
             Row(Modifier.fillMaxSize()) {
-                NavigationRail {
-                    tabs.forEachIndexed { index, tab ->
-                        NavigationRailItem(
-                            selected = selected == index,
-                            onClick = { selected = index },
-                            icon = { Icon(tab.icon, contentDescription = tab.label) },
-                            label = { Text(tab.label) },
-                        )
+                Column(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(96.dp)
+                        .background(MaterialTheme.colorScheme.surface),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    BrandMark(vertical = true)
+                    NavigationRail {
+                        tabs.forEachIndexed { index, tab ->
+                            NavigationRailItem(
+                                selected = selected == index,
+                                onClick = { selected = index },
+                                icon = { Icon(tab.icon, contentDescription = tab.label) },
+                                label = { Text(tab.label) },
+                            )
+                        }
                     }
                 }
                 VerticalDivider()

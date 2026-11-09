@@ -4,6 +4,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -45,20 +47,25 @@ import com.openyt.core.application.LibraryController
 import com.openyt.core.application.LibraryFilter
 import com.openyt.core.application.LibraryItem
 import com.openyt.core.application.LibraryQuery
+import com.openyt.core.application.MediaProbe
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaKind
+import com.openyt.core.domain.MediaTechnicalInfo
 import com.openyt.ui.components.MediaThumbnail
 import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.util.formatBytes
+import com.openyt.ui.util.formatDuration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LibraryScreen(
     coordinator: DownloadCoordinator,
     fileAvailability: FileAvailability,
     libraryController: LibraryController,
+    mediaProbe: MediaProbe,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
@@ -160,9 +167,10 @@ fun LibraryScreen(
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 FilterChip(
                     selected = activeCollectionId == null,
@@ -187,9 +195,10 @@ fun LibraryScreen(
                 }
             }
 
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 FilterChip(
                     selected = filter.isDefault,
@@ -276,7 +285,7 @@ fun LibraryScreen(
     }
 
     detail?.let { item ->
-        LibraryDetailsDialog(item = item, onClose = { detail = null })
+        LibraryDetailsDialog(item = item, mediaProbe = mediaProbe, onClose = { detail = null })
     }
 
     if (showCreateCollection) {
@@ -505,9 +514,25 @@ private fun LibraryCard(
 }
 
 @Composable
-private fun LibraryDetailsDialog(item: LibraryItem, onClose: () -> Unit) {
+private fun LibraryDetailsDialog(
+    item: LibraryItem,
+    mediaProbe: MediaProbe,
+    onClose: () -> Unit,
+) {
     val strings = LocalStrings.current
     val entry = item.entry
+    var technical by remember(entry.id) { mutableStateOf<MediaTechnicalInfo?>(null) }
+    var analyzing by remember(entry.id) { mutableStateOf(!item.missing) }
+
+    LaunchedEffect(entry.id, item.missing) {
+        if (item.missing) {
+            analyzing = false
+            return@LaunchedEffect
+        }
+        technical = withContext(Dispatchers.Default) { mediaProbe.probe(entry.filePath) }
+        analyzing = false
+    }
+
     AlertDialog(
         onDismissRequest = onClose,
         confirmButton = {
@@ -527,6 +552,38 @@ private fun LibraryDetailsDialog(item: LibraryItem, onClose: () -> Unit) {
                         else -> strings.statusAvailable
                     },
                 )
+                when {
+                    analyzing -> Text(
+                        strings.analyzing,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    item.missing -> Unit
+
+                    technical == null -> Text(
+                        strings.notAvailable,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    else -> {
+                        val info = technical!!
+                        info.durationMillis?.let {
+                            DetailRow(
+                                strings.detailsDuration,
+                                formatDuration(it / 1000).orEmpty(),
+                            )
+                        }
+                        if (info.width != null && info.height != null) {
+                            DetailRow(strings.detailsResolution, "${info.width}x${info.height}")
+                        }
+                        info.videoCodec?.let { DetailRow(strings.detailsVideoCodec, it) }
+                        info.audioCodec?.let { DetailRow(strings.detailsAudioCodec, it) }
+                        info.bitrateKbps?.let { DetailRow(strings.detailsBitrate, "$it kbps") }
+                        info.container?.let { DetailRow(strings.detailsContainer, it) }
+                    }
+                }
             }
         },
     )
