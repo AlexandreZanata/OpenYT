@@ -125,6 +125,29 @@ Validation:
 - Device library screenshot: `docs/assets/phase6-android-library.png`.
 - The device was restored to its original two-entry library after the bulk test.
 
+## Phase 7 completed (visual identification and library polish)
+
+- Thumbnails are shown in the inspect result, Downloads, and Library on Android and
+  desktop, using Coil 3 (OkHttp on both JVM targets) with a neutral placeholder.
+- Library entries persist `thumbnail_url` (schema v4). The v3→v4 migration backfills
+  existing library rows from their download task, so old downloads gain thumbnails
+  without being re-downloaded.
+- Library sorting by title is available alongside the existing filters.
+- Safe duplicate cleanup removes extra library records while keeping one copy; the
+  file is never deleted, and the confirmation dialog states this.
+- Version bumped to 0.2.0 (Android versionCode 2; Linux deb `openyt_0.2.0_amd64.deb`).
+
+Validation:
+
+- Android: thumbnails rendered in Home, Downloads, and Library; duplicate removal
+  left one entry and the 322 KB file on disk; screenshots in `docs/assets/phase7-*`.
+- Desktop: the packaged app rendered a library thumbnail; screenshot in
+  `docs/assets/phase7-desktop-thumbnail.png`.
+- v3→v4 migration backfill covered by a data test; the real device migrated and
+  showed thumbnails for pre-existing entries.
+- 39 core tests, 13 engine tests, 10 data tests, 6 desktop tests, 6 Android device
+  tests. CI green.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
@@ -137,7 +160,9 @@ Validation:
 - Download folder on Android is still app-specific; SAF selection and storage usage
   are pending.
 - No pause support (engine only supports cancellation).
-- Collections, thumbnails, media playback, and subtitle download are not implemented.
+- Collections, media playback, and subtitle download are not implemented.
+- Thumbnails require the source URL; offline and uncached entries show the
+  placeholder. No thumbnail files are stored permanently.
 - Duplicate handling is detection only; there is no bulk duplicate cleanup action.
 - Library technical details do not probe codecs with FFprobe; they show path, size,
   kind, and availability.
@@ -147,11 +172,11 @@ Validation:
 - Corrupt databases disable persistence with a logged error and the app continues in
   memory.
 
-## Next step (Phase 7)
+## Next step
 
-1. Collections, thumbnails, codec probing, sorting, and duplicate cleanup actions.
+1. Collections and codec probing.
 2. SAF folder selection, storage usage, and import of existing files on Android.
-3. Structured diagnostics with redaction and release packaging hardening.
-4. Versioning and update strategy.
+3. Structured diagnostics with redaction and Windows/macOS packaging validation.
+4. Release/update strategy and signing.
 
 Every claim above must be backed by a command or test recorded in the repository.

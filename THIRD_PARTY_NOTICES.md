@@ -13,6 +13,8 @@ in `gradle/libs.versions.toml` and documented in the relevant ADRs.
 | AndroidX / Compose | see version catalog | Apache-2.0 | UI and platform integration |
 | Kotlin / kotlinx | see version catalog | Apache-2.0 | Language and libraries |
 | SQLDelight | 2.4.1 | Apache-2.0 | Local SQLite schema, queries, and drivers |
+| Coil | 3.4.0 | Apache-2.0 | Compose image loading for thumbnails |
+| OkHttp | via Coil | Apache-2.0 | Desktop/Android HTTP image loading |
 
 Because the Android build links the GPL-3.0 `youtubedl-android` library, OpenYT as a
 whole is distributed under GPL-3.0. Preserve upstream notices when packaging.
