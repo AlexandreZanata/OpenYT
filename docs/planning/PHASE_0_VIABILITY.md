@@ -11,7 +11,7 @@ claims of support.
 
 Abastevo (commit `e051925`, inspected read-only) uses a four-module Kotlin/Compose
 Android app (`app`, `domain`, `application`, `data`) with Hilt, Room, WorkManager,
-a version catalog, ADRs, and a phased delivery process. ClipBaú adopts the layering
+a version catalog, ADRs, and a phased delivery process. OpenYT adopts the layering
 and evidence discipline, not the backend or Android-only assumptions. No code was
 copied and the repository was not modified.
 

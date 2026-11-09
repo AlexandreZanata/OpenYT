@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.clipbau.android"
+    namespace = "com.openyt.android"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.clipbau.android"
+        applicationId = "com.openyt.android"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1

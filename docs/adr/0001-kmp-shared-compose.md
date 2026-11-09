@@ -5,9 +5,9 @@
 
 ## Context
 
-ClipBaú targets Android, Linux, Windows, and macOS with one product codebase.
+OpenYT targets Android, Linux, Windows, and macOS with one product codebase.
 Abastevo demonstrates a mature Kotlin/Compose Android architecture, but it is an
-Android-only app with a Go backend. ClipBaú has no backend and must share domain
+Android-only app with a Go backend. OpenYT has no backend and must share domain
 logic and UI across platforms.
 
 ## Decision

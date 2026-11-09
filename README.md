@@ -1,8 +1,8 @@
-# ClipBaú
+# OpenYT
 
 Local-first, multiplatform media downloader and library manager built with Kotlin.
 
-ClipBaú lets a user paste or share a media URL, inspect available formats, download
+OpenYT lets a user paste or share a media URL, inspect available formats, download
 authorized content, and organize it in a local library. There is no account and no
 backend: the app runs entirely on the device.
 
@@ -77,9 +77,9 @@ Install the debug APK on a connected device:
 
 ## Licensing
 
-ClipBaú is distributed under GPL-3.0. This is required by the Android yt-dlp
+OpenYT is distributed under GPL-3.0. This is required by the Android yt-dlp
 wrapper (`io.github.junkfood02.youtubedl-android`, GPL-3.0). yt-dlp itself is
 Unlicense; FFmpeg licensing depends on the build. See `THIRD_PARTY_NOTICES.md`.
 
-ClipBaú does not bypass DRM or access restrictions and must only be used to obtain
+OpenYT does not bypass DRM or access restrictions and must only be used to obtain
 content the user is authorized to download, in accordance with the source's terms.

@@ -1,6 +1,6 @@
 # Architecture overview
 
-ClipBaú is a Kotlin Multiplatform application with a pure domain/application core,
+OpenYT is a Kotlin Multiplatform application with a pure domain/application core,
 shared Compose UI, and thin platform hosts.
 
 ## Modules

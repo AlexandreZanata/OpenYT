@@ -21,6 +21,6 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "com.clipbau.desktop.MainKt"
+        mainClass = "com.openyt.desktop.MainKt"
     }
 }

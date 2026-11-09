@@ -26,7 +26,7 @@ Use `io.github.junkfood02.youtubedl-android` for Android, behind the
 `--js-runtimes quickjs:<path>` automatically). Allow a controlled, explicit
 yt-dlp update operation; do not silently execute arbitrary downloaded binaries.
 
-License consequence: linking this GPL-3.0 wrapper makes ClipBaú GPL-3.0.
+License consequence: linking this GPL-3.0 wrapper makes OpenYT GPL-3.0.
 
 ## Risks
 

@@ -12,7 +12,7 @@ Current workflow: `.github/workflows/ci.yml`.
 Real-network tests in `desktopApp/src/test` and `androidApp/src/androidTest` are
 opt-in and never run in CI by default:
 
-- Desktop: requires `CLIPBAU_RUN_NETWORK_TESTS=1` and a yt-dlp binary.
+- Desktop: requires `OPENYT_RUN_NETWORK_TESTS=1` and a yt-dlp binary.
 - Android: requires a connected device/emulator with network access.
 
 ## Next additions

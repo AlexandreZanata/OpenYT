@@ -52,7 +52,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: clipbau-debug-apk
+          name: openyt-debug-apk
           path: androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 

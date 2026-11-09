@@ -27,7 +27,7 @@ kotlin {
 }
 
 android {
-    namespace = "com.clipbau.ui"
+    namespace = "com.openyt.ui"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

@@ -21,7 +21,7 @@ kotlin {
 }
 
 android {
-    namespace = "com.clipbau.engine.ytdlp"
+    namespace = "com.openyt.engine.ytdlp"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

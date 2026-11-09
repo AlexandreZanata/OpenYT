@@ -1,6 +1,6 @@
 # Third-party notices
 
-ClipBaú invokes or links the following third-party components. Versions are pinned
+OpenYT invokes or links the following third-party components. Versions are pinned
 in `gradle/libs.versions.toml` and documented in the relevant ADRs.
 
 | Component | Version | License | Usage |
@@ -13,7 +13,7 @@ in `gradle/libs.versions.toml` and documented in the relevant ADRs.
 | AndroidX / Compose | see version catalog | Apache-2.0 | UI and platform integration |
 | Kotlin / kotlinx | see version catalog | Apache-2.0 | Language and libraries |
 
-Because the Android build links the GPL-3.0 `youtubedl-android` library, ClipBaú as a
+Because the Android build links the GPL-3.0 `youtubedl-android` library, OpenYT as a
 whole is distributed under GPL-3.0. Preserve upstream notices when packaging.
 
 No third-party binary is downloaded and executed silently at runtime. Desktop

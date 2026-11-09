@@ -20,7 +20,7 @@ kotlin {
 }
 
 android {
-    namespace = "com.clipbau.core"
+    namespace = "com.openyt.core"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

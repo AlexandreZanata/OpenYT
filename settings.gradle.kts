@@ -20,7 +20,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "clipbau"
+rootProject.name = "openyt"
 
 include(":core")
 include(":engine-ytdlp")

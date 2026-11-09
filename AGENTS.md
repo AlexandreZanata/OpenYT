@@ -1,4 +1,4 @@
-# Working on ClipBaú
+# Working on OpenYT
 
 Read `docs/architecture/OVERVIEW.md` and the relevant ADRs before changing modules.
 The user request defines the authorized scope; this file defines engineering rules.
