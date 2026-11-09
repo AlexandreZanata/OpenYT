@@ -1,0 +1,26 @@
+*.iml
+.idea/
+.gradle/
+build/
+.kotlin/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+*.jks
+signing.properties
+
+# Local tool binaries (yt-dlp/ffmpeg are provisioned, not vendored)
+tools/bin/
+/tools/yt-dlp
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Logs and temp
+*.log
+/tmp/

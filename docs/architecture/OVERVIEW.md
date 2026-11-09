@@ -1,0 +1,63 @@
+# Architecture overview
+
+ClipBaú is a Kotlin Multiplatform application with a pure domain/application core,
+shared Compose UI, and thin platform hosts.
+
+## Modules
+
+```text
+core/        Pure Kotlin Multiplatform (JVM + Android)
+  domain/      Models, value objects, structured errors
+  application/ Use cases and ports (DownloadEngine, repositories)
+ui/          Compose Multiplatform screens and design system
+androidApp/  Android host: Activity, platform port implementations
+desktopApp/  Desktop host: main window, platform port implementations
+```
+
+Dependency direction:
+
+```text
+androidApp ──► ui ──► core
+desktopApp ──► ui ──► core
+androidApp ──► core
+desktopApp ──► core
+```
+
+Nothing points back into a host. `core` has no platform or UI dependency.
+
+## Core abstractions
+
+- `DownloadEngine` — the only way to inspect and download media. Implementations
+  are replaceable (`AndroidYtDlpEngine`, `DesktopYtDlpEngine`, `FakeDownloadEngine`).
+- `MediaInfo`, `MediaFormat`, `DownloadRequest`, `DownloadEvent` — typed contracts.
+- `DownloadFailure` — structured error taxonomy; raw tool output never reaches
+  the UI.
+- Use cases orchestrate ports and expose deterministic results to presentation.
+
+## UI
+
+Shared Compose screens receive state and callbacks. They never construct process
+arguments, filesystem paths, or engine options. Host-specific behavior (sharing,
+storage permission, window chrome) is injected through small ports.
+
+## Persistence and queue
+
+Planned for Phase 3: SQLite through a multiplatform driver, versioned migrations,
+a persisted download state machine, and crash recovery. The domain model will treat
+"remove from library" and "delete from storage" as distinct operations.
+
+## Platform notes
+
+- **Android**: yt-dlp is provided by `io.github.junkfood02.youtubedl-android`,
+  which bundles Python 3.12, yt-dlp, FFmpeg, and QuickJS. The wrapper is GPL-3.0,
+  so the app is GPL-3.0. See ADR-0002.
+- **Desktop**: yt-dlp and FFmpeg are external executables invoked with structured
+  argument lists (never a shell). See ADR-0003.
+- **Windows/macOS**: not yet validated; the desktop engine isolates OS differences
+  behind a process port so validation can follow without touching the core.
+
+## Explicit non-goals
+
+- Reimplementing extraction, codecs, or DRM handling.
+- Backend services, accounts, telemetry, or remote job processing.
+- Executing unverified binaries or silent remote updates.
