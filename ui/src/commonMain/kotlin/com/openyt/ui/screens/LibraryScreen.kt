@@ -47,10 +47,13 @@ import com.openyt.core.application.LibraryController
 import com.openyt.core.application.LibraryFilter
 import com.openyt.core.application.LibraryItem
 import com.openyt.core.application.LibraryQuery
+import com.openyt.core.application.MediaActions
+import com.openyt.core.application.MediaImporter
 import com.openyt.core.application.MediaProbe
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.MediaTechnicalInfo
+import com.openyt.core.domain.ShareableMedia
 import com.openyt.ui.components.MediaThumbnail
 import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.i18n.LocalStrings
@@ -66,6 +69,8 @@ fun LibraryScreen(
     fileAvailability: FileAvailability,
     libraryController: LibraryController,
     mediaProbe: MediaProbe,
+    mediaActions: MediaActions,
+    mediaImporter: MediaImporter?,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
@@ -131,6 +136,17 @@ fun LibraryScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (mediaImporter?.canImport == true) {
+                    TextButton(
+                        onClick = {
+                            mediaImporter.pickAndImport { imported ->
+                                coordinator.addLibraryEntries(imported)
+                            }
+                        },
+                    ) {
+                        Text(strings.importAction)
+                    }
+                }
                 TextButton(onClick = { checkToken++ }) { Text(strings.verifyFiles) }
                 if (duplicateRemovalIds.isNotEmpty()) {
                     TextButton(onClick = { confirmRemoveDuplicates = true }) {
@@ -138,6 +154,19 @@ fun LibraryScreen(
                     }
                 }
                 if (wide && activeSelection.isNotEmpty()) {
+                    if (mediaActions.canShare) {
+                        TextButton(
+                            onClick = {
+                                mediaActions.share(
+                                    entries.filter { it.id in activeSelection }
+                                        .map { it.toShareable() },
+                                    strings.shareChooserTitle,
+                                )
+                            },
+                        ) {
+                            Text(strings.shareAction)
+                        }
+                    }
                     TextButton(
                         onClick = {
                             coordinator.removeFromLibrary(activeSelection)
@@ -269,6 +298,7 @@ fun LibraryScreen(
                             onDetails = { detail = item },
                             onCollections = { assigningEntry = item.entry },
                             onRemove = { coordinator.removeFromLibrary(item.entry.id) },
+                            mediaActions = mediaActions,
                         )
                     }
                     item {
@@ -437,6 +467,7 @@ private fun LibraryCard(
     onDetails: () -> Unit,
     onCollections: () -> Unit,
     onRemove: () -> Unit,
+    mediaActions: MediaActions,
 ) {
     val strings = LocalStrings.current
     val entry = item.entry
@@ -505,6 +536,32 @@ private fun LibraryCard(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (mediaActions.canShare) {
+                    TextButton(
+                        onClick = {
+                            mediaActions.share(
+                                listOf(entry.toShareable()),
+                                strings.shareChooserTitle,
+                            )
+                        },
+                        enabled = !item.missing,
+                    ) {
+                        Text(strings.shareAction)
+                    }
+                }
+                if (mediaActions.canOpen) {
+                    TextButton(
+                        onClick = { mediaActions.open(entry.toShareable()) },
+                        enabled = !item.missing,
+                    ) {
+                        Text(strings.openAction)
+                    }
+                }
+                if (mediaActions.canReveal) {
+                    TextButton(onClick = { mediaActions.reveal(entry.toShareable()) }) {
+                        Text(strings.revealAction)
+                    }
+                }
                 TextButton(onClick = onDetails) { Text(strings.detailsAction) }
                 TextButton(onClick = onCollections) { Text(strings.assignCollections) }
                 TextButton(onClick = onRemove) { Text(strings.removeFromLibrary) }
@@ -600,6 +657,12 @@ private fun DetailRow(label: String, value: String) {
         Text(value, style = MaterialTheme.typography.bodySmall)
     }
 }
+
+private fun LibraryEntry.toShareable() = ShareableMedia(
+    path = filePath,
+    title = title,
+    kind = kind,
+)
 
 private fun kindLabel(kind: MediaKind, strings: AppStrings): String = when (kind) {
     MediaKind.VIDEO -> strings.kindVideo

@@ -14,8 +14,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.openyt.ui.i18n.LocalStrings
 
@@ -57,7 +59,9 @@ fun BrandMark(
                 wordmark,
                 style = MaterialTheme.typography.titleMedium,
                 color = colors.onSurface,
+                fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
             )
         }
     }

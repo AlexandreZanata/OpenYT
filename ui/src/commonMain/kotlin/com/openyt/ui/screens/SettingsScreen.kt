@@ -25,35 +25,62 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.openyt.core.application.DiagnosticsFormatter
+import com.openyt.core.application.DiagnosticsProvider
+import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FolderPicker
+import com.openyt.core.application.LibraryController
+import com.openyt.core.application.PlatformDiagnostics
 import com.openyt.core.application.SettingsController
+import com.openyt.core.application.UpdateChecker
+import com.openyt.core.application.UpdateInfo
+import com.openyt.core.application.UrlOpener
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.AppSettings
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.EngineCapabilities
 import com.openyt.core.domain.ThemeMode
 import com.openyt.ui.i18n.LocalStrings
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
     engine: DownloadEngine,
     downloadsDirectory: String,
     settingsController: SettingsController,
+    coordinator: DownloadCoordinator,
+    libraryController: LibraryController,
+    diagnosticsProvider: DiagnosticsProvider,
+    updateChecker: UpdateChecker,
+    urlOpener: UrlOpener,
     folderPicker: FolderPicker? = null,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
     val settings by settingsController.settings.collectAsState()
+    val tasks by coordinator.tasks.collectAsState()
+    val library by coordinator.library.collectAsState()
+    val collections by libraryController.collections.collectAsState()
+    val scope = rememberCoroutineScope()
     var capabilities by remember { mutableStateOf<EngineCapabilities?>(null) }
+    var diagnostics by remember { mutableStateOf<PlatformDiagnostics?>(null) }
+    var copied by remember { mutableStateOf<Boolean?>(null) }
+    var checkingUpdates by remember { mutableStateOf(false) }
+    var update by remember { mutableStateOf<UpdateInfo?>(null) }
+    var updatesChecked by remember { mutableStateOf(false) }
 
     LaunchedEffect(engine) {
         capabilities = engine.capabilities()
+    }
+    LaunchedEffect(diagnosticsProvider) {
+        diagnostics = diagnosticsProvider.snapshot()
     }
 
     Column(
@@ -186,6 +213,111 @@ fun SettingsScreen(
                     strings.subtitlesLabel,
                     if (capabilities?.supportsSubtitles == true) strings.supported else strings.notSupported,
                 )
+            }
+        }
+
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(strings.updatesTitle, style = MaterialTheme.typography.labelLarge)
+                SettingRow(strings.diagnosticsAppVersion, diagnostics?.appVersion ?: "—")
+                TextButton(
+                    enabled = diagnostics != null && !checkingUpdates,
+                    onClick = {
+                        val version = diagnostics?.appVersion ?: return@TextButton
+                        scope.launch {
+                            checkingUpdates = true
+                            update = updateChecker.latest(version)
+                            updatesChecked = true
+                            checkingUpdates = false
+                        }
+                    },
+                ) {
+                    Text(strings.checkUpdates)
+                }
+                if (checkingUpdates) {
+                    Text(
+                        strings.checkingUpdates,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                val availableUpdate = update
+                if (availableUpdate != null) {
+                    Text("${strings.updateAvailable} v${availableUpdate.version}")
+                    TextButton(onClick = { urlOpener.open(availableUpdate.releaseUrl) }) {
+                        Text(strings.openRelease)
+                    }
+                } else if (updatesChecked && !checkingUpdates) {
+                    Text(
+                        strings.upToDate,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(strings.diagnosticsTitle, style = MaterialTheme.typography.labelLarge)
+                val snapshot = diagnostics
+                if (snapshot == null) {
+                    Text(
+                        strings.diagnosticsLoading,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    SettingRow(strings.diagnosticsAppVersion, snapshot.appVersion)
+                    SettingRow(strings.diagnosticsPlatform, snapshot.platform)
+                    SettingRow(
+                        strings.engineLabel,
+                        snapshot.engineName + (snapshot.engineVersion?.let { " $it" } ?: ""),
+                    )
+                    SettingRow(strings.diagnosticsDownloads, snapshot.downloadDirectory, maxLines = 2)
+                    snapshot.databasePath?.let {
+                        SettingRow(strings.diagnosticsDatabase, it, maxLines = 2)
+                    }
+                    SettingRow(strings.diagnosticsTasks, tasks.size.toString())
+                    SettingRow(strings.diagnosticsLibrary, library.size.toString())
+                    SettingRow(strings.diagnosticsCollections, collections.size.toString())
+                    if (snapshot.tools.isNotEmpty()) {
+                        Text(strings.diagnosticsTools, style = MaterialTheme.typography.labelMedium)
+                        snapshot.tools.forEach { tool ->
+                            val status = if (tool.available) strings.supported else strings.notSupported
+                            val version = tool.version?.let { " ($it)" }.orEmpty()
+                            Text(
+                                "${tool.name}: $status$version",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    TextButton(
+                        onClick = {
+                            val text = DiagnosticsFormatter.format(
+                                diagnostics = snapshot,
+                                taskCount = tasks.size,
+                                libraryCount = library.size,
+                                collectionCount = collections.size,
+                            )
+                            copied = diagnosticsProvider.copyToClipboard(text)
+                        },
+                    ) {
+                        Text(strings.diagnosticsCopy)
+                    }
+                    copied?.let { success ->
+                        Text(
+                            if (success) strings.diagnosticsCopied else strings.diagnosticsCopyFailed,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (success) {
+                                MaterialTheme.colorScheme.secondary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                        )
+                    }
+                }
             }
         }
 

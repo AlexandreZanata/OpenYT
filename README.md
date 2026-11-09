@@ -72,6 +72,16 @@ Install the debug APK on a connected device:
 ./gradlew :androidApp:installDebug
 ```
 
+## Releases
+
+Latest: [v1.1.0](https://github.com/AlexandreZanata/OpenYT/releases/tag/v1.1.0)
+(Android APK, Linux deb, Windows MSI, macOS DMG, checksums).
+
+Every push to `main` builds and publishes Android, Linux, Windows, and macOS
+artifacts through `.github/workflows/release.yml`. The version lives in
+`gradle.properties` (`openyt.version`). Android signing is optional; without
+secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
+
 ## Current status
 
 - Paste or share a URL, inspect metadata/formats, choose video or audio, download
@@ -88,6 +98,10 @@ Install the debug APK on a connected device:
   icon, and desktop window and package icons.
 - Library details show technical metadata (duration, resolution, codecs, bitrate,
   container) via platform probes.
+- Share completed media to WhatsApp, Drive, and any installed Android handler via
+  the system chooser; open or reveal files on desktop.
+- Import existing video/audio through the Android Storage Access Framework.
+- Redacted diagnostics (copyable) and a GitHub release update check.
 - Theme, language (pt-BR/en), and download concurrency are persisted locally.
 - Desktop: sidebar layout, dropped-link intake, Ctrl+1…4/Ctrl+Q shortcuts, folder
   selection, multi-selection, and a Linux `.deb` package.

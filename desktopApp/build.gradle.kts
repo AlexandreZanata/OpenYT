@@ -10,6 +10,29 @@ kotlin {
     jvmToolchain(17)
 }
 
+val appVersion = providers.gradleProperty("openyt.version").get()
+val generatedVersionDir = layout.buildDirectory.dir("generated/version")
+
+val generateVersionResource by tasks.registering {
+    inputs.property("version", appVersion)
+    outputs.dir(generatedVersionDir)
+    doLast {
+        val file = generatedVersionDir.get().file("openyt-version.properties").asFile
+        file.parentFile?.mkdirs()
+        file.writeText("version=$appVersion\n")
+    }
+}
+
+sourceSets {
+    main {
+        resources.srcDir(generatedVersionDir)
+    }
+}
+
+tasks.named("processResources") {
+    dependsOn(generateVersionResource)
+}
+
 dependencies {
     implementation(project(":ui"))
     implementation(project(":core"))
@@ -31,7 +54,7 @@ compose.desktop {
             targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Msi, TargetFormat.Dmg)
             modules("java.sql")
             packageName = "OpenYT"
-            packageVersion = "0.4.0"
+            packageVersion = providers.gradleProperty("openyt.version").get()
             description = "Local-first media downloader and library"
             vendor = "OpenYT"
             licenseFile.set(rootProject.file("LICENSE"))
@@ -46,6 +69,7 @@ compose.desktop {
             }
             macOS {
                 iconFile.set(project.file("packaging/icons/openyt.icns"))
+                bundleID = "com.openyt.desktop"
             }
         }
     }

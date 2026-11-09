@@ -4,6 +4,10 @@ Current workflow: `.github/workflows/ci.yml`.
 
 ## Active checks
 
+Release workflow: `.github/workflows/release.yml`. It runs on `main` and manual
+dispatch, builds Android/Linux/Windows/macOS artifacts on native runners, and
+publishes the `v<version>` release with checksums. See `RELEASE_PIPELINE.md`.
+
 | Job | Runner | Command | Purpose |
 |-----|--------|---------|---------|
 | `build` | ubuntu | `:core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :desktopApp:packageDeb` | Deterministic unit/persistence tests, parser tests, APK/test APK build, and Linux `.deb` package |

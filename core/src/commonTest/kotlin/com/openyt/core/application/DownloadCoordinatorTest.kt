@@ -152,6 +152,26 @@ class DownloadCoordinatorTest {
     }
 
     @Test
+    fun addsImportedEntriesToLibraryAndPersists() = runTest {
+        val repository = FakeRepository()
+        val coordinator = DownloadCoordinator(FakeDownloadEngine(), coordinatorScope(), repository)
+        val imported = LibraryEntry(
+            id = "import-1",
+            title = "Imported",
+            kind = com.openyt.core.domain.MediaKind.VIDEO,
+            filePath = "/tmp/imported.mp4",
+            sizeBytes = 10,
+        )
+
+        coordinator.addLibraryEntries(listOf(imported))
+        advanceUntilIdle()
+
+        assertEquals(1, coordinator.library.value.size)
+        assertEquals("Imported", coordinator.library.value.single().title)
+        assertEquals(1, repository.library.size)
+    }
+
+    @Test
     fun doesNotReuseIdsReferencedByLibraryEntries() = runTest {
         val repository = FakeRepository(
             library = mutableListOf(

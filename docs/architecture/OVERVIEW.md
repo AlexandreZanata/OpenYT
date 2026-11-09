@@ -68,6 +68,13 @@ assets.
 `MediaExtractor`/`MediaMetadataRetriever`; desktop runs FFprobe and parses JSON.
 The library details dialog probes on demand and never exposes raw tool output.
 
+## Sharing and export
+
+`MediaActions` is a core port for completed media. Android exposes files through a
+read-only `FileProvider` URI and the system share/open choosers; desktop opens the
+default app or reveals the file in the file manager. No direct third-party SDK is
+embedded and no broad storage permission is required.
+
 ## Persistence and queue
 
 SQLDelight/SQLite stores the queue snapshot, library, and app settings
