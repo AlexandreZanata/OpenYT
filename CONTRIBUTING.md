@@ -13,6 +13,16 @@
 
 5. Open a pull request describing the behavior change, evidence, and limitations.
 
+## Branching and protected main
+
+- `main` is protected: direct pushes, force pushes, and deletions are rejected.
+- Develop on feature branches and open pull requests into `dev`.
+- Only a pull request from `dev` into `main` is accepted. The `source-branch`
+  workflow enforces this and is a required check.
+- `main` requires the CI checks (`build` and the desktop compile matrix) plus
+  `source-branch` to pass, with the branch up to date.
+- Every merge to `main` triggers the release workflow automatically.
+
 Code and documentation are written in English. User-facing strings must be
 localizable (pt-BR is the primary locale, English secondary).
 
