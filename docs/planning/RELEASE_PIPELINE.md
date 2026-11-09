@@ -6,7 +6,7 @@ Workflow: `.github/workflows/release.yml`.
 
 - Runs on every push to `main` and on manual dispatch.
 - `gradle.properties` is the single source of truth:
-  - `openyt.version` (SemVer, currently `0.6.0`)
+  - `openyt.version` (SemVer, currently `1.0.0`)
   - `openyt.versionCode` (Android integer)
 - Every main push rebuilds and **updates** the release for `v<version>`. Bump the
   version before merging to publish a new release; otherwise assets of the current
@@ -39,6 +39,13 @@ suitable for public production distribution.
 Windows and macOS installers are currently unsigned. macOS Gatekeeper will warn;
 Windows SmartScreen may warn. Code signing/notarization is a future step and
 requires certificates and repository secrets.
+
+## Versioning note
+
+macOS `jpackage` rejects versions whose first component is zero. Use major version
+`1` or higher for releases, even for pre-1.0 development builds. Android and Linux
+accept zero-major versions, but the shared version must remain compatible with all
+packagers.
 
 ## Tool requirements
 

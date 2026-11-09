@@ -235,7 +235,7 @@ Validation:
 - Adopted a Codex-inspired visual language: near-black surfaces, mint accent,
   monospaced OpenYT wordmark, rounded/bordered media cards. The OpenYT name and
   brand are preserved; no official Codex logo assets were copied.
-- Version bumped to 0.6.0 (Android versionCode 6).
+- Version set to 1.0.0 (Android versionCode 7) so the macOS app-image version is compatible with jpackage.
 
 Validation:
 
