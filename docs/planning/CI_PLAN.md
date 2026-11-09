@@ -6,7 +6,7 @@ Current workflow: `.github/workflows/ci.yml`.
 
 | Job | Runner | Command | Purpose |
 |-----|--------|---------|---------|
-| `build` | ubuntu | `:core:desktopTest :engine-ytdlp:desktopTest :desktopApp:test :androidApp:assembleDebug` | Deterministic unit tests, parser tests, desktop compile, APK build |
+| `build` | ubuntu | `:core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest` | Deterministic unit/persistence tests, parser tests, desktop compile, APK and test APK build |
 | `desktop-compile` | ubuntu/windows/macos | `:desktopApp:compileKotlin` | Cross-OS compile signal for the desktop host |
 
 Real-network tests in `desktopApp/src/test` and `androidApp/src/androidTest` are

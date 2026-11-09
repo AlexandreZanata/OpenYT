@@ -12,6 +12,7 @@ in `gradle/libs.versions.toml` and documented in the relevant ADRs.
 | QuickJS | bundled with wrapper | MIT | JavaScript runtime required by yt-dlp EJS |
 | AndroidX / Compose | see version catalog | Apache-2.0 | UI and platform integration |
 | Kotlin / kotlinx | see version catalog | Apache-2.0 | Language and libraries |
+| SQLDelight | 2.4.1 | Apache-2.0 | Local SQLite schema, queries, and drivers |
 
 Because the Android build links the GPL-3.0 `youtubedl-android` library, OpenYT as a
 whole is distributed under GPL-3.0. Preserve upstream notices when packaging.

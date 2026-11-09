@@ -10,6 +10,7 @@ core/        Pure Kotlin Multiplatform (JVM + Android)
   domain/      Models, value objects, structured errors
   application/ Use cases and ports (DownloadEngine, repositories)
 engine-ytdlp/ Pure Kotlin yt-dlp JSON/progress/error parsing (no process or I/O)
+data/        SQLDelight schema, repository, and platform drivers
 ui/          Compose Multiplatform screens and design system
 androidApp/  Android host: Activity, platform port implementations
 desktopApp/  Desktop host: main window, platform port implementations
@@ -20,8 +21,8 @@ Dependency direction:
 ```text
 androidApp ──► ui ──► core
 desktopApp ──► ui ──► core
-androidApp ──► core
-desktopApp ──► core
+androidApp ──► data ──► core
+desktopApp ──► data ──► core
 ```
 
 Nothing points back into a host. `core` has no platform or UI dependency.
@@ -43,9 +44,11 @@ storage permission, window chrome) is injected through small ports.
 
 ## Persistence and queue
 
-Planned for Phase 3: SQLite through a multiplatform driver, versioned migrations,
-a persisted download state machine, and crash recovery. The domain model will treat
-"remove from library" and "delete from storage" as distinct operations.
+SQLDelight/SQLite stores the queue snapshot and library (`download_task`,
+`library_entry`). On startup, tasks left active are marked `INTERRUPTED`; nothing is
+auto-resumed. Retry creates a fresh task. Removing a library entry deletes only the
+record, never the file. Temporary directories are per task and cleaned at completion,
+cancellation, and startup. See ADR-0005.
 
 ## Platform notes
 

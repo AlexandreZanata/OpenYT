@@ -6,9 +6,9 @@ OpenYT lets a user paste or share a media URL, inspect available formats, downlo
 authorized content, and organize it in a local library. There is no account and no
 backend: the app runs entirely on the device.
 
-> Status: Phase 0 (viability) and Phase 2 (download flow) validated on Linux and a
-> real Android device; Phase 1 foundation complete. Persistent storage (Phase 3) is
-> not implemented. Only features listed under "Current status" are implied.
+> Status: Phases 0–3 validated on Linux and a real Android device. The queue and
+> library persist locally; recovery marks interrupted downloads instead of
+> auto-resuming them. Only features listed under "Current status" are implied.
 
 ## Stack
 
@@ -37,6 +37,7 @@ androidApp/     Android host application
 desktopApp/     Desktop (Compose JVM) host application
 core/           Pure Kotlin Multiplatform domain + application layer
 engine-ytdlp/   Shared yt-dlp output/error/progress parsing
+data/           SQLDelight database and repository implementations
 ui/             Shared Compose Multiplatform UI and design system
 docs/           Architecture, ADRs, planning, product, security, testing
 ```
@@ -69,7 +70,9 @@ Install the debug APK on a connected device:
 ## Current status
 
 - Paste a URL, inspect metadata/formats, choose video or audio, download with
-  progress, cancel, and see completed files in the session Library.
+  progress, cancel/retry, and manage a persistent local Library.
+- Queue and Library survive app restarts; interrupted downloads can be retried.
+- Removing a Library entry never deletes the downloaded file.
 - Phase 0 viability report: `docs/planning/PHASE_0_VIABILITY.md`
 - Project status and limitations: `docs/planning/STATUS.md`
 - Architecture and module rules: `docs/architecture/OVERVIEW.md`

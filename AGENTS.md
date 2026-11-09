@@ -17,6 +17,8 @@ The user request defines the authorized scope; this file defines engineering rul
 
 - `core` is pure Kotlin: domain models, use cases, ports. No Compose, Android SDK,
   yt-dlp, FFmpeg, filesystem, database, or process APIs.
+- `data` implements persistence (SQLDelight) behind `DownloadRepository`. It may
+  depend on `core` and platform drivers, never on UI.
 - `ui` contains shared Compose UI. It depends on `core` and must not invoke process
   or filesystem APIs directly.
 - Host apps (`androidApp`, `desktopApp`) implement platform ports and inject them.

@@ -43,6 +43,7 @@ jobs:
           ./gradlew
           :core:desktopTest
           :engine-ytdlp:desktopTest
+          :data:desktopTest
           :desktopApp:test
           :androidApp:assembleDebug
           :androidApp:assembleDebugAndroidTest
