@@ -52,4 +52,7 @@ class SettingsController(
 
     fun setMaxConcurrentDownloads(value: Int) =
         update(_settings.value.copy(maxConcurrentDownloads = value))
+
+    fun setDownloadsDirectory(path: String?) =
+        update(_settings.value.copy(downloadsDirectory = path?.takeIf { it.isNotBlank() }))
 }

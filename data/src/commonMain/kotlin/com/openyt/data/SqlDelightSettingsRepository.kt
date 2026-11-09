@@ -23,6 +23,7 @@ class SqlDelightSettingsRepository(
                 AppSettings.MIN_CONCURRENT,
                 AppSettings.MAX_CONCURRENT,
             ),
+            downloadsDirectory = row?.downloads_directory,
         )
     }
 
@@ -31,6 +32,7 @@ class SqlDelightSettingsRepository(
             theme_mode = settings.themeMode.name,
             language = settings.language.name,
             max_concurrent = settings.maxConcurrentDownloads.toLong(),
+            downloads_directory = settings.downloadsDirectory,
         )
         Unit
     }

@@ -51,6 +51,23 @@ class SettingsControllerTest {
     }
 
     @Test
+    fun persistsDownloadDirectory() = runTest {
+        val repository = FakeSettingsRepository()
+        val controller = SettingsController(repository, coordinatorScope())
+
+        controller.setDownloadsDirectory("/home/user/Videos")
+        advanceUntilIdle()
+
+        assertEquals("/home/user/Videos", repository.stored.downloadsDirectory)
+        assertEquals("/home/user/Videos", controller.settings.value.downloadsDirectory)
+
+        controller.setDownloadsDirectory("   ")
+        advanceUntilIdle()
+
+        assertEquals(null, repository.stored.downloadsDirectory)
+    }
+
+    @Test
     fun persistsThemeAndLanguage() = runTest {
         val repository = FakeSettingsRepository()
         val controller = SettingsController(repository, coordinatorScope())

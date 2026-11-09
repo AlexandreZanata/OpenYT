@@ -155,6 +155,14 @@ class DownloadCoordinator(
         persist { repository?.deleteLibraryEntry(id) }
     }
 
+    fun removeFromLibrary(ids: Collection<String>) {
+        ids.toList().forEach(::removeFromLibrary)
+    }
+
+    fun dismissAll(ids: Collection<String>) {
+        ids.toList().forEach(::dismiss)
+    }
+
     private fun launchDownload(task: DownloadTask) {
         scope.launch {
             acquireSlot()
