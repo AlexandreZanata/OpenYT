@@ -104,6 +104,27 @@ Validation:
 - Desktop app screenshot: `docs/assets/phase5-desktop.png`.
 - Android v2→v3 database migration preserved queue and settings; 6 device tests pass.
 
+## Phase 6 completed (library)
+
+- Search by title or file name, plus filters for all/video/audio, missing files,
+  and possible duplicates.
+- Missing-file detection uses the `FileAvailability` port; results recompute when
+  the library changes and on demand via "Verify files".
+- Duplicate detection is advisory: entries sharing a file path or normalized
+  title+size are marked "Possible duplicate". Nothing is deleted automatically.
+- Library rows expose technical details (path, size, kind, availability/duplicate)
+  in a dialog.
+- Large-data behaviour: a pure `LibraryQuery` is covered by a 10,000-entry unit test;
+  a real device loaded 5,003 entries, searched immediately, and showed the missing
+  badge and "Missing" filter correctly.
+
+Validation:
+
+- 39 core tests, 13 engine tests, 9 data tests, 6 desktop tests, 6 Android device
+  tests. CI green.
+- Device library screenshot: `docs/assets/phase6-android-library.png`.
+- The device was restored to its original two-entry library after the bulk test.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
@@ -116,15 +137,19 @@ Validation:
 - Download folder on Android is still app-specific; SAF selection and storage usage
   are pending.
 - No pause support (engine only supports cancellation).
-- No subtitle download, collections, media playback, search, or filters yet.
+- Collections, thumbnails, media playback, and subtitle download are not implemented.
+- Duplicate handling is detection only; there is no bulk duplicate cleanup action.
+- Library technical details do not probe codecs with FFprobe; they show path, size,
+  kind, and availability.
+- Library filters reset when leaving the tab; sorting options are not implemented.
 - Only arm64-v8a Android artifacts; no ABI splits.
 - Strings are centralized in Kotlin but not yet backed by Compose resources.
 - Corrupt databases disable persistence with a logged error and the app continues in
   memory.
 
-## Next step (Phase 6)
+## Next step (Phase 7)
 
-1. Library search, filters, collections, missing-file detection, and duplicates.
+1. Collections, thumbnails, codec probing, sorting, and duplicate cleanup actions.
 2. SAF folder selection, storage usage, and import of existing files on Android.
 3. Structured diagnostics with redaction and release packaging hardening.
 4. Versioning and update strategy.

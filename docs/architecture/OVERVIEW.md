@@ -42,6 +42,13 @@ Shared Compose screens receive state and callbacks. They never construct process
 arguments, filesystem paths, or engine options. Host-specific behavior (sharing,
 storage permission, window chrome) is injected through small ports.
 
+## Library
+
+`LibraryQuery` is a pure function over library entries: search, kind/availability/
+duplicate filters, and duplicate detection (same path or normalized title+size).
+File existence is checked through the `FileAvailability` port; the UI never touches
+the filesystem. Duplicate detection is advisory and never deletes files.
+
 ## Persistence and queue
 
 SQLDelight/SQLite stores the queue snapshot, library, and app settings

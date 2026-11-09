@@ -75,6 +75,8 @@ Install the debug APK on a connected device:
   with progress, cancel/retry, and manage a persistent local Library.
 - Queue and Library survive app restarts; interrupted downloads can be retried.
 - Removing a Library entry never deletes the downloaded file.
+- Library search, kind/availability/duplicate filters, missing-file detection, and
+  technical detail dialogs.
 - Theme, language (pt-BR/en), and download concurrency are persisted locally.
 - Desktop: sidebar layout, dropped-link intake, Ctrl+1…4/Ctrl+Q shortcuts, folder
   selection, multi-selection, and a Linux `.deb` package.
