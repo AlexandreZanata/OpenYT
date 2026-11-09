@@ -49,6 +49,9 @@ class AppContainer(context: Context) {
         appScope.launch {
             coordinator.restore()
             settingsController.restore()
+            cleanStaleTemporaryFiles(
+                File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory),
+            )
         }
     }
 }

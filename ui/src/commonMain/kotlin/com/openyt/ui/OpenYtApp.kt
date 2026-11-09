@@ -32,8 +32,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.SettingsController
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.DownloadEngine
@@ -56,9 +63,11 @@ fun OpenYtApp(
     downloadsDirectory: String,
     initialSharedUrl: String? = null,
     onSharedUrlConsumed: () -> Unit = {},
+    folderPicker: FolderPicker? = null,
 ) {
     val settings by settingsController.settings.collectAsState()
     val strings = stringsFor(settings.language)
+    val effectiveDownloadsDirectory = settings.downloadsDirectory ?: downloadsDirectory
 
     LaunchedEffect(settings.maxConcurrentDownloads) {
         coordinator.setMaxConcurrentDownloads(settings.maxConcurrentDownloads)
@@ -76,9 +85,10 @@ fun OpenYtApp(
                 engine = engine,
                 coordinator = coordinator,
                 settingsController = settingsController,
-                downloadsDirectory = downloadsDirectory,
+                downloadsDirectory = effectiveDownloadsDirectory,
                 initialSharedUrl = initialSharedUrl,
                 onSharedUrlConsumed = onSharedUrlConsumed,
+                folderPicker = folderPicker,
             )
         }
     }
@@ -99,6 +109,7 @@ private fun AppShell(
     downloadsDirectory: String,
     initialSharedUrl: String?,
     onSharedUrlConsumed: () -> Unit,
+    folderPicker: FolderPicker?,
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -113,7 +124,24 @@ private fun AppShell(
         if (!initialSharedUrl.isNullOrBlank()) selected = 0
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown || !event.isCtrlPressed) {
+                    return@onPreviewKeyEvent false
+                }
+                val target = when (event.key) {
+                    Key.One -> 0
+                    Key.Two -> 1
+                    Key.Three -> 2
+                    Key.Four -> 3
+                    else -> null
+                } ?: return@onPreviewKeyEvent false
+                selected = target
+                true
+            },
+    ) {
         val wide = maxWidth >= 720.dp
         val content: @Composable (PaddingValues) -> Unit = { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
@@ -129,7 +157,7 @@ private fun AppShell(
 
                     1 -> DownloadsScreen(coordinator)
                     2 -> LibraryScreen(coordinator)
-                    else -> SettingsScreen(engine, downloadsDirectory, settingsController)
+                    else -> SettingsScreen(engine, downloadsDirectory, settingsController, folderPicker)
                 }
             }
         }

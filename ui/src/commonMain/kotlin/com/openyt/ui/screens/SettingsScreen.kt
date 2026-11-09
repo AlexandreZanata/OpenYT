@@ -18,6 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -30,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.SettingsController
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.AppSettings
@@ -43,6 +45,7 @@ fun SettingsScreen(
     engine: DownloadEngine,
     downloadsDirectory: String,
     settingsController: SettingsController,
+    folderPicker: FolderPicker? = null,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
@@ -143,8 +146,30 @@ fun SettingsScreen(
         }
 
         Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SettingRow(strings.downloadFolderLabel, downloadsDirectory, maxLines = 2)
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SettingRow(strings.downloadFolderLabel, downloadsDirectory, maxLines = 3)
+                if (folderPicker != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(
+                            onClick = {
+                                folderPicker.pickFolder(downloadsDirectory)
+                                    ?.let(settingsController::setDownloadsDirectory)
+                            },
+                        ) {
+                            Text(strings.changeFolder)
+                        }
+                        if (settings.downloadsDirectory != null) {
+                            TextButton(onClick = { settingsController.setDownloadsDirectory(null) }) {
+                                Text(strings.useDefaultFolder)
+                            }
+                        }
+                    }
+                    Text(
+                        strings.shortcutsHint,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
 
