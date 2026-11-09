@@ -1,5 +1,6 @@
 package com.openyt.core.application
 
+import com.openyt.core.domain.Collection
 import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.LibraryEntry
 
@@ -26,4 +27,16 @@ interface DownloadRepository {
     suspend fun insertLibraryEntry(entry: LibraryEntry)
 
     suspend fun deleteLibraryEntry(id: String)
+
+    suspend fun loadCollections(): List<Collection>
+
+    suspend fun insertCollection(collection: Collection)
+
+    suspend fun deleteCollection(id: String)
+
+    suspend fun loadCollectionMembership(): Map<String, Set<String>>
+
+    suspend fun addEntryToCollection(collectionId: String, entryId: String)
+
+    suspend fun removeEntryFromCollection(collectionId: String, entryId: String)
 }

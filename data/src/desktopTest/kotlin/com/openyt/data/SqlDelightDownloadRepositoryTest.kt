@@ -1,6 +1,7 @@
 package com.openyt.data
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.openyt.core.domain.Collection
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.DownloadStatus
@@ -121,6 +122,50 @@ class SqlDelightDownloadRepositoryTest {
 
         assertTrue(repository.loadLibrary().isEmpty())
         assertEquals(1, repository.loadTasks().size)
+    }
+
+    @Test
+    fun storesCollectionsAndMembership() = runBlocking {
+        val repository = SqlDelightDownloadRepository(fileDatabase())
+        repository.insertCollection(Collection("collection-1", "Favorites"))
+        repository.insertCollection(Collection("collection-2", "Later"))
+        repository.addEntryToCollection("collection-1", "download-1")
+        repository.addEntryToCollection("collection-1", "download-2")
+
+        assertEquals(
+            listOf("Favorites", "Later"),
+            repository.loadCollections().map { it.name },
+        )
+        assertEquals(
+            setOf("download-1", "download-2"),
+            repository.loadCollectionMembership().getValue("collection-1"),
+        )
+
+        repository.removeEntryFromCollection("collection-1", "download-2")
+        assertEquals(
+            setOf("download-1"),
+            repository.loadCollectionMembership().getValue("collection-1"),
+        )
+
+        repository.deleteCollection("collection-1")
+        assertNull(repository.loadCollectionMembership()["collection-1"])
+        assertEquals(1, repository.loadCollections().size)
+    }
+
+    @Test
+    fun deletingLibraryEntryClearsCollectionMembership() = runBlocking {
+        val repository = SqlDelightDownloadRepository(fileDatabase())
+        repository.insertTask(sampleTask("download-1", DownloadStatus.COMPLETED))
+        repository.insertLibraryEntry(
+            LibraryEntry("download-1", "Sample media", MediaKind.VIDEO, "/tmp/video.mp4", 1),
+        )
+        repository.insertCollection(Collection("collection-1", "Favorites"))
+        repository.addEntryToCollection("collection-1", "download-1")
+
+        repository.deleteLibraryEntry("download-1")
+
+        assertTrue(repository.loadCollectionMembership().isEmpty())
+        assertTrue(repository.loadCollections().isNotEmpty())
     }
 
     @Test

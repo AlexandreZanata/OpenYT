@@ -1,5 +1,6 @@
 package com.openyt.core.application
 
+import com.openyt.core.domain.Collection
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.DownloadEvent
 import com.openyt.core.domain.DownloadFailure
@@ -371,6 +372,18 @@ class DownloadCoordinatorTest {
         override suspend fun deleteLibraryEntry(id: String) {
             library.removeAll { it.id == id }
         }
+
+        override suspend fun loadCollections(): List<Collection> = emptyList()
+
+        override suspend fun insertCollection(collection: Collection) = Unit
+
+        override suspend fun deleteCollection(id: String) = Unit
+
+        override suspend fun loadCollectionMembership(): Map<String, Set<String>> = emptyMap()
+
+        override suspend fun addEntryToCollection(collectionId: String, entryId: String) = Unit
+
+        override suspend fun removeEntryFromCollection(collectionId: String, entryId: String) = Unit
     }
 
     private class GatedEngine : DownloadEngine {

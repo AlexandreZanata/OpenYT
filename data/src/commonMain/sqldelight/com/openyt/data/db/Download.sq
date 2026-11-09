@@ -33,6 +33,18 @@ CREATE TABLE library_entry (
     thumbnail_url TEXT
 );
 
+CREATE TABLE collection (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+);
+
+CREATE TABLE collection_entry (
+    collection_id TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    PRIMARY KEY (collection_id, entry_id)
+);
+
 CREATE TABLE app_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     theme_mode TEXT NOT NULL DEFAULT 'SYSTEM',
@@ -93,3 +105,28 @@ VALUES (:id, :title, :kind, :file_path, :size_bytes, :thumbnail_url);
 
 deleteLibraryEntry:
 DELETE FROM library_entry WHERE id = :id;
+
+deleteCollectionEntriesForEntry:
+DELETE FROM collection_entry WHERE entry_id = :entry_id;
+
+selectAllCollections:
+SELECT * FROM collection ORDER BY created_at ASC, id ASC;
+
+insertCollection:
+INSERT OR REPLACE INTO collection(id, name) VALUES (:id, :name);
+
+deleteCollectionEntries:
+DELETE FROM collection_entry WHERE collection_id = :collection_id;
+
+deleteCollection:
+DELETE FROM collection WHERE id = :id;
+
+selectCollectionMembership:
+SELECT collection_id, entry_id FROM collection_entry;
+
+insertCollectionEntry:
+INSERT OR IGNORE INTO collection_entry(collection_id, entry_id)
+VALUES (:collection_id, :entry_id);
+
+deleteCollectionEntry:
+DELETE FROM collection_entry WHERE collection_id = :collection_id AND entry_id = :entry_id;

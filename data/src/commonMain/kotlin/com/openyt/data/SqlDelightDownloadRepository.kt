@@ -2,6 +2,7 @@ package com.openyt.data
 
 import app.cash.sqldelight.db.SqlDriver
 import com.openyt.core.application.DownloadRepository
+import com.openyt.core.domain.Collection
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.DownloadStatus
@@ -71,6 +72,46 @@ class SqlDelightDownloadRepository(
         Unit
     }
 
+    override suspend fun loadCollections(): List<Collection> = withContext(Dispatchers.Default) {
+        queries.selectAllCollections { id, name, _ ->
+            Collection(id = id, name = name)
+        }.executeAsList()
+    }
+
+    override suspend fun insertCollection(collection: Collection) = withContext(Dispatchers.Default) {
+        queries.insertCollection(id = collection.id, name = collection.name)
+        Unit
+    }
+
+    override suspend fun deleteCollection(id: String) = withContext(Dispatchers.Default) {
+        database.transaction {
+            queries.deleteCollectionEntries(collection_id = id)
+            queries.deleteCollection(id = id)
+        }
+        Unit
+    }
+
+    override suspend fun loadCollectionMembership(): Map<String, Set<String>> =
+        withContext(Dispatchers.Default) {
+            queries.selectCollectionMembership { collectionId, entryId ->
+                collectionId to entryId
+            }.executeAsList()
+                .groupBy({ it.first }, { it.second })
+                .mapValues { (_, entries) -> entries.toSet() }
+        }
+
+    override suspend fun addEntryToCollection(collectionId: String, entryId: String) =
+        withContext(Dispatchers.Default) {
+            queries.insertCollectionEntry(collection_id = collectionId, entry_id = entryId)
+            Unit
+        }
+
+    override suspend fun removeEntryFromCollection(collectionId: String, entryId: String) =
+        withContext(Dispatchers.Default) {
+            queries.deleteCollectionEntry(collection_id = collectionId, entry_id = entryId)
+            Unit
+        }
+
     override suspend fun markActiveInterrupted() = withContext(Dispatchers.Default) {
         queries.markActiveInterrupted()
         Unit
@@ -103,7 +144,10 @@ class SqlDelightDownloadRepository(
     }
 
     override suspend fun deleteLibraryEntry(id: String) = withContext(Dispatchers.Default) {
-        queries.deleteLibraryEntry(id)
+        database.transaction {
+            queries.deleteCollectionEntriesForEntry(entry_id = id)
+            queries.deleteLibraryEntry(id)
+        }
         Unit
     }
 

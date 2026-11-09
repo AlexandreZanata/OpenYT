@@ -1,0 +1,11 @@
+CREATE TABLE collection (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+);
+
+CREATE TABLE collection_entry (
+    collection_id TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    PRIMARY KEY (collection_id, entry_id)
+);
