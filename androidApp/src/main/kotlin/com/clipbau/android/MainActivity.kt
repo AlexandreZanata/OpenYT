@@ -11,9 +11,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val engine = (application as ClipBauApplication).container.engine
+        val container = (application as ClipBauApplication).container
         setContent {
-            ClipBauApp(engine = engine)
+            ClipBauApp(
+                engine = container.engine,
+                coordinator = container.coordinator,
+                downloadsDirectory = container.downloadsDirectory,
+            )
         }
     }
 }

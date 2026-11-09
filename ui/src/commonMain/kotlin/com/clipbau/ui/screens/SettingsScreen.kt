@@ -27,6 +27,7 @@ import com.clipbau.ui.i18n.LocalStrings
 @Composable
 fun SettingsScreen(
     engine: DownloadEngine,
+    downloadsDirectory: String,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
@@ -44,6 +45,11 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(strings.settingsTitle, style = MaterialTheme.typography.headlineMedium)
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingRow(strings.downloadFolderLabel, downloadsDirectory, maxLines = 2)
+            }
+        }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SettingRow(strings.engineLabel, capabilities?.engineName ?: "—")
@@ -68,13 +74,16 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingRow(label: String, value: String) {
+private fun SettingRow(label: String, value: String, maxLines: Int = 1) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
         Text(
             value,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = maxLines,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            modifier = Modifier.padding(start = 16.dp),
         )
     }
 }

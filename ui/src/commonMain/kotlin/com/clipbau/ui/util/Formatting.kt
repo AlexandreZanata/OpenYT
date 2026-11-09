@@ -1,6 +1,8 @@
 package com.clipbau.ui.util
 
 import com.clipbau.core.domain.DownloadFailure
+import com.clipbau.core.domain.DownloadStatus
+import com.clipbau.core.domain.MediaFormat
 import com.clipbau.ui.i18n.AppStrings
 
 fun failureMessage(failure: DownloadFailure, strings: AppStrings): String = when (failure) {
@@ -44,3 +46,31 @@ fun formatBytes(bytes: Long?): String? {
 }
 
 private fun Long.twoDigits(): String = toString().padStart(2, '0')
+
+fun formatLabel(format: MediaFormat): String {
+    val bitrate = format.bitrateKbps
+    val quality = when {
+        format.width != null && format.height != null -> "${format.height}p"
+        bitrate != null && bitrate > 0 -> "${bitrate.toInt()} kbps"
+        else -> null
+    }
+    return listOfNotNull(
+        quality,
+        format.container.uppercase(),
+        format.sizeBytes?.let(::formatBytes),
+    ).joinToString(" · ")
+}
+
+fun formatSpeed(bytesPerSecond: Long?): String? {
+    if (bytesPerSecond == null || bytesPerSecond <= 0) return null
+    return "${formatBytes(bytesPerSecond)}/s"
+}
+
+fun statusLabel(status: DownloadStatus, strings: AppStrings): String = when (status) {
+    DownloadStatus.QUEUED -> strings.statusQueued
+    DownloadStatus.DOWNLOADING -> strings.statusDownloading
+    DownloadStatus.PROCESSING -> strings.statusProcessing
+    DownloadStatus.COMPLETED -> strings.statusCompleted
+    DownloadStatus.FAILED -> strings.statusFailed
+    DownloadStatus.CANCELED -> strings.statusCanceled
+}

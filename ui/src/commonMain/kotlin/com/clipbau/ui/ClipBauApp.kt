@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.clipbau.core.application.DownloadCoordinator
 import com.clipbau.core.domain.DownloadEngine
 import com.clipbau.ui.i18n.LocalStrings
 import com.clipbau.ui.i18n.PtBrStrings
@@ -43,11 +44,13 @@ import com.clipbau.ui.theme.ClipBauTheme
 @Composable
 fun ClipBauApp(
     engine: DownloadEngine,
+    coordinator: DownloadCoordinator,
+    downloadsDirectory: String,
     strings: AppStrings = PtBrStrings,
 ) {
     CompositionLocalProvider(LocalStrings provides strings) {
         ClipBauTheme {
-            AppShell(engine)
+            AppShell(engine, coordinator, downloadsDirectory)
         }
     }
 }
@@ -55,7 +58,11 @@ fun ClipBauApp(
 private data class ShellTab(val icon: ImageVector, val label: String)
 
 @Composable
-private fun AppShell(engine: DownloadEngine) {
+private fun AppShell(
+    engine: DownloadEngine,
+    coordinator: DownloadCoordinator,
+    downloadsDirectory: String,
+) {
     val strings = LocalStrings.current
     val tabs = listOf(
         ShellTab(Icons.Default.Home, strings.tabHome),
@@ -70,10 +77,16 @@ private fun AppShell(engine: DownloadEngine) {
         val content: @Composable (PaddingValues) -> Unit = { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
                 when (selected) {
-                    0 -> HomeScreen(engine)
-                    1 -> DownloadsScreen()
-                    2 -> LibraryScreen()
-                    else -> SettingsScreen(engine)
+                    0 -> HomeScreen(
+                        engine = engine,
+                        coordinator = coordinator,
+                        downloadsDirectory = downloadsDirectory,
+                        onDownloadStarted = { selected = 1 },
+                    )
+
+                    1 -> DownloadsScreen(coordinator)
+                    2 -> LibraryScreen(coordinator)
+                    else -> SettingsScreen(engine, downloadsDirectory)
                 }
             }
         }
