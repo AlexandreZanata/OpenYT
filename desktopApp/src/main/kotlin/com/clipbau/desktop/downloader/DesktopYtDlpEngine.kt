@@ -74,7 +74,10 @@ class DesktopYtDlpEngine(
             }
 
             val directory = File(request.destinationDirectory).apply { mkdirs() }
-            val tempDirectory = File(directory, ".clipbau-tmp-$downloadId").apply { mkdirs() }
+            val safeId = downloadId.filter { it.isLetterOrDigit() || it == '-' || it == '_' }
+                .take(MAX_ID_LENGTH)
+                .ifEmpty { "download" }
+            val tempDirectory = File(directory, ".clipbau-tmp-$safeId").apply { mkdirs() }
             val arguments = buildList {
                 add(binary)
                 add("--no-playlist")
@@ -229,6 +232,7 @@ class DesktopYtDlpEngine(
     )
 
     private companion object {
+        const val MAX_ID_LENGTH = 64
         const val MAX_STDERR_LINES = 200
         const val PROGRESS_TEMPLATE =
             "download:CLIPBAU_PROGRESS:%(progress._percent_str)s|" +
