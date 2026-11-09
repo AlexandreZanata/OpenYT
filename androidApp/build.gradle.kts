@@ -1,0 +1,59 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.compose.compiler)
+}
+
+android {
+    namespace = "com.clipbau.android"
+    compileSdk = libs.versions.compileSdk.get().toInt()
+
+    defaultConfig {
+        applicationId = "com.clipbau.android"
+        minSdk = libs.versions.minSdk.get().toInt()
+        targetSdk = libs.versions.targetSdk.get().toInt()
+        versionCode = 1
+        versionName = "0.1.0"
+
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
+    }
+
+    buildFeatures {
+        compose = true
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+
+dependencies {
+    implementation(project(":ui"))
+    implementation(project(":core"))
+    implementation(project(":engine-ytdlp"))
+
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.kotlinx.coroutines.android)
+
+    implementation(libs.youtubedl.android.library)
+    implementation(libs.youtubedl.android.ffmpeg)
+}
