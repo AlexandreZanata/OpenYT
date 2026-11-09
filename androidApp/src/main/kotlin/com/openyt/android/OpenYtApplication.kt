@@ -5,6 +5,7 @@ import android.content.Context
 import com.openyt.android.downloader.AndroidYtDlpEngine
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.DownloadRepository
+import com.openyt.core.application.LibraryController
 import com.openyt.core.application.SettingsController
 import com.openyt.core.application.SettingsRepository
 import com.openyt.core.domain.DownloadEngine
@@ -44,11 +45,14 @@ class AppContainer(context: Context) {
 
     val settingsController: SettingsController = SettingsController(settingsRepository, appScope)
 
+    val libraryController: LibraryController = LibraryController(repository, appScope)
+
     init {
         cleanStaleTemporaryFiles(File(downloadsDirectory))
         appScope.launch {
             coordinator.restore()
             settingsController.restore()
+            libraryController.restore()
             cleanStaleTemporaryFiles(
                 File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory),
             )

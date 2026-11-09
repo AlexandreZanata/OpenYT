@@ -2,18 +2,20 @@ package com.openyt.ui.screens
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -39,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
+import com.openyt.core.application.LibraryController
 import com.openyt.core.application.LibraryFilter
 import com.openyt.core.application.LibraryItem
 import com.openyt.core.application.LibraryQuery
@@ -55,10 +58,13 @@ import kotlinx.coroutines.withContext
 fun LibraryScreen(
     coordinator: DownloadCoordinator,
     fileAvailability: FileAvailability,
+    libraryController: LibraryController,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
     val entries by coordinator.library.collectAsState()
+    val collections by libraryController.collections.collectAsState()
+    val membership by libraryController.membership.collectAsState()
 
     var query by rememberSaveable { mutableStateOf("") }
     var kind by remember { mutableStateOf<MediaKind?>(null) }
@@ -69,6 +75,16 @@ fun LibraryScreen(
     var detail by remember { mutableStateOf<LibraryItem?>(null) }
     var sortByTitle by remember { mutableStateOf(false) }
     var confirmRemoveDuplicates by remember { mutableStateOf(false) }
+    var selectedCollectionId by remember { mutableStateOf<String?>(null) }
+    var showCreateCollection by remember { mutableStateOf(false) }
+    var newCollectionName by remember { mutableStateOf("") }
+    var assigningEntry by remember { mutableStateOf<LibraryEntry?>(null) }
+    var confirmDeleteCollection by remember { mutableStateOf(false) }
+
+    val activeCollectionId = selectedCollectionId?.takeIf { id -> collections.any { it.id == id } }
+    val collectionEntries = activeCollectionId?.let { id ->
+        entries.filter { it.id in membership[id].orEmpty() }
+    } ?: entries
 
     LaunchedEffect(entries, checkToken) {
         missingIds = withContext(Dispatchers.Default) {
@@ -77,14 +93,14 @@ fun LibraryScreen(
     }
 
     val filter = LibraryFilter(query, kind, missingOnly, duplicatesOnly)
-    val items = remember(entries, missingIds, filter) {
-        LibraryQuery.apply(entries, missingIds, filter)
+    val items = remember(collectionEntries, missingIds, filter) {
+        LibraryQuery.apply(collectionEntries, missingIds, filter)
     }
     val sortedItems = remember(items, sortByTitle) {
         if (sortByTitle) items.sortedBy { it.entry.title.lowercase() } else items
     }
-    val duplicateRemovalIds = remember(entries) {
-        LibraryQuery.duplicateRemovalIds(entries)
+    val duplicateRemovalIds = remember(collectionEntries) {
+        LibraryQuery.duplicateRemovalIds(collectionEntries)
     }
 
     BoxWithConstraints(modifier.fillMaxSize()) {
@@ -95,7 +111,7 @@ fun LibraryScreen(
 
         Column(
             modifier = Modifier.fillMaxSize().padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
                 strings.libraryTitle,
@@ -108,9 +124,7 @@ fun LibraryScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = { checkToken++ }) {
-                    Text(strings.verifyFiles)
-                }
+                TextButton(onClick = { checkToken++ }) { Text(strings.verifyFiles) }
                 if (duplicateRemovalIds.isNotEmpty()) {
                     TextButton(onClick = { confirmRemoveDuplicates = true }) {
                         Text(strings.removeDuplicates)
@@ -126,6 +140,11 @@ fun LibraryScreen(
                         Text(strings.removeSelected)
                     }
                 }
+                if (activeCollectionId != null) {
+                    TextButton(onClick = { confirmDeleteCollection = true }) {
+                        Text(strings.deleteCollection)
+                    }
+                }
             }
 
             OutlinedTextField(
@@ -135,6 +154,38 @@ fun LibraryScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            Text(
+                strings.collectionsLabel,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = activeCollectionId == null,
+                    onClick = { selectedCollectionId = null },
+                    label = { Text(strings.allCollections) },
+                )
+                collections.forEach { collection ->
+                    FilterChip(
+                        selected = activeCollectionId == collection.id,
+                        onClick = {
+                            selectedCollectionId = if (activeCollectionId == collection.id) {
+                                null
+                            } else {
+                                collection.id
+                            }
+                        },
+                        label = { Text(collection.name) },
+                    )
+                }
+                TextButton(onClick = { showCreateCollection = true }) {
+                    Text(strings.newCollection)
+                }
+            }
 
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -196,6 +247,7 @@ fun LibraryScreen(
                     items(sortedItems, key = { it.entry.id }) { item ->
                         LibraryCard(
                             item = item,
+                            wide = wide,
                             selectable = wide,
                             selected = item.entry.id in activeSelection,
                             onSelect = { checked ->
@@ -206,6 +258,7 @@ fun LibraryScreen(
                                 }
                             },
                             onDetails = { detail = item },
+                            onCollections = { assigningEntry = item.entry },
                             onRemove = { coordinator.removeFromLibrary(item.entry.id) },
                         )
                     }
@@ -224,6 +277,121 @@ fun LibraryScreen(
 
     detail?.let { item ->
         LibraryDetailsDialog(item = item, onClose = { detail = null })
+    }
+
+    if (showCreateCollection) {
+        AlertDialog(
+            onDismissRequest = {
+                showCreateCollection = false
+                newCollectionName = ""
+            },
+            title = { Text(strings.newCollection) },
+            text = {
+                OutlinedTextField(
+                    value = newCollectionName,
+                    onValueChange = { newCollectionName = it },
+                    label = { Text(strings.collectionName) },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = newCollectionName.isNotBlank(),
+                    onClick = {
+                        val id = libraryController.createCollection(newCollectionName)
+                        if (id != null) selectedCollectionId = id
+                        newCollectionName = ""
+                        showCreateCollection = false
+                    },
+                ) {
+                    Text(strings.createAction)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        newCollectionName = ""
+                        showCreateCollection = false
+                    },
+                ) {
+                    Text(strings.cancelAction)
+                }
+            },
+        )
+    }
+
+    assigningEntry?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { assigningEntry = null },
+            title = { Text(strings.assignCollections) },
+            text = {
+                if (collections.isEmpty()) {
+                    Text(strings.noCollections)
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 320.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        collections.forEach { collection ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = entry.id in membership[collection.id].orEmpty(),
+                                    onCheckedChange = {
+                                        libraryController.toggleEntry(collection.id, entry.id)
+                                    },
+                                )
+                                Text(collection.name)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { assigningEntry = null }) {
+                    Text(strings.closeAction)
+                }
+            },
+            dismissButton = if (collections.isEmpty()) {
+                {
+                    TextButton(
+                        onClick = {
+                            assigningEntry = null
+                            showCreateCollection = true
+                        },
+                    ) {
+                        Text(strings.newCollection)
+                    }
+                }
+            } else {
+                null
+            },
+        )
+    }
+
+    if (confirmDeleteCollection && activeCollectionId != null) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteCollection = false },
+            title = { Text(strings.deleteCollection) },
+            text = { Text(strings.deleteCollectionHint) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        libraryController.deleteCollection(activeCollectionId)
+                        selectedCollectionId = null
+                        confirmDeleteCollection = false
+                    },
+                ) {
+                    Text(strings.deleteCollection)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteCollection = false }) {
+                    Text(strings.cancelAction)
+                }
+            },
+        )
     }
 
     if (confirmRemoveDuplicates) {
@@ -253,19 +421,21 @@ fun LibraryScreen(
 @Composable
 private fun LibraryCard(
     item: LibraryItem,
+    wide: Boolean,
     selectable: Boolean,
     selected: Boolean,
     onSelect: (Boolean) -> Unit,
     onDetails: () -> Unit,
+    onCollections: () -> Unit,
     onRemove: () -> Unit,
 ) {
     val strings = LocalStrings.current
     val entry = item.entry
 
     Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (selectable) {
@@ -278,47 +448,57 @@ private fun LibraryCard(
                 if (!entry.thumbnailUrl.isNullOrBlank()) {
                     MediaThumbnail(
                         url = entry.thumbnailUrl,
-                        modifier = Modifier.width(96.dp).aspectRatio(16f / 9f),
+                        modifier = Modifier
+                            .width(if (wide) 240.dp else 96.dp)
+                            .aspectRatio(16f / 9f),
                     )
                 }
-                Text(
-                    entry.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                Column(
                     modifier = Modifier.weight(1f),
-                )
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        entry.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val name = entry.filePath.substringAfterLast('/').substringAfterLast('\\')
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        listOfNotNull(formatBytes(entry.sizeBytes), kindLabel(entry.kind, strings))
+                            .joinToString(" · "),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (item.missing) {
+                        Text(
+                            strings.missingFile,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    if (item.duplicate) {
+                        Text(
+                            strings.possibleDuplicate,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.secondary,
+                        )
+                    }
+                }
             }
-            val name = entry.filePath.substringAfterLast('/').substringAfterLast('\\')
-            Text(
-                name,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                listOfNotNull(formatBytes(entry.sizeBytes), kindLabel(entry.kind, strings))
-                    .joinToString(" · "),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (item.missing) {
-                Text(
-                    strings.missingFile,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-            if (item.duplicate) {
-                Text(
-                    strings.possibleDuplicate,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.secondary,
-                )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 TextButton(onClick = onDetails) { Text(strings.detailsAction) }
+                TextButton(onClick = onCollections) { Text(strings.assignCollections) }
                 TextButton(onClick = onRemove) { Text(strings.removeFromLibrary) }
-                Spacer(Modifier.weight(1f))
             }
         }
     }

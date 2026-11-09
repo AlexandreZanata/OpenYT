@@ -18,6 +18,7 @@ import androidx.compose.ui.window.rememberWindowState
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderPicker
+import com.openyt.core.application.LibraryController
 import com.openyt.core.application.SettingsController
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.SqlDelightSettingsRepository
@@ -45,13 +46,15 @@ fun main() = application {
         SettingsController(database?.let(::SqlDelightSettingsRepository), scope)
     }
     val coordinator = remember(engine) { DownloadCoordinator(engine, scope, repository) }
+    val libraryController = remember(repository) { LibraryController(repository, scope) }
     val downloadsDirectory = remember { defaultDownloadsDirectory() }
     val folderPicker = remember { FolderPicker { current -> DesktopFolderPicker.pick(current) } }
     var sharedUrl by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(coordinator, settingsController) {
+    LaunchedEffect(coordinator, settingsController, libraryController) {
         coordinator.restore()
         settingsController.restore()
+        libraryController.restore()
         cleanStaleTemporaryFiles(
             File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory),
         )
@@ -97,6 +100,7 @@ fun main() = application {
             engine = engine,
             coordinator = coordinator,
             settingsController = settingsController,
+            libraryController = libraryController,
             downloadsDirectory = downloadsDirectory,
             fileAvailability = FileAvailability { File(it).isFile },
             initialSharedUrl = sharedUrl,

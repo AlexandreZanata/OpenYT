@@ -1,17 +1,19 @@
 package com.openyt.ui.screens
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
@@ -105,6 +107,7 @@ fun DownloadsScreen(
                     items(tasks, key = { it.id }) { task ->
                         DownloadTaskCard(
                             task = task,
+                            wide = wide,
                             selectable = wide && task.status.isFinished,
                             selected = task.id in activeSelection,
                             onSelect = { checked ->
@@ -124,6 +127,7 @@ fun DownloadsScreen(
 @Composable
 private fun DownloadTaskCard(
     task: DownloadTask,
+    wide: Boolean,
     selectable: Boolean,
     selected: Boolean,
     onSelect: (Boolean) -> Unit,
@@ -135,7 +139,7 @@ private fun DownloadTaskCard(
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (selectable) {
@@ -150,63 +154,76 @@ private fun DownloadTaskCard(
                 if (!task.media.thumbnailUrl.isNullOrBlank()) {
                     MediaThumbnail(
                         url = task.media.thumbnailUrl,
-                        modifier = Modifier.width(96.dp).aspectRatio(16f / 9f),
+                        modifier = Modifier
+                            .width(if (wide) 240.dp else 96.dp)
+                            .aspectRatio(16f / 9f),
                     )
                 }
-                Text(
-                    task.media.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                Column(
                     modifier = Modifier.weight(1f),
-                )
-            }
-            Text(
-                statusLabel(task.status, strings),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-            )
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        task.media.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        statusLabel(task.status, strings),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    )
 
-            if (task.status == DownloadStatus.DOWNLOADING || task.status == DownloadStatus.PROCESSING) {
-                LinearProgressIndicator(
-                    progress = { (task.percent / 100.0).toFloat().coerceIn(0f, 1f) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics {
-                            contentDescription = "${task.media.title}: ${task.percent.toInt()}%"
-                        },
-                )
-                val details = buildList {
-                    add("${task.percent.toInt()}%")
-                    formatSpeed(task.speedBytesPerSecond)?.let(::add)
-                    formatDuration(task.etaSeconds)?.let { add("${strings.etaLabel} $it") }
+                    if (
+                        task.status == DownloadStatus.DOWNLOADING ||
+                        task.status == DownloadStatus.PROCESSING
+                    ) {
+                        LinearProgressIndicator(
+                            progress = { (task.percent / 100.0).toFloat().coerceIn(0f, 1f) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .semantics {
+                                    contentDescription =
+                                        "${task.media.title}: ${task.percent.toInt()}%"
+                                },
+                        )
+                        val details = buildList {
+                            add("${task.percent.toInt()}%")
+                            formatSpeed(task.speedBytesPerSecond)?.let(::add)
+                            formatDuration(task.etaSeconds)?.let { add("${strings.etaLabel} $it") }
+                        }
+                        Text(
+                            details.joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    task.failure?.let { failure ->
+                        Text(
+                            failureMessage(failure, strings),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+
+                    if (task.status == DownloadStatus.COMPLETED) {
+                        val name = task.filePath?.substringAfterLast('/')?.substringAfterLast('\\')
+                        Text(
+                            listOfNotNull(name, formatBytes(task.sizeBytes)).joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-                Text(
-                    details.joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
 
-            task.failure?.let { failure ->
-                Text(
-                    failureMessage(failure, strings),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-
-            if (task.status == DownloadStatus.COMPLETED) {
-                val name = task.filePath?.substringAfterLast('/')?.substringAfterLast('\\')
-                Text(
-                    listOfNotNull(name, formatBytes(task.sizeBytes)).joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 when {
                     task.status.isActive ->
                         TextButton(onClick = onCancel) { Text(strings.cancelAction) }

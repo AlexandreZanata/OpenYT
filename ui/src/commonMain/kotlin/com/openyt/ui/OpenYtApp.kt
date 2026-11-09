@@ -15,11 +15,13 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
@@ -42,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderPicker
+import com.openyt.core.application.LibraryController
 import com.openyt.core.application.SettingsController
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.DownloadEngine
@@ -61,6 +64,7 @@ fun OpenYtApp(
     engine: DownloadEngine,
     coordinator: DownloadCoordinator,
     settingsController: SettingsController,
+    libraryController: LibraryController,
     downloadsDirectory: String,
     fileAvailability: FileAvailability,
     initialSharedUrl: String? = null,
@@ -83,16 +87,22 @@ fun OpenYtApp(
                 ThemeMode.DARK -> true
             },
         ) {
-            AppShell(
-                engine = engine,
-                coordinator = coordinator,
-                settingsController = settingsController,
-                downloadsDirectory = effectiveDownloadsDirectory,
-                fileAvailability = fileAvailability,
-                initialSharedUrl = initialSharedUrl,
-                onSharedUrlConsumed = onSharedUrlConsumed,
-                folderPicker = folderPicker,
-            )
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background,
+            ) {
+                AppShell(
+                    engine = engine,
+                    coordinator = coordinator,
+                    settingsController = settingsController,
+                    libraryController = libraryController,
+                    downloadsDirectory = effectiveDownloadsDirectory,
+                    fileAvailability = fileAvailability,
+                    initialSharedUrl = initialSharedUrl,
+                    onSharedUrlConsumed = onSharedUrlConsumed,
+                    folderPicker = folderPicker,
+                )
+            }
         }
     }
 }
@@ -109,6 +119,7 @@ private fun AppShell(
     engine: DownloadEngine,
     coordinator: DownloadCoordinator,
     settingsController: SettingsController,
+    libraryController: LibraryController,
     downloadsDirectory: String,
     fileAvailability: FileAvailability,
     initialSharedUrl: String?,
@@ -160,7 +171,7 @@ private fun AppShell(
                     )
 
                     1 -> DownloadsScreen(coordinator)
-                    2 -> LibraryScreen(coordinator, fileAvailability)
+                    2 -> LibraryScreen(coordinator, fileAvailability, libraryController)
                     else -> SettingsScreen(engine, downloadsDirectory, settingsController, folderPicker)
                 }
             }
