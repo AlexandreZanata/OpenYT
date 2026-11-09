@@ -1,5 +1,6 @@
 package com.openyt.ui
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -31,10 +34,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.SettingsController
+import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.DownloadEngine
+import com.openyt.core.domain.ThemeMode
+import com.openyt.ui.i18n.AppStrings
+import com.openyt.ui.i18n.EnStrings
 import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.i18n.PtBrStrings
-import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.screens.DownloadsScreen
 import com.openyt.ui.screens.HomeScreen
 import com.openyt.ui.screens.LibraryScreen
@@ -45,14 +52,41 @@ import com.openyt.ui.theme.OpenYtTheme
 fun OpenYtApp(
     engine: DownloadEngine,
     coordinator: DownloadCoordinator,
+    settingsController: SettingsController,
     downloadsDirectory: String,
-    strings: AppStrings = PtBrStrings,
+    initialSharedUrl: String? = null,
+    onSharedUrlConsumed: () -> Unit = {},
 ) {
+    val settings by settingsController.settings.collectAsState()
+    val strings = stringsFor(settings.language)
+
+    LaunchedEffect(settings.maxConcurrentDownloads) {
+        coordinator.setMaxConcurrentDownloads(settings.maxConcurrentDownloads)
+    }
+
     CompositionLocalProvider(LocalStrings provides strings) {
-        OpenYtTheme {
-            AppShell(engine, coordinator, downloadsDirectory)
+        OpenYtTheme(
+            darkTheme = when (settings.themeMode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            },
+        ) {
+            AppShell(
+                engine = engine,
+                coordinator = coordinator,
+                settingsController = settingsController,
+                downloadsDirectory = downloadsDirectory,
+                initialSharedUrl = initialSharedUrl,
+                onSharedUrlConsumed = onSharedUrlConsumed,
+            )
         }
     }
+}
+
+private fun stringsFor(language: AppLanguage): AppStrings = when (language) {
+    AppLanguage.PT_BR -> PtBrStrings
+    AppLanguage.EN -> EnStrings
 }
 
 private data class ShellTab(val icon: ImageVector, val label: String)
@@ -61,7 +95,10 @@ private data class ShellTab(val icon: ImageVector, val label: String)
 private fun AppShell(
     engine: DownloadEngine,
     coordinator: DownloadCoordinator,
+    settingsController: SettingsController,
     downloadsDirectory: String,
+    initialSharedUrl: String?,
+    onSharedUrlConsumed: () -> Unit,
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -71,6 +108,10 @@ private fun AppShell(
         ShellTab(Icons.Default.Settings, strings.tabSettings),
     )
     var selected by rememberSaveable { mutableStateOf(0) }
+
+    LaunchedEffect(initialSharedUrl) {
+        if (!initialSharedUrl.isNullOrBlank()) selected = 0
+    }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 720.dp
@@ -82,11 +123,13 @@ private fun AppShell(
                         coordinator = coordinator,
                         downloadsDirectory = downloadsDirectory,
                         onDownloadStarted = { selected = 1 },
+                        initialSharedUrl = initialSharedUrl,
+                        onSharedUrlConsumed = onSharedUrlConsumed,
                     )
 
                     1 -> DownloadsScreen(coordinator)
                     2 -> LibraryScreen(coordinator)
-                    else -> SettingsScreen(engine, downloadsDirectory, coordinator.maxConcurrentDownloads)
+                    else -> SettingsScreen(engine, downloadsDirectory, settingsController)
                 }
             }
         }

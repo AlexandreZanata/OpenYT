@@ -19,6 +19,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
@@ -41,7 +46,11 @@ fun DownloadsScreen(
 
     Column(modifier = modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(strings.downloadsTitle, style = MaterialTheme.typography.headlineMedium)
+            Text(
+                strings.downloadsTitle,
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.semantics { heading() },
+            )
             Spacer(Modifier.weight(1f))
             if (tasks.any { it.status.isFinished }) {
                 TextButton(onClick = coordinator::clearFinished) {
@@ -94,12 +103,17 @@ private fun DownloadTaskCard(
                 statusLabel(task.status, strings),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
 
             if (task.status == DownloadStatus.DOWNLOADING || task.status == DownloadStatus.PROCESSING) {
                 LinearProgressIndicator(
                     progress = { (task.percent / 100.0).toFloat().coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics {
+                            contentDescription = "${task.media.title}: ${task.percent.toInt()}%"
+                        },
                 )
                 val details = buildList {
                     add("${task.percent.toInt()}%")

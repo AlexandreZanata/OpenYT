@@ -5,8 +5,11 @@ import android.content.Context
 import com.openyt.android.downloader.AndroidYtDlpEngine
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.DownloadRepository
+import com.openyt.core.application.SettingsController
+import com.openyt.core.application.SettingsRepository
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.data.SqlDelightDownloadRepository
+import com.openyt.data.SqlDelightSettingsRepository
 import com.openyt.data.createOpenYtDatabase
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -36,9 +39,17 @@ class AppContainer(context: Context) {
 
     val coordinator: DownloadCoordinator = DownloadCoordinator(engine, appScope, repository)
 
+    val settingsRepository: SettingsRepository? =
+        database.getOrNull()?.let(::SqlDelightSettingsRepository)
+
+    val settingsController: SettingsController = SettingsController(settingsRepository, appScope)
+
     init {
         cleanStaleTemporaryFiles(File(downloadsDirectory))
-        appScope.launch { coordinator.restore() }
+        appScope.launch {
+            coordinator.restore()
+            settingsController.restore()
+        }
     }
 }
 

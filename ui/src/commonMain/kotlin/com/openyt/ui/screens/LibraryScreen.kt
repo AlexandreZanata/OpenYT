@@ -17,6 +17,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
@@ -33,7 +35,11 @@ fun LibraryScreen(
     val entries by coordinator.library.collectAsState()
 
     Column(modifier = modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(strings.libraryTitle, style = MaterialTheme.typography.headlineMedium)
+        Text(
+            strings.libraryTitle,
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() },
+        )
 
         if (entries.isEmpty()) {
             Text(

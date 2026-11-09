@@ -25,6 +25,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +33,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
@@ -62,6 +65,8 @@ fun HomeScreen(
     coordinator: DownloadCoordinator,
     downloadsDirectory: String,
     onDownloadStarted: () -> Unit,
+    initialSharedUrl: String? = null,
+    onSharedUrlConsumed: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
@@ -70,6 +75,20 @@ fun HomeScreen(
     var url by rememberSaveable { mutableStateOf("") }
     var state by remember { mutableStateOf<HomeState>(HomeState.Idle) }
 
+    LaunchedEffect(initialSharedUrl) {
+        val shared = initialSharedUrl?.trim()?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
+        url = shared
+        state = HomeState.Loading
+        try {
+            state = when (val result = inspectMedia(shared)) {
+                is EngineResult.Success -> HomeState.Ready(result.value, shared)
+                is EngineResult.Failure -> HomeState.Error(result.failure)
+            }
+        } finally {
+            onSharedUrlConsumed()
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -77,7 +96,11 @@ fun HomeScreen(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(strings.homeTitle, style = MaterialTheme.typography.headlineMedium)
+        Text(
+            strings.homeTitle,
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() },
+        )
         Text(
             strings.homeSubtitle,
             style = MaterialTheme.typography.bodyMedium,

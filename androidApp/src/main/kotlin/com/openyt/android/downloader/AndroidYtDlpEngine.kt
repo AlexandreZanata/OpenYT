@@ -139,7 +139,15 @@ class AndroidYtDlpEngine(
     override suspend fun capabilities(): EngineCapabilities {
         val version = runCatching {
             initialize()
-            withContext(Dispatchers.IO) { YoutubeDL.getInstance().version(context) }
+            withContext(Dispatchers.IO) {
+                YoutubeDL.getInstance().version(context) ?: runCatching {
+                    val request = YoutubeDLRequest("").apply { addOption("--version") }
+                    YoutubeDL.getInstance().execute(request).out
+                        .trim()
+                        .lineSequence()
+                        .lastOrNull { it.isNotBlank() }
+                }.getOrNull()
+            }
         }.getOrNull()
 
         return EngineCapabilities(
