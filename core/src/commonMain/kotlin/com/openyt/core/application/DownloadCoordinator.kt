@@ -14,10 +14,10 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 
 /**
  * Owns the in-memory view of the persistent download queue and library.
@@ -32,10 +32,10 @@ class DownloadCoordinator(
     private val engine: DownloadEngine,
     private val scope: CoroutineScope,
     private val repository: DownloadRepository? = null,
-    val maxConcurrentDownloads: Int = DEFAULT_MAX_CONCURRENT,
+    initialMaxConcurrentDownloads: Int = DEFAULT_MAX_CONCURRENT,
 ) {
     init {
-        require(maxConcurrentDownloads > 0) { "maxConcurrentDownloads must be positive" }
+        require(initialMaxConcurrentDownloads > 0) { "initialMaxConcurrentDownloads must be positive" }
     }
 
     private val _tasks = MutableStateFlow<List<DownloadTask>>(emptyList())
@@ -44,7 +44,11 @@ class DownloadCoordinator(
     private val _library = MutableStateFlow<List<LibraryEntry>>(emptyList())
     val library: StateFlow<List<LibraryEntry>> = _library.asStateFlow()
 
-    private val permits = Semaphore(maxConcurrentDownloads)
+    private val activeDownloads = MutableStateFlow(0)
+    private val concurrencyLimit = MutableStateFlow(initialMaxConcurrentDownloads)
+    val maxConcurrentDownloads: Int
+        get() = concurrencyLimit.value
+
     private val persistence = Channel<suspend () -> Unit>(Channel.UNLIMITED)
 
     private var nextId = 0
@@ -79,6 +83,10 @@ class DownloadCoordinator(
         }
     }
 
+    fun setMaxConcurrentDownloads(value: Int) {
+        concurrencyLimit.value = value.coerceIn(1, MAX_CONCURRENT)
+    }
+
     fun enqueue(media: MediaInfo, request: DownloadRequest): String {
         val duplicate = _tasks.value.firstOrNull { task ->
             task.status.isActive &&
@@ -102,6 +110,10 @@ class DownloadCoordinator(
     fun cancel(id: String) {
         val task = _tasks.value.firstOrNull { it.id == id } ?: return
         if (!task.status.isActive) return
+        if (task.status == DownloadStatus.QUEUED) {
+            applyEvent(id, DownloadEvent.Canceled)
+            return
+        }
         scope.launch { engine.cancel(id) }
     }
 
@@ -145,17 +157,35 @@ class DownloadCoordinator(
 
     private fun launchDownload(task: DownloadTask) {
         scope.launch {
-            permits.withPermit {
-                try {
-                    engine.download(task.request, task.id).collect { event ->
-                        applyEvent(task.id, event)
-                    }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    applyEvent(task.id, DownloadEvent.Failed(DownloadFailure.Unexpected(null)))
+            acquireSlot()
+            try {
+                val current = _tasks.value.firstOrNull { it.id == task.id }
+                if (current?.status != DownloadStatus.QUEUED) return@launch
+                engine.download(task.request, task.id).collect { event ->
+                    applyEvent(task.id, event)
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                applyEvent(task.id, DownloadEvent.Failed(DownloadFailure.Unexpected(null)))
+            } finally {
+                activeDownloads.update { (it - 1).coerceAtLeast(0) }
             }
+        }
+    }
+
+    private suspend fun acquireSlot() {
+        while (true) {
+            val active = activeDownloads.value
+            if (
+                active < concurrencyLimit.value &&
+                activeDownloads.compareAndSet(active, active + 1)
+            ) {
+                return
+            }
+            combine(activeDownloads, concurrencyLimit) { running, limit ->
+                running < limit
+            }.first { it }
         }
     }
 
@@ -222,6 +252,7 @@ class DownloadCoordinator(
 
     private companion object {
         const val DEFAULT_MAX_CONCURRENT = 2
+        const val MAX_CONCURRENT = 4
         const val PROGRESS_BUCKET = 10
         const val TASK_ID_PREFIX = "download-"
     }

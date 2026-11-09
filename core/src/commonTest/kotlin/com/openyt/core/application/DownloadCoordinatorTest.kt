@@ -238,7 +238,7 @@ class DownloadCoordinatorTest {
         val coordinator = DownloadCoordinator(
             engine = engine,
             scope = coordinatorScope(),
-            maxConcurrentDownloads = 1,
+            initialMaxConcurrentDownloads = 1,
         )
 
         val first = coordinator.enqueue(FakeDownloadEngine.SAMPLE_MEDIA, request())
@@ -254,6 +254,57 @@ class DownloadCoordinatorTest {
 
         val after = coordinator.tasks.value.associateBy { it.id }
         assertEquals(DownloadStatus.COMPLETED, after.getValue(first).status)
+        assertEquals(DownloadStatus.DOWNLOADING, after.getValue(second).status)
+    }
+
+    @Test
+    fun cancellingQueuedDownloadDoesNotStartIt() = runTest {
+        val engine = GatedEngine()
+        val coordinator = DownloadCoordinator(
+            engine = engine,
+            scope = coordinatorScope(),
+            initialMaxConcurrentDownloads = 1,
+        )
+
+        val first = coordinator.enqueue(FakeDownloadEngine.SAMPLE_MEDIA, request())
+        val second = coordinator.enqueue(FakeDownloadEngine.SAMPLE_MEDIA, request().copy(url = "https://example.com/other"))
+        advanceUntilIdle()
+        assertEquals(
+            DownloadStatus.QUEUED,
+            coordinator.tasks.value.associateBy { it.id }.getValue(second).status,
+        )
+
+        coordinator.cancel(second)
+        engine.release(first)
+        advanceUntilIdle()
+
+        val after = coordinator.tasks.value.associateBy { it.id }
+        assertEquals(DownloadStatus.COMPLETED, after.getValue(first).status)
+        assertEquals(DownloadStatus.CANCELED, after.getValue(second).status)
+    }
+
+    @Test
+    fun increasingConcurrencyStartsQueuedDownloads() = runTest {
+        val engine = GatedEngine()
+        val coordinator = DownloadCoordinator(
+            engine = engine,
+            scope = coordinatorScope(),
+            initialMaxConcurrentDownloads = 1,
+        )
+
+        val first = coordinator.enqueue(FakeDownloadEngine.SAMPLE_MEDIA, request())
+        val second = coordinator.enqueue(FakeDownloadEngine.SAMPLE_MEDIA, request().copy(url = "https://example.com/other"))
+        advanceUntilIdle()
+        assertEquals(
+            DownloadStatus.QUEUED,
+            coordinator.tasks.value.associateBy { it.id }.getValue(second).status,
+        )
+
+        coordinator.setMaxConcurrentDownloads(2)
+        advanceUntilIdle()
+
+        val after = coordinator.tasks.value.associateBy { it.id }
+        assertEquals(DownloadStatus.DOWNLOADING, after.getValue(first).status)
         assertEquals(DownloadStatus.DOWNLOADING, after.getValue(second).status)
     }
 
