@@ -1,4 +1,7 @@
-# OpenYT
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/branding/openyt-lockup-dark.svg">
+  <img src="docs/branding/openyt-lockup-light.svg" width="310" alt="OpenYT">
+</picture>
 
 Local-first, multiplatform media downloader and library manager built with Kotlin.
 
@@ -91,7 +94,8 @@ secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
 - Library collections: create, filter, and assign media; deleting a collection
   never touches files or library entries.
 - Desktop uses larger responsive thumbnails and a themed wide layout.
-- Cohesive light/dark themes with a teal visual identity and an OpenYT brand mark.
+- Shared OpenYT identity with light and dark themes, an adaptive Android launcher
+  icon, and desktop window and package icons.
 - Library details show technical metadata (duration, resolution, codecs, bitrate,
   container) via platform probes.
 - Share completed media to WhatsApp, Drive, and any installed Android handler via
@@ -105,6 +109,7 @@ secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
 - Project status and limitations: `docs/planning/STATUS.md`
 - Architecture and module rules: `docs/architecture/OVERVIEW.md`
 - Decisions: `docs/adr/`
+- [Brand assets and usage guidelines](docs/branding/README.md)
 
 ## Licensing
 

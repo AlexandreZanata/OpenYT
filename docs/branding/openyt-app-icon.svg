@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">OpenYT app icon</title>
+  <defs>
+    <linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="12" y1="2" x2="116" y2="126">
+      <stop stop-color="#252E2C"/>
+      <stop offset="1" stop-color="#101010"/>
+    </linearGradient>
+    <linearGradient id="ring" gradientUnits="userSpaceOnUse" x1="29" y1="86" x2="96" y2="23">
+      <stop stop-color="#0F766E"/>
+      <stop offset=".55" stop-color="#1EB8A8"/>
+      <stop offset="1" stop-color="#5EEAD4"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="124" height="124" rx="30" fill="url(#tile)" stroke="#354441" stroke-width="1.5"/>
+  <path d="M45 84 A35 35 0 1 1 83 84" fill="none" stroke="url(#ring)" stroke-width="12" stroke-linecap="round"/>
+  <path d="M55 44 Q55 41 58 43 L76 53 Q79.5 55 76 57 L58 67 Q55 69 55 66 Z" fill="#F7F7F5"/>
+  <path d="M60 75 Q60 73 62 73 H66 Q68 73 68 75 V91 H75 Q79 91 76 94 L66 105 Q64 107 62 105 L52 94 Q49 91 53 91 H60 Z" fill="#5EEAD4"/>
+  <path d="M37 99 V103 Q37 114 48 114 H80 Q91 114 91 103 V99" fill="none" stroke="#479E92" stroke-width="6" stroke-linecap="round"/>
+</svg>

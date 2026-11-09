@@ -31,6 +31,7 @@ import com.openyt.desktop.downloader.DesktopMediaProbe
 import com.openyt.desktop.downloader.DesktopYtDlpEngine
 import com.openyt.desktop.share.DesktopMediaActions
 import com.openyt.ui.OpenYtApp
+import com.openyt.ui.components.BrandIconPainter
 import java.io.File
 import javax.swing.SwingUtilities
 import kotlinx.coroutines.CoroutineScope
@@ -79,6 +80,7 @@ fun main() = application {
             exitApplication()
         },
         title = "OpenYT",
+        icon = BrandIconPainter(),
         state = rememberWindowState(width = 1100.dp, height = 780.dp),
         onPreviewKeyEvent = { event ->
             if (
