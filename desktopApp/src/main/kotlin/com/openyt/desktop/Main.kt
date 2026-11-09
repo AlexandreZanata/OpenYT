@@ -26,6 +26,7 @@ import com.openyt.data.createOpenYtDatabase
 import com.openyt.data.defaultDatabasePath
 import com.openyt.desktop.downloader.DesktopMediaProbe
 import com.openyt.desktop.downloader.DesktopYtDlpEngine
+import com.openyt.desktop.share.DesktopMediaActions
 import com.openyt.ui.OpenYtApp
 import java.io.File
 import javax.swing.SwingUtilities
@@ -49,6 +50,7 @@ fun main() = application {
     val coordinator = remember(engine) { DownloadCoordinator(engine, scope, repository) }
     val libraryController = remember(repository) { LibraryController(repository, scope) }
     val mediaProbe = remember { DesktopMediaProbe() }
+    val mediaActions = remember { DesktopMediaActions() }
     val downloadsDirectory = remember { defaultDownloadsDirectory() }
     val folderPicker = remember { FolderPicker { current -> DesktopFolderPicker.pick(current) } }
     var sharedUrl by remember { mutableStateOf<String?>(null) }
@@ -104,6 +106,7 @@ fun main() = application {
             settingsController = settingsController,
             libraryController = libraryController,
             mediaProbe = mediaProbe,
+            mediaActions = mediaActions,
             downloadsDirectory = downloadsDirectory,
             fileAvailability = FileAvailability { File(it).isFile },
             initialSharedUrl = sharedUrl,

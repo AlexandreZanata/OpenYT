@@ -36,8 +36,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.MediaActions
 import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
+import com.openyt.core.domain.ShareableMedia
 import com.openyt.ui.components.MediaThumbnail
 import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.util.failureMessage
@@ -49,6 +51,7 @@ import com.openyt.ui.util.statusLabel
 @Composable
 fun DownloadsScreen(
     coordinator: DownloadCoordinator,
+    mediaActions: MediaActions,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
@@ -116,6 +119,7 @@ fun DownloadsScreen(
                             onCancel = { coordinator.cancel(task.id) },
                             onRetry = { coordinator.retry(task.id) },
                             onDismiss = { coordinator.dismiss(task.id) },
+                            mediaActions = mediaActions,
                         )
                     }
                 }
@@ -134,6 +138,7 @@ private fun DownloadTaskCard(
     onCancel: () -> Unit,
     onRetry: () -> Unit,
     onDismiss: () -> Unit,
+    mediaActions: MediaActions,
 ) {
     val strings = LocalStrings.current
     Card(Modifier.fillMaxWidth()) {
@@ -222,6 +227,7 @@ private fun DownloadTaskCard(
                 }
             }
 
+            val completedPath = task.filePath
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -233,6 +239,37 @@ private fun DownloadTaskCard(
                     task.status == DownloadStatus.FAILED ||
                         task.status == DownloadStatus.INTERRUPTED -> {
                         TextButton(onClick = onRetry) { Text(strings.retryAction) }
+                        TextButton(onClick = onDismiss) { Text(strings.dismissAction) }
+                    }
+
+                    task.status == DownloadStatus.COMPLETED && completedPath != null -> {
+                        val shareable = ShareableMedia(
+                            path = completedPath,
+                            title = task.media.title,
+                            kind = task.request.kind,
+                        )
+                        if (mediaActions.canShare) {
+                            TextButton(
+                                onClick = {
+                                    mediaActions.share(
+                                        listOf(shareable),
+                                        strings.shareChooserTitle,
+                                    )
+                                },
+                            ) {
+                                Text(strings.shareAction)
+                            }
+                        }
+                        if (mediaActions.canOpen) {
+                            TextButton(onClick = { mediaActions.open(shareable) }) {
+                                Text(strings.openAction)
+                            }
+                        }
+                        if (mediaActions.canReveal) {
+                            TextButton(onClick = { mediaActions.reveal(shareable) }) {
+                                Text(strings.revealAction)
+                            }
+                        }
                         TextButton(onClick = onDismiss) { Text(strings.dismissAction) }
                     }
 

@@ -49,6 +49,7 @@ import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.LibraryController
+import com.openyt.core.application.MediaActions
 import com.openyt.core.application.MediaProbe
 import com.openyt.core.application.SettingsController
 import com.openyt.core.domain.AppLanguage
@@ -72,6 +73,7 @@ fun OpenYtApp(
     settingsController: SettingsController,
     libraryController: LibraryController,
     mediaProbe: MediaProbe,
+    mediaActions: MediaActions,
     downloadsDirectory: String,
     fileAvailability: FileAvailability,
     initialSharedUrl: String? = null,
@@ -104,6 +106,7 @@ fun OpenYtApp(
                     settingsController = settingsController,
                     libraryController = libraryController,
                     mediaProbe = mediaProbe,
+                    mediaActions = mediaActions,
                     downloadsDirectory = effectiveDownloadsDirectory,
                     fileAvailability = fileAvailability,
                     initialSharedUrl = initialSharedUrl,
@@ -129,6 +132,7 @@ private fun AppShell(
     settingsController: SettingsController,
     libraryController: LibraryController,
     mediaProbe: MediaProbe,
+    mediaActions: MediaActions,
     downloadsDirectory: String,
     fileAvailability: FileAvailability,
     initialSharedUrl: String?,
@@ -180,8 +184,8 @@ private fun AppShell(
                         showBrand = !wide,
                     )
 
-                    1 -> DownloadsScreen(coordinator)
-                    2 -> LibraryScreen(coordinator, fileAvailability, libraryController, mediaProbe)
+                    1 -> DownloadsScreen(coordinator, mediaActions)
+                    2 -> LibraryScreen(coordinator, fileAvailability, libraryController, mediaProbe, mediaActions)
                     else -> SettingsScreen(engine, downloadsDirectory, settingsController, folderPicker)
                 }
             }
