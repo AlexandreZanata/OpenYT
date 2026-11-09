@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.ShareTextParser
 import com.openyt.ui.OpenYtApp
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +35,7 @@ class MainActivity : ComponentActivity() {
                 coordinator = container.coordinator,
                 settingsController = container.settingsController,
                 downloadsDirectory = container.downloadsDirectory,
+                fileAvailability = FileAvailability { java.io.File(it).isFile },
                 initialSharedUrl = pendingSharedUrl,
                 onSharedUrlConsumed = { sharedUrl.value = null },
             )

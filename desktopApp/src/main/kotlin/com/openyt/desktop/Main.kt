@@ -16,6 +16,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.SettingsController
 import com.openyt.data.SqlDelightDownloadRepository
@@ -97,6 +98,7 @@ fun main() = application {
             coordinator = coordinator,
             settingsController = settingsController,
             downloadsDirectory = downloadsDirectory,
+            fileAvailability = FileAvailability { File(it).isFile },
             initialSharedUrl = sharedUrl,
             onSharedUrlConsumed = { sharedUrl = null },
             folderPicker = folderPicker,

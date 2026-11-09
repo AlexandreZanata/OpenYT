@@ -40,6 +40,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.SettingsController
 import com.openyt.core.domain.AppLanguage
@@ -61,6 +62,7 @@ fun OpenYtApp(
     coordinator: DownloadCoordinator,
     settingsController: SettingsController,
     downloadsDirectory: String,
+    fileAvailability: FileAvailability,
     initialSharedUrl: String? = null,
     onSharedUrlConsumed: () -> Unit = {},
     folderPicker: FolderPicker? = null,
@@ -86,6 +88,7 @@ fun OpenYtApp(
                 coordinator = coordinator,
                 settingsController = settingsController,
                 downloadsDirectory = effectiveDownloadsDirectory,
+                fileAvailability = fileAvailability,
                 initialSharedUrl = initialSharedUrl,
                 onSharedUrlConsumed = onSharedUrlConsumed,
                 folderPicker = folderPicker,
@@ -107,6 +110,7 @@ private fun AppShell(
     coordinator: DownloadCoordinator,
     settingsController: SettingsController,
     downloadsDirectory: String,
+    fileAvailability: FileAvailability,
     initialSharedUrl: String?,
     onSharedUrlConsumed: () -> Unit,
     folderPicker: FolderPicker?,
@@ -156,7 +160,7 @@ private fun AppShell(
                     )
 
                     1 -> DownloadsScreen(coordinator)
-                    2 -> LibraryScreen(coordinator)
+                    2 -> LibraryScreen(coordinator, fileAvailability)
                     else -> SettingsScreen(engine, downloadsDirectory, settingsController, folderPicker)
                 }
             }
