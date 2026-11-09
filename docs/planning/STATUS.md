@@ -202,6 +202,27 @@ Validation:
 - 43 core tests, 13 engine tests, 12 data tests, 9 desktop tests (4 network opt-in
   skipped), and 6 Android device tests. CI green.
 
+## Phase 10 completed (sharing and export)
+
+- Android sharing uses a `FileProvider` content URI and the system chooser
+  (`ACTION_SEND`/`ACTION_SEND_MULTIPLE`) with read-only URI grants. Completed
+  downloads and library entries expose "Compartilhar"; WhatsApp, Drive, YouTube,
+  Quick Share, Messaging, and other installed handlers appear in the chooser.
+- "Abrir" hands the file to a system viewer; no broad storage permission is added.
+- Multi-selected library entries can be shared together on wide screens.
+- Desktop provides "Abrir" and "Mostrar na pasta" (default app / file manager);
+  desktop sharing is intentionally left to the OS.
+- Version bumped to 0.5.0 (Android versionCode 5; `openyt_0.5.0_amd64.deb`).
+
+Validation:
+
+- Android chooser listed WhatsApp and Drive for the downloaded MP4; screenshot in
+  `docs/assets/phase10-android-share-chooser.png`.
+- "Open with" listed system video players.
+- A FileProvider instrumentation test reads the shared file back through its
+  content URI. The six existing device tests remain green.
+- Debug APK and test APK build; Linux packaging remains in CI.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

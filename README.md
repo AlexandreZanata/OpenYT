@@ -84,6 +84,8 @@ Install the debug APK on a connected device:
 - Cohesive light/dark themes with a teal visual identity and an OpenYT brand mark.
 - Library details show technical metadata (duration, resolution, codecs, bitrate,
   container) via platform probes.
+- Share completed media to WhatsApp, Drive, and any installed Android handler via
+  the system chooser; open or reveal files on desktop.
 - Theme, language (pt-BR/en), and download concurrency are persisted locally.
 - Desktop: sidebar layout, dropped-link intake, Ctrl+1…4/Ctrl+Q shortcuts, folder
   selection, multi-selection, and a Linux `.deb` package.
