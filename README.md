@@ -69,6 +69,13 @@ Install the debug APK on a connected device:
 ./gradlew :androidApp:installDebug
 ```
 
+## Releases
+
+Every push to `main` builds and publishes Android, Linux, Windows, and macOS
+artifacts through `.github/workflows/release.yml`. The version lives in
+`gradle.properties` (`openyt.version`). Android signing is optional; without
+secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
+
 ## Current status
 
 - Paste or share a URL, inspect metadata/formats, choose video or audio, download

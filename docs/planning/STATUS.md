@@ -223,6 +223,29 @@ Validation:
   content URI. The six existing device tests remain green.
 - Debug APK and test APK build; Linux packaging remains in CI.
 
+## Phase 11 completed (release pipeline and Codex-inspired identity)
+
+- Added `.github/workflows/release.yml`: every push to `main` builds the Android
+  release APK, Linux deb, Windows MSI, and macOS DMG on native runners, generates
+  checksums, and creates/updates the `v<version>` GitHub release.
+- `gradle.properties` is the single source of truth for `openyt.version` and
+  `openyt.versionCode`; Android and desktop builds read it.
+- Android release signing is optional through `ANDROID_KEYSTORE_BASE64` and related
+  secrets. Without them the workflow publishes a debug-signed APK for testing.
+- Adopted a Codex-inspired visual language: near-black surfaces, mint accent,
+  monospaced OpenYT wordmark, rounded/bordered media cards. The OpenYT name and
+  brand are preserved; no official Codex logo assets were copied.
+- Version bumped to 0.6.0 (Android versionCode 6).
+
+Validation:
+
+- `:androidApp:assembleRelease` builds a signed (debug key fallback) APK locally.
+- `openyt_0.6.0_amd64.deb` builds with correct metadata.
+- Android screenshots: `docs/assets/phase11-android-codex-identity.png` and
+  `phase11-android-codex-dark.png`.
+- The release workflow runs on the next `main` push; Windows/macOS build results
+  are reported by GitHub Actions.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
@@ -255,6 +278,6 @@ Validation:
 
 1. SAF folder selection, storage usage, and import of existing files on Android.
 2. Structured diagnostics with redaction.
-3. Windows/macOS packaging validation and release/update strategy.
+3. Code signing/notarization for Windows and macOS, and an update strategy.
 
 Every claim above must be backed by a command or test recorded in the repository.
