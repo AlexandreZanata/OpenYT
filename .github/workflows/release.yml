@@ -91,6 +91,11 @@ jobs:
       - name: Package desktop
         shell: bash
         run: ./gradlew :desktopApp:${{ matrix.task }} --console=plain --stacktrace
+      - name: Show packaging logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          find desktopApp/build/compose/logs -type f -print -exec sh -c 'echo "----- $1"; cat "$1"' _ {} \; || true
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}

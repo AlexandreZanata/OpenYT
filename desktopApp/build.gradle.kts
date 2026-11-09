@@ -40,6 +40,9 @@ compose.desktop {
                 appCategory = "AudioVideo"
                 menuGroup = "OpenYT"
             }
+            macOS {
+                bundleID = "com.openyt.desktop"
+            }
         }
     }
 }
