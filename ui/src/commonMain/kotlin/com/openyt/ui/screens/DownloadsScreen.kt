@@ -1,6 +1,7 @@
 package com.openyt.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
@@ -34,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
+import com.openyt.ui.components.MediaThumbnail
 import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.util.failureMessage
 import com.openyt.ui.util.formatBytes
@@ -131,7 +134,10 @@ private fun DownloadTaskCard(
     val strings = LocalStrings.current
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 if (selectable) {
                     Checkbox(
                         checked = selected,
@@ -141,11 +147,18 @@ private fun DownloadTaskCard(
                         },
                     )
                 }
+                if (!task.media.thumbnailUrl.isNullOrBlank()) {
+                    MediaThumbnail(
+                        url = task.media.thumbnailUrl,
+                        modifier = Modifier.width(96.dp).aspectRatio(16f / 9f),
+                    )
+                }
                 Text(
                     task.media.title,
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
             }
             Text(

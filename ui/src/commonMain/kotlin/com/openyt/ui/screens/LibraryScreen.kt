@@ -2,6 +2,7 @@ package com.openyt.ui.screens
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -42,6 +44,7 @@ import com.openyt.core.application.LibraryItem
 import com.openyt.core.application.LibraryQuery
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaKind
+import com.openyt.ui.components.MediaThumbnail
 import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.util.formatBytes
@@ -64,6 +67,8 @@ fun LibraryScreen(
     var checkToken by remember { mutableStateOf(0) }
     var missingIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var detail by remember { mutableStateOf<LibraryItem?>(null) }
+    var sortByTitle by remember { mutableStateOf(false) }
+    var confirmRemoveDuplicates by remember { mutableStateOf(false) }
 
     LaunchedEffect(entries, checkToken) {
         missingIds = withContext(Dispatchers.Default) {
@@ -75,24 +80,42 @@ fun LibraryScreen(
     val items = remember(entries, missingIds, filter) {
         LibraryQuery.apply(entries, missingIds, filter)
     }
+    val sortedItems = remember(items, sortByTitle) {
+        if (sortByTitle) items.sortedBy { it.entry.title.lowercase() } else items
+    }
+    val duplicateRemovalIds = remember(entries) {
+        LibraryQuery.duplicateRemovalIds(entries)
+    }
 
     BoxWithConstraints(modifier.fillMaxSize()) {
         val wide = maxWidth >= 720.dp
         var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
-        val visibleIds = items.map { it.entry.id }.toSet()
+        val visibleIds = sortedItems.map { it.entry.id }.toSet()
         val activeSelection = selected.intersect(visibleIds)
 
         Column(
             modifier = Modifier.fillMaxSize().padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    strings.libraryTitle,
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.semantics { heading() },
-                )
-                Spacer(Modifier.weight(1f))
+            Text(
+                strings.libraryTitle,
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.semantics { heading() },
+            )
+
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = { checkToken++ }) {
+                    Text(strings.verifyFiles)
+                }
+                if (duplicateRemovalIds.isNotEmpty()) {
+                    TextButton(onClick = { confirmRemoveDuplicates = true }) {
+                        Text(strings.removeDuplicates)
+                    }
+                }
                 if (wide && activeSelection.isNotEmpty()) {
                     TextButton(
                         onClick = {
@@ -102,9 +125,6 @@ fun LibraryScreen(
                     ) {
                         Text(strings.removeSelected)
                     }
-                }
-                TextButton(onClick = { checkToken++ }) {
-                    Text(strings.verifyFiles)
                 }
             }
 
@@ -149,6 +169,11 @@ fun LibraryScreen(
                     onClick = { duplicatesOnly = !duplicatesOnly },
                     label = { Text(strings.filterDuplicates) },
                 )
+                FilterChip(
+                    selected = sortByTitle,
+                    onClick = { sortByTitle = !sortByTitle },
+                    label = { Text(strings.sortTitle) },
+                )
             }
 
             when {
@@ -158,7 +183,7 @@ fun LibraryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
-                items.isEmpty() -> Text(
+                sortedItems.isEmpty() -> Text(
                     strings.noResults,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -168,7 +193,7 @@ fun LibraryScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(items, key = { it.entry.id }) { item ->
+                    items(sortedItems, key = { it.entry.id }) { item ->
                         LibraryCard(
                             item = item,
                             selectable = wide,
@@ -200,6 +225,29 @@ fun LibraryScreen(
     detail?.let { item ->
         LibraryDetailsDialog(item = item, onClose = { detail = null })
     }
+
+    if (confirmRemoveDuplicates) {
+        AlertDialog(
+            onDismissRequest = { confirmRemoveDuplicates = false },
+            title = { Text(strings.removeDuplicates) },
+            text = { Text(strings.removeDuplicatesHint) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        coordinator.removeFromLibrary(duplicateRemovalIds)
+                        confirmRemoveDuplicates = false
+                    },
+                ) {
+                    Text(strings.removeDuplicatesConfirm)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRemoveDuplicates = false }) {
+                    Text(strings.cancelAction)
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -216,7 +264,10 @@ private fun LibraryCard(
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 if (selectable) {
                     Checkbox(
                         checked = selected,
@@ -224,11 +275,18 @@ private fun LibraryCard(
                         modifier = Modifier.semantics { contentDescription = entry.title },
                     )
                 }
+                if (!entry.thumbnailUrl.isNullOrBlank()) {
+                    MediaThumbnail(
+                        url = entry.thumbnailUrl,
+                        modifier = Modifier.width(96.dp).aspectRatio(16f / 9f),
+                    )
+                }
                 Text(
                     entry.title,
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
             }
             val name = entry.filePath.substringAfterLast('/').substringAfterLast('\\')

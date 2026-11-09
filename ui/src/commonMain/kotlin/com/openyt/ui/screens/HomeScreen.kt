@@ -1,6 +1,7 @@
 package com.openyt.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,6 +47,7 @@ import com.openyt.core.domain.EngineResult
 import com.openyt.core.domain.MediaFormat
 import com.openyt.core.domain.MediaInfo
 import com.openyt.core.domain.MediaKind
+import com.openyt.ui.components.MediaThumbnail
 import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.util.failureMessage
 import com.openyt.ui.util.formatDuration
@@ -184,6 +186,10 @@ private fun MediaSummary(
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            MediaThumbnail(
+                url = media.thumbnailUrl,
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+            )
             Text(
                 media.title,
                 style = MaterialTheme.typography.titleLarge,

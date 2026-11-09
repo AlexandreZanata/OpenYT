@@ -18,7 +18,14 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.materialIconsExtended)
             implementation(compose.ui)
+            implementation(libs.coil.compose)
             implementation(libs.kotlinx.coroutines.core)
+        }
+        getByName("androidMain").dependencies {
+            implementation(libs.coil.network.okhttp)
+        }
+        getByName("desktopMain").dependencies {
+            implementation(libs.coil.network.okhttp)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
