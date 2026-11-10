@@ -15,10 +15,9 @@ backend: the app runs entirely on the device.
 
 ## Screenshots
 
-| Desktop (Linux) | Android |
-|-----------------|---------|
-| ![OpenYT desktop library](docs/assets/phase9-desktop-dark.png) | ![OpenYT Android home](docs/assets/phase9-android-home-dark.png) |
-| ![OpenYT desktop update banner](docs/assets/phase14-update-banner.png) | ![OpenYT Android inspect result](docs/assets/phase7-android-home-thumbnail.png) |
+| Desktop library | Desktop update banner |
+|-----------------|-----------------------|
+| ![OpenYT desktop library](docs/assets/phase9-desktop-dark.png) | ![OpenYT desktop update banner](docs/assets/phase14-update-banner.png) |
 
 ## Download and install
 
