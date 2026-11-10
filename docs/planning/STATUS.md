@@ -511,6 +511,8 @@ Validation:
 - Linux validation uses an isolated database with a duplicate, a missing entry
   and an orphan file, asserts counts and verifies files are unchanged.
 
+- Version bumped to 2.7.0 (Android versionCode 26).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
