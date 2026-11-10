@@ -62,6 +62,7 @@ import com.openyt.core.application.UpdateInstaller
 import com.openyt.core.application.UpdateState
 import com.openyt.core.application.UrlOpener
 import com.openyt.core.domain.AppLanguage
+import com.openyt.core.domain.DownloadWindow
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.ThemeMode
 import com.openyt.ui.components.BrandMark
@@ -103,6 +104,22 @@ fun OpenYtApp(
 
     LaunchedEffect(settings.maxConcurrentDownloads) {
         coordinator.setMaxConcurrentDownloads(settings.maxConcurrentDownloads)
+    }
+    LaunchedEffect(
+        settings.speedLimitBytesPerSecond,
+        settings.downloadWindowStartMinutes,
+        settings.downloadWindowEndMinutes,
+    ) {
+        coordinator.setSpeedLimit(settings.speedLimitBytesPerSecond)
+        val start = settings.downloadWindowStartMinutes
+        val end = settings.downloadWindowEndMinutes
+        coordinator.setDownloadWindow(
+            if (start != null && end != null && start != end) {
+                DownloadWindow(start, end)
+            } else {
+                null
+            },
+        )
     }
     LaunchedEffect(Unit) {
         updateController.checkIfNeeded()

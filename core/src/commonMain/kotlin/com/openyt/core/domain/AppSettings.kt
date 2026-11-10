@@ -11,12 +11,33 @@ enum class AppLanguage {
     EN,
 }
 
+data class DownloadWindow(
+    val startMinutes: Int,
+    val endMinutes: Int,
+) {
+    fun allows(minuteOfDay: Int): Boolean {
+        val minute = ((minuteOfDay % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY
+        return when {
+            startMinutes < endMinutes -> minute in startMinutes until endMinutes
+            startMinutes > endMinutes -> minute >= startMinutes || minute < endMinutes
+            else -> false
+        }
+    }
+
+    companion object {
+        const val MINUTES_PER_DAY = 24 * 60
+    }
+}
+
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val language: AppLanguage = AppLanguage.PT_BR,
     val maxConcurrentDownloads: Int = DEFAULT_CONCURRENT,
     val downloadsDirectory: String? = null,
     val storageTreeUri: String? = null,
+    val speedLimitBytesPerSecond: Long? = null,
+    val downloadWindowStartMinutes: Int? = null,
+    val downloadWindowEndMinutes: Int? = null,
 ) {
     companion object {
         const val MIN_CONCURRENT = 1

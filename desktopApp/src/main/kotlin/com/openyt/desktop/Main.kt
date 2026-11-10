@@ -37,6 +37,7 @@ import com.openyt.desktop.share.DesktopMediaActions
 import com.openyt.ui.OpenYtApp
 import com.openyt.ui.components.BrandIconPainter
 import java.io.File
+import java.time.LocalTime
 import javax.swing.SwingUtilities
 import kotlin.system.exitProcess
 import kotlinx.coroutines.CoroutineScope
@@ -63,7 +64,17 @@ private fun launchApp() = application {
     val settingsController = remember(database) {
         SettingsController(database?.let(::SqlDelightSettingsRepository), scope)
     }
-    val coordinator = remember(engine) { DownloadCoordinator(engine, scope, repository) }
+    val coordinator = remember(engine) {
+        DownloadCoordinator(
+            engine = engine,
+            scope = scope,
+            repository = repository,
+            timeOfDayMinutes = {
+                val now = LocalTime.now()
+                now.hour * 60 + now.minute
+            },
+        )
+    }
     val libraryController = remember(repository) { LibraryController(repository, scope) }
     val mediaProbe = remember { DesktopMediaProbe() }
     val mediaActions = remember { DesktopMediaActions() }

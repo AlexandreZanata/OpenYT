@@ -110,6 +110,7 @@ object DesktopCli {
                 )
             }
             val coordinator = DownloadCoordinator(engine, scope)
+            args.value("limit-bytes-per-second")?.toLongOrNull()?.let(coordinator::setSpeedLimit)
             val id = coordinator.enqueue(
                 media = media,
                 request = DownloadRequest(
@@ -153,6 +154,7 @@ object DesktopCli {
             if (entries.isEmpty()) throw CliException("no playlist entries selected")
 
             val coordinator = DownloadCoordinator(engine, scope)
+            args.value("limit-bytes-per-second")?.toLongOrNull()?.let(coordinator::setSpeedLimit)
             val ids = EnqueuePlaylistUseCase(coordinator)(
                 playlist = playlist,
                 entries = entries,
@@ -434,10 +436,12 @@ object DesktopCli {
               main --cli inspect  --url <url> [--json]
               main --cli download --url <url> [--kind video|audio] [--format-id <id>]
                                   [--priority high|normal|low] [--dir <path>]
-                                  [--template <t>] [--timeout-ms <n>] [--json]
+                                  [--template <t>] [--limit-bytes-per-second <n>]
+                                  [--timeout-ms <n>] [--json]
               main --cli playlist --url <url> [--kind video|audio] [--indexes 1,2]
                                   [--limit <n>] [--priority high|normal|low]
-                                  [--dir <path>] [--timeout-ms <n>] [--json]
+                                  [--dir <path>] [--limit-bytes-per-second <n>]
+                                  [--timeout-ms <n>] [--json]
               main --cli library  --list [--json]
               main --cli version
             """.trimIndent(),

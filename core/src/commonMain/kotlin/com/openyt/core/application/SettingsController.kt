@@ -2,6 +2,7 @@ package com.openyt.core.application
 
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.AppSettings
+import com.openyt.core.domain.DownloadWindow
 import com.openyt.core.domain.ThemeMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -58,4 +59,18 @@ class SettingsController(
 
     fun setStorageTreeUri(uri: String?) =
         update(_settings.value.copy(storageTreeUri = uri?.takeIf { it.isNotBlank() }))
+
+    fun setSpeedLimit(bytesPerSecond: Long?) =
+        update(_settings.value.copy(speedLimitBytesPerSecond = bytesPerSecond?.takeIf { it > 0 }))
+
+    fun setDownloadWindow(startMinutes: Int?, endMinutes: Int?) {
+        val start = startMinutes?.coerceIn(0, DownloadWindow.MINUTES_PER_DAY - 1)
+        val end = endMinutes?.coerceIn(0, DownloadWindow.MINUTES_PER_DAY - 1)
+        update(
+            _settings.value.copy(
+                downloadWindowStartMinutes = start,
+                downloadWindowEndMinutes = end,
+            ),
+        )
+    }
 }

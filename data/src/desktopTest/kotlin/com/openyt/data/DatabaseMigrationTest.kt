@@ -29,6 +29,11 @@ class DatabaseMigrationTest {
             assertEquals(1, tasks.size)
             assertEquals(DownloadPriority.NORMAL, tasks.single().priority)
             assertEquals(0, tasks.single().attempt)
+
+            val settings = SqlDelightSettingsRepository(database).load()
+            assertEquals(null, settings.speedLimitBytesPerSecond)
+            assertEquals(null, settings.downloadWindowStartMinutes)
+            assertEquals(null, settings.downloadWindowEndMinutes)
         } finally {
             file.delete()
         }
@@ -94,6 +99,18 @@ class DatabaseMigrationTest {
                         size_bytes INTEGER,
                         created_at INTEGER NOT NULL DEFAULT 0,
                         thumbnail_url TEXT
+                    )
+                    """.trimIndent(),
+                )
+                statement.executeUpdate(
+                    """
+                    CREATE TABLE app_settings (
+                        id INTEGER PRIMARY KEY CHECK (id = 1),
+                        theme_mode TEXT NOT NULL DEFAULT 'SYSTEM',
+                        language TEXT NOT NULL DEFAULT 'PT_BR',
+                        max_concurrent INTEGER NOT NULL DEFAULT 2,
+                        downloads_directory TEXT,
+                        storage_tree_uri TEXT
                     )
                     """.trimIndent(),
                 )

@@ -383,6 +383,19 @@ Validation:
 
 - Version bumped to 1.6.0 (Android versionCode 15).
 
+## Phase 20 completed (bandwidth and download window)
+
+- Global speed limit (unlimited, 1, 5 or 10 MB/s) passed to the engine as
+  `--limit-rate`.
+- Download window presets (disabled, 00–06, 22–06); queued tasks wait outside the
+  window and wake automatically when it opens.
+- Settings persisted in schema 9 (`speed_limit_bytes_per_second`,
+  `download_window_start_minutes`, `download_window_end_minutes`).
+- CLI accepts `--limit-bytes-per-second`; Linux validation downloads with a
+  200 kB/s limit.
+
+- Version bumped to 1.7.0 (Android versionCode 16).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

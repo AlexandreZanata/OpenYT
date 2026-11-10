@@ -6,6 +6,7 @@ import com.openyt.core.domain.DownloadEvent
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.DownloadRequest
+import com.openyt.core.domain.DownloadWindow
 import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.EngineCapabilities
@@ -22,6 +23,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -486,6 +489,58 @@ class DownloadCoordinatorTest {
         assertEquals(DownloadStatus.COMPLETED, coordinator.tasks.value.single().status)
     }
 
+
+    @Test
+    fun appliesSpeedLimitToEngineRequest() = runTest {
+        val engine = LimitRecordingEngine()
+        val coordinator = DownloadCoordinator(engine, coordinatorScope())
+        coordinator.setSpeedLimit(2_000_000L)
+
+        coordinator.enqueue(media("limit"), request("limit"))
+        advanceUntilIdle()
+
+        assertEquals(2_000_000L, engine.limitBytesPerSecond)
+    }
+
+    @Test
+    fun defersQueuedTasksOutsideDownloadWindow() = runTest {
+        var now = 12 * 60
+        val coordinator = DownloadCoordinator(
+            FakeDownloadEngine(),
+            coordinatorScope(),
+            timeOfDayMinutes = { now },
+        )
+        coordinator.setDownloadWindow(DownloadWindow(22 * 60, 6 * 60))
+
+        coordinator.enqueue(media("window"), request("window"))
+        advanceUntilIdle()
+        assertEquals(DownloadStatus.QUEUED, coordinator.tasks.value.single().status)
+
+        coordinator.setDownloadWindow(null)
+        advanceUntilIdle()
+        assertEquals(DownloadStatus.COMPLETED, coordinator.tasks.value.single().status)
+    }
+
+    @Test
+    fun wakesUpWhenDownloadWindowOpens() = runTest {
+        var now = 12 * 60
+        val coordinator = DownloadCoordinator(
+            FakeDownloadEngine(),
+            coordinatorScope(),
+            timeOfDayMinutes = { now },
+        )
+        coordinator.setDownloadWindow(DownloadWindow(12 * 60 + 1, 13 * 60))
+
+        coordinator.enqueue(media("wakeup"), request("wakeup"))
+        runCurrent()
+        assertEquals(DownloadStatus.QUEUED, coordinator.tasks.value.single().status)
+
+        now = 12 * 60 + 1
+        advanceTimeBy(60_001)
+        runCurrent()
+        assertEquals(DownloadStatus.COMPLETED, coordinator.tasks.value.single().status)
+    }
+
     private fun TestScope.coordinatorScope(): CoroutineScope =
         CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
 
@@ -610,6 +665,26 @@ class DownloadCoordinatorTest {
 
         fun release(downloadId: String) {
             releases.getOrPut(downloadId) { CompletableDeferred() }.complete(Unit)
+        }
+
+        override suspend fun cancel(downloadId: String) = Unit
+
+        override suspend fun capabilities(): EngineCapabilities =
+            EngineCapabilities("test", "0", supportsPause = false, supportsSubtitles = false)
+
+        override fun close() = Unit
+    }
+
+    private class LimitRecordingEngine : DownloadEngine {
+        var limitBytesPerSecond: Long? = null
+
+        override suspend fun inspect(url: String): EngineResult<Inspection> =
+            EngineResult.Failure(DownloadFailure.UnsupportedSource)
+
+        override fun download(request: DownloadRequest, downloadId: String): Flow<DownloadEvent> = flow {
+            limitBytesPerSecond = request.limitBytesPerSecond
+            emit(DownloadEvent.Starting)
+            emit(DownloadEvent.Completed("/tmp/$downloadId.bin", 1))
         }
 
         override suspend fun cancel(downloadId: String) = Unit

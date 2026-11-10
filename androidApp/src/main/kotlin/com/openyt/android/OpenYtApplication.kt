@@ -23,6 +23,7 @@ import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.SqlDelightSettingsRepository
 import com.openyt.data.createOpenYtDatabase
 import java.io.File
+import java.util.Calendar
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -79,6 +80,10 @@ class AppContainer(context: Context) {
         engine = engine,
         scope = appScope,
         repository = repository,
+        timeOfDayMinutes = {
+            val now = Calendar.getInstance()
+            now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+        },
         completedHandler = CompletedDownloadHandler { task ->
             val tree = settingsController.settings.value.storageTreeUri
             val path = task.filePath

@@ -25,6 +25,9 @@ class SqlDelightSettingsRepository(
             ),
             downloadsDirectory = row?.downloads_directory,
             storageTreeUri = row?.storage_tree_uri,
+            speedLimitBytesPerSecond = row?.speed_limit_bytes_per_second,
+            downloadWindowStartMinutes = row?.download_window_start_minutes?.toInt(),
+            downloadWindowEndMinutes = row?.download_window_end_minutes?.toInt(),
         )
     }
 
@@ -35,6 +38,9 @@ class SqlDelightSettingsRepository(
             max_concurrent = settings.maxConcurrentDownloads.toLong(),
             downloads_directory = settings.downloadsDirectory,
             storage_tree_uri = settings.storageTreeUri,
+            speed_limit_bytes_per_second = settings.speedLimitBytesPerSecond,
+            download_window_start_minutes = settings.downloadWindowStartMinutes?.toLong(),
+            download_window_end_minutes = settings.downloadWindowEndMinutes?.toLong(),
         )
         Unit
     }
