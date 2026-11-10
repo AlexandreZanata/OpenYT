@@ -3,6 +3,7 @@ package com.openyt.core.application
 import com.openyt.core.domain.Collection
 import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.LibraryEntry
+import com.openyt.core.domain.SmartCollection
 
 /**
  * Persistence port for the download queue and the local library.
@@ -43,4 +44,10 @@ interface DownloadRepository {
     suspend fun addEntryToCollection(collectionId: String, entryId: String)
 
     suspend fun removeEntryFromCollection(collectionId: String, entryId: String)
+
+    suspend fun loadSmartCollections(): List<SmartCollection>
+
+    suspend fun insertSmartCollection(collection: SmartCollection)
+
+    suspend fun deleteSmartCollection(id: String)
 }

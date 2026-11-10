@@ -52,6 +52,7 @@ import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.LibraryFilter
 import com.openyt.core.application.LibraryItem
+import com.openyt.core.application.toLibraryFilter
 import com.openyt.core.application.LibraryQuery
 import com.openyt.core.application.MediaActions
 import com.openyt.core.application.MediaImporter
@@ -79,11 +80,13 @@ fun LibraryScreen(
     mediaActions: MediaActions,
     mediaImporter: MediaImporter?,
     modifier: Modifier = Modifier,
+    nowEpochMillis: () -> Long = { 0L },
 ) {
     val strings = LocalStrings.current
     val entries by coordinator.library.collectAsState()
     val collections by libraryController.collections.collectAsState()
     val membership by libraryController.membership.collectAsState()
+    val smartCollections by libraryController.smartCollections.collectAsState()
 
     var query by rememberSaveable { mutableStateOf("") }
     var kind by remember { mutableStateOf<MediaKind?>(null) }
@@ -99,11 +102,24 @@ fun LibraryScreen(
     var newCollectionName by remember { mutableStateOf("") }
     var assigningEntry by remember { mutableStateOf<LibraryEntry?>(null) }
     var confirmDeleteCollection by remember { mutableStateOf(false) }
+    var selectedSmartId by remember { mutableStateOf<String?>(null) }
+    var showCreateSmart by remember { mutableStateOf(false) }
+    var confirmDeleteSmart by remember { mutableStateOf(false) }
+    var smartName by remember { mutableStateOf("") }
+    var smartQuery by remember { mutableStateOf("") }
+    var smartTag by remember { mutableStateOf("") }
+    var smartMinMb by remember { mutableStateOf("") }
+    var smartMaxMb by remember { mutableStateOf("") }
+    var smartKind by remember { mutableStateOf<MediaKind?>(null) }
+    var smartDays by remember { mutableStateOf(0) }
 
     val activeCollectionId = selectedCollectionId?.takeIf { id -> collections.any { it.id == id } }
-    val collectionEntries = activeCollectionId?.let { id ->
-        entries.filter { it.id in membership[id].orEmpty() }
-    } ?: entries
+    val activeSmart = smartCollections.firstOrNull { it.id == selectedSmartId }
+    val collectionEntries = when {
+        activeSmart != null -> entries
+        activeCollectionId != null -> entries.filter { it.id in membership[activeCollectionId].orEmpty() }
+        else -> entries
+    }
 
     LaunchedEffect(entries, checkToken) {
         missingIds = withContext(Dispatchers.Default) {
@@ -111,9 +127,15 @@ fun LibraryScreen(
         }
     }
 
-    val filter = LibraryFilter(query, kind, missingOnly, duplicatesOnly)
-    val items = remember(collectionEntries, missingIds, filter) {
-        LibraryQuery.apply(collectionEntries, missingIds, filter)
+    val filter = activeSmart?.toLibraryFilter()
+        ?: LibraryFilter(query, kind, missingOnly, duplicatesOnly)
+    val items = remember(collectionEntries, missingIds, filter, activeSmart) {
+        LibraryQuery.apply(
+            entries = collectionEntries,
+            missingIds = missingIds,
+            filter = filter,
+            nowEpochMillis = nowEpochMillis(),
+        )
     }
     val sortedItems = remember(items, sortByTitle) {
         if (sortByTitle) items.sortedBy { it.entry.title.lowercase() } else items
@@ -209,14 +231,18 @@ fun LibraryScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 FilterChip(
-                    selected = activeCollectionId == null,
-                    onClick = { selectedCollectionId = null },
+                    selected = activeCollectionId == null && activeSmart == null,
+                    onClick = {
+                        selectedCollectionId = null
+                        selectedSmartId = null
+                    },
                     label = { Text(strings.allCollections) },
                 )
                 collections.forEach { collection ->
                     FilterChip(
-                        selected = activeCollectionId == collection.id,
+                        selected = activeCollectionId == collection.id && activeSmart == null,
                         onClick = {
+                            selectedSmartId = null
                             selectedCollectionId = if (activeCollectionId == collection.id) {
                                 null
                             } else {
@@ -231,6 +257,36 @@ fun LibraryScreen(
                 }
             }
 
+            Text(
+                strings.smartCollectionsLabel,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                smartCollections.forEach { smart ->
+                    FilterChip(
+                        selected = selectedSmartId == smart.id,
+                        onClick = {
+                            selectedCollectionId = null
+                            selectedSmartId = if (selectedSmartId == smart.id) null else smart.id
+                        },
+                        label = { Text(smart.name) },
+                    )
+                }
+                TextButton(onClick = { showCreateSmart = true }) {
+                    Text(strings.newSmartCollection)
+                }
+                if (activeSmart != null) {
+                    TextButton(onClick = { confirmDeleteSmart = true }) {
+                        Text(strings.deleteSmartCollection)
+                    }
+                }
+            }
+
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -242,6 +298,7 @@ fun LibraryScreen(
                         kind = null
                         missingOnly = false
                         duplicatesOnly = false
+                        selectedSmartId = null
                     },
                     label = { Text(strings.filterAll) },
                 )
@@ -366,6 +423,148 @@ fun LibraryScreen(
                         showCreateCollection = false
                     },
                 ) {
+                    Text(strings.cancelAction)
+                }
+            },
+        )
+    }
+
+    if (showCreateSmart) {
+        AlertDialog(
+            onDismissRequest = { showCreateSmart = false },
+            title = { Text(strings.newSmartCollection) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = smartName,
+                        onValueChange = { smartName = it },
+                        label = { Text(strings.smartNameLabel) },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = smartQuery,
+                        onValueChange = { smartQuery = it },
+                        label = { Text(strings.smartQueryLabel) },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = smartTag,
+                        onValueChange = { smartTag = it },
+                        label = { Text(strings.smartTagLabel) },
+                        singleLine = true,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = smartMinMb,
+                            onValueChange = { smartMinMb = it.filter(Char::isDigit) },
+                            label = { Text(strings.smartMinSizeLabel) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                        OutlinedTextField(
+                            value = smartMaxMb,
+                            onValueChange = { smartMaxMb = it.filter(Char::isDigit) },
+                            label = { Text(strings.smartMaxSizeLabel) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    Text(
+                        strings.smartCreatedLabel,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf(
+                            0 to strings.smartAny,
+                            7 to strings.smartDays7,
+                            30 to strings.smartDays30,
+                            365 to strings.smartYear,
+                        ).forEach { (days, label) ->
+                            FilterChip(
+                                selected = smartDays == days,
+                                onClick = { smartDays = days },
+                                label = { Text(label) },
+                            )
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = smartKind == null,
+                            onClick = { smartKind = null },
+                            label = { Text(strings.smartAny) },
+                        )
+                        FilterChip(
+                            selected = smartKind == MediaKind.VIDEO,
+                            onClick = { smartKind = MediaKind.VIDEO },
+                            label = { Text(strings.kindVideo) },
+                        )
+                        FilterChip(
+                            selected = smartKind == MediaKind.AUDIO,
+                            onClick = { smartKind = MediaKind.AUDIO },
+                            label = { Text(strings.kindAudio) },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = smartName.isNotBlank(),
+                    onClick = {
+                        val created = libraryController.createSmartCollection(
+                            name = smartName,
+                            query = smartQuery,
+                            kind = smartKind,
+                            tag = smartTag,
+                            minSizeBytes = smartMinMb.toLongOrNull()?.times(1024L * 1024L),
+                            maxSizeBytes = smartMaxMb.toLongOrNull()?.times(1024L * 1024L),
+                            createdWithinDays = smartDays.takeIf { it > 0 },
+                        )
+                        if (created != null) {
+                            selectedCollectionId = null
+                            selectedSmartId = created.id
+                        }
+                        smartName = ""
+                        smartQuery = ""
+                        smartTag = ""
+                        smartMinMb = ""
+                        smartMaxMb = ""
+                        smartKind = null
+                        smartDays = 0
+                        showCreateSmart = false
+                    },
+                ) {
+                    Text(strings.createAction)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateSmart = false }) {
+                    Text(strings.cancelAction)
+                }
+            },
+        )
+    }
+
+    if (confirmDeleteSmart && activeSmart != null) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteSmart = false },
+            title = { Text(strings.deleteSmartCollection) },
+            text = { Text(strings.deleteCollectionHint) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        libraryController.deleteSmartCollection(activeSmart.id)
+                        selectedSmartId = null
+                        confirmDeleteSmart = false
+                    },
+                ) {
+                    Text(strings.deleteCollection)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteSmart = false }) {
                     Text(strings.cancelAction)
                 }
             },

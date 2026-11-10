@@ -445,6 +445,17 @@ Validation:
 
 - Version bumped to 2.1.0 (Android versionCode 20).
 
+## Phase 25 completed (smart collections)
+
+- Named smart collections stored in schema 12 and evaluated at read time.
+- Filters support search text, kind, exact tag, min/max size and "added within
+  N days"; membership updates automatically as the library changes.
+- Library UI adds smart collection chips, a creation dialog, and deletion.
+- CLI: `--create-smart`, `--delete-smart` and `--smart <id>` (evaluated output);
+  Linux validation creates a tag-based smart collection and asserts membership.
+
+- Version bumped to 2.2.0 (Android versionCode 21).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

@@ -291,7 +291,49 @@ data = json.load(sys.stdin)
 entry = next(item for item in data["entries"] if item["id"] == "tag-entry")
 assert entry["tags"] == [], entry
 ' || { fail "tag remove payload invalid"; return 1; }
-    pass "library tags persisted and removed"
+
+    "$APP" --cli library --entry tag-entry --add-tag music --json >/dev/null \
+        || { fail "re-adding tag failed"; return 1; }
+    python3 - "$db" <<'PY' || { fail "seeding second library entry failed"; return 1; }
+import sqlite3, sys
+connection = sqlite3.connect(sys.argv[1])
+connection.execute(
+    """
+    INSERT OR REPLACE INTO library_entry(
+        id, title, kind, file_path, size_bytes, created_at, thumbnail_url, source
+    ) VALUES ('other-entry', 'Other entry', 'VIDEO', '/tmp/other.mp4', 1, 0, NULL, 'vimeo')
+    """
+)
+connection.commit()
+PY
+
+    output="$("$APP" --cli library --create-smart Music --tag music --json)" \
+        || { fail "creating smart collection failed"; return 1; }
+    local smart_id
+    smart_id="$(echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+assert data.get("ok") is True, data
+print(data["createdSmartCollection"])
+')" || { fail "smart collection payload invalid"; return 1; }
+
+    output="$("$APP" --cli library --smart "$smart_id" --json)" \
+        || { fail "evaluating smart collection failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+ids = [entry["id"] for entry in data["entries"]]
+assert ids == ["tag-entry"], data
+' || { fail "smart collection membership invalid"; return 1; }
+
+    output="$("$APP" --cli library --delete-smart "$smart_id" --json)" \
+        || { fail "deleting smart collection failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+assert data["smartCollections"] == [], data
+' || { fail "smart collection was not deleted"; return 1; }
+    pass "library tags and smart collection membership"
 }
 
 scenario_gui() {
@@ -339,7 +381,7 @@ scenario_gui() {
 import sqlite3, sys
 connection = sqlite3.connect(sys.argv[1])
 version = connection.execute("PRAGMA user_version").fetchone()[0]
-assert version == 11, f"user_version={version}"
+assert version == 12, f"user_version={version}"
 PY
     kill -- -"$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
