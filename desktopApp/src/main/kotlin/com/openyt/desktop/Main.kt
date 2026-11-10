@@ -40,6 +40,7 @@ import com.openyt.desktop.diagnostics.DesktopUrlOpener
 import com.openyt.desktop.downloader.DesktopMediaProbe
 import com.openyt.desktop.downloader.DesktopMediaTagger
 import com.openyt.desktop.downloader.DesktopYtDlpEngine
+import com.openyt.desktop.player.DesktopPlaybackLauncher
 import com.openyt.desktop.share.DesktopMediaActions
 import com.openyt.ui.OpenYtApp
 import com.openyt.ui.components.BrandIconPainter
@@ -96,6 +97,7 @@ private fun launchApp() = application {
     }
     val mediaProbe = remember { DesktopMediaProbe() }
     val mediaTagger = remember { DesktopMediaTagger() }
+    val playbackLauncher = remember { DesktopPlaybackLauncher() }
     val mediaActions = remember { DesktopMediaActions() }
     val downloadsDirectory = remember { defaultDownloadsDirectory() }
     val diagnosticsProvider = remember {
@@ -190,6 +192,7 @@ private fun launchApp() = application {
             libraryArchiveService = libraryArchiveService,
             folderImportService = folderImportService,
             bulkFileService = bulkFileService,
+            playbackLauncher = playbackLauncher,
         )
     }
 }
