@@ -526,6 +526,16 @@ Validation:
 
 - Version bumped to 2.8.0 (Android versionCode 27). Program B is complete.
 
+## Phase 32 completed (Android playback)
+
+- Android player using Media3 ExoPlayer with a MediaSessionService for background
+  audio and system media controls.
+- Library cards expose Play (Android only); the player receives the visible
+  library list as a queue and starts at the tapped item.
+- Desktop playback remains for program C2.
+- Local validation covers Android `assembleDebug`; real device playback still
+  needs emulator/device evidence.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

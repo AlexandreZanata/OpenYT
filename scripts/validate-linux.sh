@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
         --no-build) BUILD=0; shift ;;
         --offline) OFFLINE=1; shift ;;
         -h|--help)
-            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|metadata|cookies|library|archive|watch|storage|bulk|gui]"
+            echo "usage: $0 [--scenario all|tests|android|tools|inspect|download|playlist|pause|metadata|cookies|library|archive|watch|storage|bulk|gui]"
             echo "          [--deb path] [--no-build] [--offline]"
             exit 0
             ;;
@@ -79,6 +79,10 @@ scenario_tests() {
         :data:desktopTest \
         :desktopApp:test \
         --console=plain)
+}
+
+scenario_android() {
+    (cd "$ROOT" && ./gradlew :androidApp:assembleDebug --console=plain)
 }
 
 scenario_tools() {
@@ -668,6 +672,7 @@ case "$SCENARIO" in
     all)
         run "prepare" prepare
         run "tests" scenario_tests
+        run "android" scenario_android
         run "tools" scenario_tools
         run "inspect" scenario_inspect
         run "download" scenario_download
@@ -683,6 +688,7 @@ case "$SCENARIO" in
         run "gui" scenario_gui
         ;;
     tests) scenario_tests ;;
+    android) scenario_android ;;
     tools) run_after_prepare "tools" scenario_tools ;;
     inspect) run_after_prepare "inspect" scenario_inspect ;;
     download) run_after_prepare "download" scenario_download ;;

@@ -217,7 +217,8 @@ secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
   presets and editable file-name templates, encrypted local browser cookies for
   authorized content, library tags, smart collections, metadata search/editing,
   JSON library export/import, watch-folder import, a read-only storage report,
-  bulk rename/move with preview, and bulk resume of interrupted downloads.
+  bulk rename/move with preview, Android playback with background audio, and bulk
+  resume of interrupted downloads.
 - Queue and Library survive app restarts; interrupted downloads can be retried.
 - Removing a Library entry never deletes the downloaded file.
 - Library search, kind/availability/duplicate filters, title sorting, missing-file

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,6 +27,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
@@ -72,6 +74,8 @@ import com.openyt.core.application.MediaActions
 import com.openyt.core.application.MediaImporter
 import com.openyt.core.application.MediaProbe
 import com.openyt.core.application.MediaTagger
+import com.openyt.core.application.PlayableMedia
+import com.openyt.core.application.PlaybackLauncher
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.MediaTechnicalInfo
@@ -102,6 +106,7 @@ fun LibraryScreen(
     archiveService: LibraryArchiveService? = null,
     folderImportService: FolderImportService? = null,
     bulkFileService: BulkFileService? = null,
+    playbackLauncher: PlaybackLauncher? = null,
 ) {
     val strings = LocalStrings.current
     val entries by coordinator.library.collectAsState()
@@ -456,7 +461,7 @@ fun LibraryScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(sortedItems, key = { it.entry.id }) { item ->
+                    itemsIndexed(sortedItems, key = { _, item -> item.entry.id }) { index, item ->
                         LibraryCard(
                             item = item,
                             wide = wide,
@@ -472,6 +477,22 @@ fun LibraryScreen(
                             onDetails = { detail = item },
                             onCollections = { assigningEntry = item.entry },
                             onRemove = { coordinator.removeFromLibrary(item.entry.id) },
+                            onPlay = playbackLauncher
+                                ?.takeIf { it.canPlay }
+                                ?.let { launcher ->
+                                    {
+                                        launcher.play(
+                                            items = sortedItems.map { playable ->
+                                                PlayableMedia(
+                                                    path = playable.entry.filePath,
+                                                    title = playable.entry.title,
+                                                    kind = playable.entry.kind,
+                                                )
+                                            },
+                                            startIndex = index,
+                                        )
+                                    }
+                                },
                             mediaActions = mediaActions,
                         )
                     }
@@ -1156,6 +1177,7 @@ private fun LibraryCard(
     onDetails: () -> Unit,
     onCollections: () -> Unit,
     onRemove: () -> Unit,
+    onPlay: (() -> Unit)?,
     mediaActions: MediaActions,
 ) {
     val strings = LocalStrings.current
@@ -1232,6 +1254,12 @@ private fun LibraryCard(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (onPlay != null) {
+                    TextButton(onClick = onPlay) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = strings.playAction)
+                        Text(strings.playAction)
+                    }
+                }
                 if (mediaActions.canShare) {
                     TextButton(
                         onClick = {

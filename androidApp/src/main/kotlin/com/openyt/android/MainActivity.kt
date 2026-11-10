@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import com.openyt.core.application.FileAvailability
 import com.openyt.android.diagnostics.AndroidUrlOpener
 import com.openyt.android.importer.AndroidMediaImporter
+import com.openyt.android.player.AndroidPlaybackLauncher
 import com.openyt.android.saf.AndroidSafDestinationPicker
 import com.openyt.android.share.AndroidMediaActions
 import com.openyt.core.application.ShareTextParser
@@ -59,6 +60,7 @@ class MainActivity : ComponentActivity() {
                 libraryArchiveService = container.libraryArchiveService,
                 folderImportService = container.folderImportService,
                 bulkFileService = container.bulkFileService,
+                playbackLauncher = AndroidPlaybackLauncher(this),
                 initialSharedUrl = pendingSharedUrl,
                 onSharedUrlConsumed = { sharedUrl.value = null },
             )

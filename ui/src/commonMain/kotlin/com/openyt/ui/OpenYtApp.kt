@@ -60,6 +60,7 @@ import com.openyt.core.application.MediaActions
 import com.openyt.core.application.MediaImporter
 import com.openyt.core.application.MediaProbe
 import com.openyt.core.application.MediaTagger
+import com.openyt.core.application.PlaybackLauncher
 import com.openyt.core.application.SafDestinationPicker
 import com.openyt.core.application.SettingsController
 import com.openyt.core.application.UpdateController
@@ -109,6 +110,7 @@ fun OpenYtApp(
     libraryArchiveService: LibraryArchiveService? = null,
     folderImportService: FolderImportService? = null,
     bulkFileService: BulkFileService? = null,
+    playbackLauncher: PlaybackLauncher? = null,
 ) {
     val settings by settingsController.settings.collectAsState()
     val strings = stringsFor(settings.language)
@@ -175,6 +177,7 @@ fun OpenYtApp(
                     libraryArchiveService = libraryArchiveService,
                     folderImportService = folderImportService,
                     bulkFileService = bulkFileService,
+                    playbackLauncher = playbackLauncher,
                 )
             }
         }
@@ -215,6 +218,7 @@ private fun AppShell(
     libraryArchiveService: LibraryArchiveService?,
     folderImportService: FolderImportService?,
     bulkFileService: BulkFileService?,
+    playbackLauncher: PlaybackLauncher?,
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -299,6 +303,7 @@ private fun AppShell(
                         archiveService = libraryArchiveService,
                         folderImportService = folderImportService,
                         bulkFileService = bulkFileService,
+                        playbackLauncher = playbackLauncher,
                     )
                     else -> SettingsScreen(
                         engine = engine,
