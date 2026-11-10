@@ -418,6 +418,8 @@ Validation:
 - CLI accepts `--preset` and `--template`; Linux validation downloads a playlist
   entry with the channel preset and asserts the uploader folder.
 
+- Version bumped to 1.9.0 (Android versionCode 18).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
