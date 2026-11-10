@@ -476,6 +476,8 @@ Validation:
 - Opt-in tagger test generates a fixture with FFmpeg, writes tags and re-probes
   them; Linux validation runs it with the packaged tools.
 
+- Version bumped to 2.4.0 (Android versionCode 23).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
