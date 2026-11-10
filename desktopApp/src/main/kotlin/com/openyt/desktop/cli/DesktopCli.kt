@@ -17,6 +17,7 @@ import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.OrganizationPreset
 import com.openyt.core.domain.PlaylistEntry
 import com.openyt.core.domain.PlaylistInfo
+import com.openyt.data.EncryptedCookieRepository
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.createOpenYtDatabase
 import com.openyt.data.defaultDatabasePath
@@ -40,6 +41,7 @@ import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import java.io.File
 import kotlinx.serialization.json.put
 
 /**
@@ -65,6 +67,7 @@ object DesktopCli {
                     "download" -> download(args)
                     "playlist" -> playlist(args)
                     "library" -> library(args)
+                    "cookies" -> cookies(args)
                     else -> usage()
                 }
             }
@@ -112,7 +115,11 @@ object DesktopCli {
                     "playlist URL detected; use the playlist command",
                 )
             }
-            val coordinator = DownloadCoordinator(engine, scope)
+            val coordinator = DownloadCoordinator(
+                engine = engine,
+                scope = scope,
+                cookieRepository = EncryptedCookieRepository(cookieDirectory()),
+            )
             args.value("limit-bytes-per-second")?.toLongOrNull()?.let(coordinator::setSpeedLimit)
             val id = coordinator.enqueue(
                 media = media,
@@ -159,7 +166,11 @@ object DesktopCli {
             )
             if (entries.isEmpty()) throw CliException("no playlist entries selected")
 
-            val coordinator = DownloadCoordinator(engine, scope)
+            val coordinator = DownloadCoordinator(
+                engine = engine,
+                scope = scope,
+                cookieRepository = EncryptedCookieRepository(cookieDirectory()),
+            )
             args.value("limit-bytes-per-second")?.toLongOrNull()?.let(coordinator::setSpeedLimit)
             val ids = EnqueuePlaylistUseCase(coordinator)(
                 playlist = playlist,
@@ -178,6 +189,37 @@ object DesktopCli {
             engine.close()
         }
     }
+
+    private suspend fun cookies(args: CliArgs): Int {
+        val repository = EncryptedCookieRepository(cookieDirectory())
+        when {
+            args.value("import") != null -> {
+                val path = args.required("import")
+                val file = File(path)
+                if (!file.isFile || file.length() > MAX_COOKIE_FILE_BYTES) {
+                    throw CliException("cookies file is missing or too large")
+                }
+                repository.importCookies(file.readText())
+            }
+
+            args.flag("clear") -> repository.clear()
+        }
+        val configured = repository.isConfigured()
+        if (args.flag("json")) {
+            val payload = buildJsonObject {
+                put("ok", true)
+                put("command", "cookies")
+                put("configured", configured)
+            }
+            println(json.encodeToString(JsonElement.serializer(), payload))
+        } else {
+            println("cookies configured=$configured")
+        }
+        return 0
+    }
+
+    private fun cookieDirectory(): File =
+        File(defaultDatabasePath()).parentFile.resolve("cookies")
 
     private suspend fun library(args: CliArgs): Int {
         if (!args.flag("list")) throw CliException("library requires --list")
@@ -464,6 +506,7 @@ object DesktopCli {
                                   [--limit-bytes-per-second <n>]
                                   [--timeout-ms <n>] [--json]
               main --cli library  --list [--json]
+              main --cli cookies  [--import <path>] [--check] [--clear] [--json]
               main --cli version
             """.trimIndent(),
         )
@@ -481,6 +524,8 @@ object DesktopCli {
     private fun JsonObjectBuilder.putNullable(key: String, value: Int?) {
         put(key, value?.let(::JsonPrimitive) ?: JsonNull)
     }
+
+    private const val MAX_COOKIE_FILE_BYTES = 2L * 1024 * 1024
 
     private fun JsonObjectBuilder.putNullable(key: String, value: Double?) {
         put(key, value?.let(::JsonPrimitive) ?: JsonNull)

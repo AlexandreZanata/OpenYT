@@ -214,7 +214,8 @@ secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
   networks with a generic fallback.
 - Priority-aware queue (high/normal/low), pause/resume with partial files preserved,
   automatic retries with backoff, speed limits, download windows, organization
-  presets and editable file-name templates, and bulk resume of interrupted downloads.
+  presets and editable file-name templates, encrypted local browser cookies for
+  authorized content, and bulk resume of interrupted downloads.
 - Queue and Library survive app restarts; interrupted downloads can be retried.
 - Removing a Library entry never deletes the downloaded file.
 - Library search, kind/availability/duplicate filters, title sorting, missing-file

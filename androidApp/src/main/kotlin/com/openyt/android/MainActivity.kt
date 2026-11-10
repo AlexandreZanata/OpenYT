@@ -53,6 +53,7 @@ class MainActivity : ComponentActivity() {
                 safDestinationPicker = safDestinationPicker,
                 downloadsDirectory = container.downloadsDirectory,
                 fileAvailability = FileAvailability { java.io.File(it).isFile },
+                cookieRepository = container.cookieRepository,
                 initialSharedUrl = pendingSharedUrl,
                 onSharedUrlConsumed = { sharedUrl.value = null },
             )

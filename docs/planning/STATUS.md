@@ -420,6 +420,17 @@ Validation:
 
 - Version bumped to 1.9.0 (Android versionCode 18).
 
+## Phase 23 completed (encrypted local cookies)
+
+- Optional browser cookies import: paste a Netscape `cookies.txt` in Settings.
+- Cookies are encrypted at rest with AES-GCM in the app-private directory; the
+  key is generated locally and never leaves the device.
+- Each download receives a short-lived 0600 plaintext file, deleted after the
+  task finishes; cookie content is never logged or printed.
+- In-app warning about authorised content and terms.
+- CLI adds `cookies --import/--check/--clear`; Linux validation asserts the
+  encrypted file exists, does not contain the canary, and is removed on clear.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

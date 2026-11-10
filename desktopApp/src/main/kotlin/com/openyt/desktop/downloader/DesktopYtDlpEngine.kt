@@ -122,6 +122,10 @@ class DesktopYtDlpEngine(
                     add("--limit-rate")
                     add(it.toString())
                 }
+                request.cookiesFilePath?.let {
+                    add("--cookies")
+                    add(it)
+                }
                 locator.findFfmpeg()?.let {
                     add("--ffmpeg-location")
                     add(it)

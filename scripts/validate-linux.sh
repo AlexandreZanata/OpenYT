@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
         --no-build) BUILD=0; shift ;;
         --offline) OFFLINE=1; shift ;;
         -h|--help)
-            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|library|gui]"
+            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|cookies|library|gui]"
             echo "          [--deb path] [--no-build] [--offline]"
             exit 0
             ;;
@@ -206,6 +206,48 @@ scenario_pause() {
             --rerun-tasks --no-daemon --console=plain)
 }
 
+scenario_cookies() {
+    local fixture="$WORK/cookies.txt"
+    cat > "$fixture" <<'COOKIES'
+# Netscape HTTP Cookie File
+.openyt.invalid	TRUE	/	FALSE	0	OPENYT_CANARY	canary-value
+COOKIES
+
+    local output
+    output="$("$APP" --cli cookies --import "$fixture" --json)" \
+        || { fail "cookie import failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+assert data.get("ok") is True and data.get("configured") is True, data
+' || { fail "cookie import payload invalid"; return 1; }
+
+    local encrypted="$XDG_DATA_HOME/OpenYT/cookies/cookies.enc"
+    [[ -f "$encrypted" ]] || { fail "encrypted cookie file missing"; return 1; }
+    if grep -a -q 'canary-value' "$encrypted"; then
+        fail "cookies were stored in plaintext"
+        return 1
+    fi
+
+    output="$("$APP" --cli cookies --check --json)" \
+        || { fail "cookie check failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+assert data.get("configured") is True, data
+' || { fail "cookie check payload invalid"; return 1; }
+
+    output="$("$APP" --cli cookies --clear --json)" \
+        || { fail "cookie clear failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+assert data.get("configured") is False, data
+' || { fail "cookie clear payload invalid"; return 1; }
+    [[ ! -f "$encrypted" ]] || { fail "encrypted cookies were not removed"; return 1; }
+    pass "cookies encrypted at rest, checked and cleared"
+}
+
 scenario_library() {
     local output
     output="$("$APP" --cli library --list --json)" \
@@ -280,7 +322,8 @@ case "$SCENARIO" in
         run "download" scenario_download
         run "playlist" scenario_playlist
         run "pause" scenario_pause
-        run "library" scenario_library
+        run "cookies" scenario_cookies
+    run "library" scenario_library
         run "gui" scenario_gui
         ;;
     tests) scenario_tests ;;
@@ -289,6 +332,7 @@ case "$SCENARIO" in
     download) run_after_prepare "download" scenario_download ;;
     playlist) run_after_prepare "playlist" scenario_playlist ;;
     pause) run_after_prepare "pause" scenario_pause ;;
+    cookies) run_after_prepare "cookies" scenario_cookies ;;
     library) run_after_prepare "library" scenario_library ;;
     gui) run_after_prepare "gui" scenario_gui ;;
     *) echo "unknown scenario: $SCENARIO" >&2; exit 2 ;;

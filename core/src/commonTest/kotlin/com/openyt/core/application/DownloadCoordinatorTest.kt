@@ -7,6 +7,7 @@ import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.DownloadWindow
+import com.openyt.core.application.CookieRepository
 import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.EngineCapabilities
@@ -503,6 +504,19 @@ class DownloadCoordinatorTest {
     }
 
     @Test
+    fun passesCookiesToEngineAndDeletesTemporaryFile() = runTest {
+        val engine = LimitRecordingEngine()
+        val cookies = FakeCookieRepository()
+        val coordinator = DownloadCoordinator(engine, coordinatorScope(), cookieRepository = cookies)
+
+        coordinator.enqueue(media("cookies"), request("cookies"))
+        advanceUntilIdle()
+
+        assertEquals("/tmp/openyt-fake-cookies.txt", engine.cookiesFilePath)
+        assertEquals(listOf("/tmp/openyt-fake-cookies.txt"), cookies.deleted)
+    }
+
+    @Test
     fun defersQueuedTasksOutsideDownloadWindow() = runTest {
         var now = 12 * 60
         val coordinator = DownloadCoordinator(
@@ -677,12 +691,14 @@ class DownloadCoordinatorTest {
 
     private class LimitRecordingEngine : DownloadEngine {
         var limitBytesPerSecond: Long? = null
+        var cookiesFilePath: String? = null
 
         override suspend fun inspect(url: String): EngineResult<Inspection> =
             EngineResult.Failure(DownloadFailure.UnsupportedSource)
 
         override fun download(request: DownloadRequest, downloadId: String): Flow<DownloadEvent> = flow {
             limitBytesPerSecond = request.limitBytesPerSecond
+            cookiesFilePath = request.cookiesFilePath
             emit(DownloadEvent.Starting)
             emit(DownloadEvent.Completed("/tmp/$downloadId.bin", 1))
         }
@@ -693,6 +709,28 @@ class DownloadCoordinatorTest {
             EngineCapabilities("test", "0", supportsPause = false, supportsSubtitles = false)
 
         override fun close() = Unit
+    }
+
+    private class FakeCookieRepository : CookieRepository {
+        val deleted = mutableListOf<String>()
+        private var configured = true
+
+        override suspend fun isConfigured(): Boolean = configured
+
+        override suspend fun importCookies(content: String) {
+            configured = true
+        }
+
+        override suspend fun clear() {
+            configured = false
+        }
+
+        override suspend fun createTemporaryFile(): String? =
+            if (configured) "/tmp/openyt-fake-cookies.txt" else null
+
+        override suspend fun deleteTemporaryFile(path: String) {
+            deleted += path
+        }
     }
 
     private class PausingEngine : DownloadEngine {
