@@ -5,6 +5,7 @@ import com.openyt.core.domain.MediaInfo
 import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.PlaylistEntry
+import com.openyt.core.domain.PlaylistEntrySelection
 import com.openyt.core.domain.PlaylistInfo
 
 /**
@@ -20,12 +21,14 @@ class EnqueuePlaylistUseCase(
         kind: MediaKind,
         downloadsDirectory: String,
         priority: DownloadPriority = DownloadPriority.NORMAL,
+        overrides: Map<Int, PlaylistEntrySelection> = emptyMap(),
     ): List<String> {
         if (entries.isEmpty()) return emptyList()
         val directory = downloadsDirectory.trimEnd('/', '\\') + "/" + safeSegment(playlist.title)
         val width = maxOf(2, entries.maxOf { it.index }.toString().length)
         return entries.map { entry ->
             val prefix = entry.index.toString().padStart(width, '0')
+            val selection = overrides[entry.index]
             coordinator.enqueue(
                 media = MediaInfo(
                     sourceId = entry.url,
@@ -38,8 +41,8 @@ class EnqueuePlaylistUseCase(
                 ),
                 request = DownloadRequest(
                     url = entry.url,
-                    kind = kind,
-                    formatId = null,
+                    kind = selection?.kind ?: kind,
+                    formatId = selection?.formatId,
                     destinationDirectory = directory,
                     fileNameTemplate = "$prefix - %(title).150B [%(id)s].%(ext)s",
                 ),
