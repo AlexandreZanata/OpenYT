@@ -546,6 +546,8 @@ Validation:
 - CLI `playback --check` reports `canPlay` and `vlcAvailable`; Linux validation
   covers the VLCJ discovery check.
 
+- Version bumped to 3.0.0 (Android versionCode 29).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
