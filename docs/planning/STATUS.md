@@ -454,6 +454,8 @@ Validation:
 - CLI: `--create-smart`, `--delete-smart` and `--smart <id>` (evaluated output);
   Linux validation creates a tag-based smart collection and asserts membership.
 
+- Version bumped to 2.2.0 (Android versionCode 21).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
