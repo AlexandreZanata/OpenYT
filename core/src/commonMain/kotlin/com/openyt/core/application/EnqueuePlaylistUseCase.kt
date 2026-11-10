@@ -45,12 +45,13 @@ class EnqueuePlaylistUseCase(
                     webpageUrl = entry.url,
                 ),
                 request = DownloadRequest(
-                    url = entry.url,
+                    url = playlist.webpageUrl.ifBlank { entry.url },
                     kind = selection?.kind ?: kind,
                     formatId = selection?.formatId,
                     destinationDirectory = directory,
                     fileNameTemplate = organization.templatePrefix +
                         "$prefix - " + organization.fileTemplate,
+                    playlistItemIndex = entry.index,
                 ),
                 priority = priority,
             )

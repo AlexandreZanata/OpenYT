@@ -6,7 +6,7 @@ Workflow: `.github/workflows/release.yml`.
 
 - Runs on every push to `main` and on manual dispatch.
 - `gradle.properties` is the single source of truth:
-  - `openyt.version` (SemVer, currently `3.1.0`)
+  - `openyt.version` (SemVer, currently `3.1.1`)
   - `openyt.versionCode` (Android integer)
 - Every main push rebuilds and **updates** the release for `v<version>`. Bump the
   version before merging to publish a new release; otherwise assets of the current
@@ -18,7 +18,7 @@ Workflow: `.github/workflows/release.yml`.
 |----------|------|----------|
 | Android | `:androidApp:assembleRelease` | `androidApp-release.apk` |
 | Linux | `:desktopApp:packageDeb` | `openyt_<version>_amd64.deb` |
-| Windows | `:desktopApp:packageMsi` | `OpenYT-<version>.msi` |
+| Windows | `:desktopApp:packageMsi` + `:desktopApp:packageExe` | `OpenYT-<version>.msi`, `OpenYT-<version>.exe` |
 | macOS | `:desktopApp:packageDmg` | `OpenYT-<version>.dmg` |
 
 Desktop packages embed yt-dlp, FFmpeg, FFprobe, and Deno through

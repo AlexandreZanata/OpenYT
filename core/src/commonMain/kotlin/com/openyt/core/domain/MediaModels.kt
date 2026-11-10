@@ -39,6 +39,7 @@ data class DownloadRequest(
     val fileNameTemplate: String = "%(title).150B [%(id)s].%(ext)s",
     val limitBytesPerSecond: Long? = null,
     val cookiesFilePath: String? = null,
+    val playlistItemIndex: Int? = null,
 )
 
 sealed interface DownloadEvent {

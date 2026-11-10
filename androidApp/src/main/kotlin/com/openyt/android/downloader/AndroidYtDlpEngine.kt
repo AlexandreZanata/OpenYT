@@ -91,7 +91,9 @@ class AndroidYtDlpEngine(
             try {
                 val response = withContext(Dispatchers.IO) {
                     val ytDlpRequest = YoutubeDLRequest(request.url).apply {
-                        addOption("--no-playlist")
+                        request.playlistItemIndex?.let {
+                            addOption("--playlist-items", it.toString())
+                        } ?: addOption("--no-playlist")
                         addOption("--newline")
                         addOption("--no-quiet")
                         addOption("-P", directory.absolutePath)

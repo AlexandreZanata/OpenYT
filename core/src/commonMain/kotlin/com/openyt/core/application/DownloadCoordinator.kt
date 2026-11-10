@@ -131,7 +131,8 @@ class DownloadCoordinator(
             task.status.isActive &&
                 task.request.url == request.url &&
                 task.request.kind == request.kind &&
-                task.request.formatId == request.formatId
+                task.request.formatId == request.formatId &&
+                task.request.playlistItemIndex == request.playlistItemIndex
         }
         if (duplicate != null) return duplicate.id
 

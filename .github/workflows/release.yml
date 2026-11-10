@@ -68,9 +68,11 @@ jobs:
             artifact: linux-deb
             path: desktopApp/build/compose/binaries/main/deb/*.deb
           - os: windows-latest
-            task: packageMsi
-            artifact: windows-msi
-            path: desktopApp/build/compose/binaries/main/msi/*.msi
+            task: packageMsi packageExe
+            artifact: windows-installer
+            path: |
+              desktopApp/build/compose/binaries/main/msi/*.msi
+              desktopApp/build/compose/binaries/main/exe/*.exe
           - os: macos-latest
             task: packageDmg
             artifact: macos-dmg
