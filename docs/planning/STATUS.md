@@ -381,6 +381,8 @@ Validation:
 - Real-network integration test pauses a YouTube download, keeps the temp
   directory, resumes it and verifies the final file.
 
+- Version bumped to 1.6.0 (Android versionCode 15).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

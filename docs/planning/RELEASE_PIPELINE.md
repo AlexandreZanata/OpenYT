@@ -6,7 +6,7 @@ Workflow: `.github/workflows/release.yml`.
 
 - Runs on every push to `main` and on manual dispatch.
 - `gradle.properties` is the single source of truth:
-  - `openyt.version` (SemVer, currently `1.5.0`)
+  - `openyt.version` (SemVer, currently `1.6.0`)
   - `openyt.versionCode` (Android integer)
 - Every main push rebuilds and **updates** the release for `v<version>`. Bump the
   version before merging to publish a new release; otherwise assets of the current
