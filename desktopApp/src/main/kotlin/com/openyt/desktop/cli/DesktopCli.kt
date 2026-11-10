@@ -36,6 +36,7 @@ import com.openyt.data.defaultDatabasePath
 import com.openyt.desktop.BuildInfo
 import com.openyt.desktop.defaultDownloadsDirectory
 import com.openyt.desktop.downloader.DesktopYtDlpEngine
+import com.openyt.desktop.player.DesktopPlaybackLauncher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -80,6 +81,7 @@ object DesktopCli {
                     "playlist" -> playlist(args)
                     "library" -> library(args)
                     "cookies" -> cookies(args)
+                    "playback" -> playback(args)
                     else -> usage()
                 }
             }
@@ -200,6 +202,19 @@ object DesktopCli {
             scope.cancel()
             engine.close()
         }
+    }
+
+    private fun playback(args: CliArgs): Int {
+        if (!args.flag("check")) throw CliException("playback requires --check")
+        val launcher = DesktopPlaybackLauncher()
+        val payload = buildJsonObject {
+            put("ok", true)
+            put("command", "playback")
+            put("canPlay", launcher.canPlay)
+            put("vlcAvailable", launcher.isVlcAvailable())
+        }
+        println(json.encodeToString(JsonElement.serializer(), payload))
+        return 0
     }
 
     private suspend fun cookies(args: CliArgs): Int {
@@ -820,6 +835,7 @@ object DesktopCli {
               main --cli library  --bulk-rename <pattern> --ids <id,id> [--json]
               main --cli library  --bulk-move <directory> --ids <id,id> [--json]
               main --cli cookies  [--import <path>] [--check] [--clear] [--json]
+              main --cli playback --check [--json]
               main --cli version
             """.trimIndent(),
         )

@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
         --no-build) BUILD=0; shift ;;
         --offline) OFFLINE=1; shift ;;
         -h|--help)
-            echo "usage: $0 [--scenario all|tests|android|tools|inspect|download|playlist|pause|metadata|cookies|library|archive|watch|storage|bulk|gui]"
+            echo "usage: $0 [--scenario all|tests|android|tools|inspect|download|playlist|pause|metadata|cookies|library|archive|watch|storage|bulk|playback|gui]"
             echo "          [--deb path] [--no-build] [--offline]"
             exit 0
             ;;
@@ -616,6 +616,20 @@ assert paths["bulk-b"].endswith("moved/Beta [bulk-b].m4a"), paths
     pass "bulk rename/move applied, persisted and files preserved"
 }
 
+scenario_playback() {
+    local output
+    output="$("$APP" --cli playback --check --json)" \
+        || { fail "playback check failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+assert data.get("ok") is True, data
+assert data.get("canPlay") is True, data
+print("  vlcAvailable:", data.get("vlcAvailable"))
+' || { fail "playback payload invalid"; return 1; }
+    pass "desktop playback launcher (VLCJ) check"
+}
+
 scenario_gui() {
     if [[ -z "${DISPLAY:-}" ]]; then skip "gui (no DISPLAY)"; return 0; fi
     command -v xwininfo >/dev/null 2>&1 || { skip "gui (no xwininfo)"; return 0; }
@@ -685,6 +699,7 @@ case "$SCENARIO" in
         run "watch" scenario_watch
         run "storage" scenario_storage
         run "bulk" scenario_bulk
+        run "playback" scenario_playback
         run "gui" scenario_gui
         ;;
     tests) scenario_tests ;;
@@ -701,6 +716,7 @@ case "$SCENARIO" in
     watch) run_after_prepare "watch" scenario_watch ;;
     storage) run_after_prepare "storage" scenario_storage ;;
     bulk) run_after_prepare "bulk" scenario_bulk ;;
+    playback) run_after_prepare "playback" scenario_playback ;;
     gui) run_after_prepare "gui" scenario_gui ;;
     *) echo "unknown scenario: $SCENARIO" >&2; exit 2 ;;
 esac

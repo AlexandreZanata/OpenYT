@@ -110,6 +110,7 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.vlcj)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.junit)

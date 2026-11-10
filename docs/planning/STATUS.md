@@ -538,6 +538,14 @@ Validation:
 
 - Version bumped to 2.9.0 (Android versionCode 28).
 
+## Phase 33 completed (desktop playback)
+
+- Desktop Play action uses an embedded VLCJ window when libvlc is available and
+  falls back to the operating system's default player otherwise.
+- VLCJ 4.12.1 is documented in ADR 0019; the app remains usable without VLC.
+- CLI `playback --check` reports `canPlay` and `vlcAvailable`; Linux validation
+  covers the VLCJ discovery check.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
