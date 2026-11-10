@@ -405,6 +405,8 @@ Validation:
   falls back to the playlist-wide video/audio choice.
 - Core planner test and Compose dialog UI test cover the new path.
 
+- Version bumped to 1.8.0 (Android versionCode 17).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
