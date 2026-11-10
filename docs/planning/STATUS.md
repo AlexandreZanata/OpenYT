@@ -488,6 +488,8 @@ Validation:
 - CLI `library --export/--import`; Linux validation exports, wipes and imports
   the database, asserting entries, tags, collections and smart collections.
 
+- Version bumped to 2.5.0 (Android versionCode 24).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
