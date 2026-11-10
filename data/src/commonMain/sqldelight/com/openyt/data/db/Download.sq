@@ -123,6 +123,9 @@ insertLibraryEntry:
 INSERT OR REPLACE INTO library_entry(id, title, author, kind, file_path, size_bytes, thumbnail_url, source)
 VALUES (:id, :title, :author, :kind, :file_path, :size_bytes, :thumbnail_url, :source);
 
+updateLibraryPath:
+UPDATE library_entry SET file_path = ? WHERE id = ?;
+
 updateLibraryMetadata:
 UPDATE library_entry SET title = ?, author = ? WHERE id = ?;
 

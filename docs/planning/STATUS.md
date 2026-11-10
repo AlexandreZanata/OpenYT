@@ -513,6 +513,17 @@ Validation:
 
 - Version bumped to 2.7.0 (Android versionCode 26).
 
+## Phase 31 completed (bulk rename and move)
+
+- Bulk rename/move has an explicit preview and confirmation; conflicts disable
+  the apply action.
+- Two-phase staged move supports swaps, never overwrites and rolls everything
+  back on failure. Library paths are updated only after the files succeed.
+- Library selection toolbar adds Rename and Move dialogs.
+- CLI: `library --bulk-rename <pattern> --ids ...` and `--bulk-move <dir>`.
+- Linux validation renames and moves a fixture batch, asserts DB paths and that
+  file contents/count are unchanged.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
         --no-build) BUILD=0; shift ;;
         --offline) OFFLINE=1; shift ;;
         -h|--help)
-            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|metadata|cookies|library|archive|watch|storage|gui]"
+            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|metadata|cookies|library|archive|watch|storage|bulk|gui]"
             echo "          [--deb path] [--no-build] [--offline]"
             exit 0
             ;;
@@ -547,6 +547,71 @@ assert not any(path.endswith("dup.mp4") for path in report["orphans"]), report
     pass "storage report totals, duplicates, missing and orphans"
 }
 
+scenario_bulk() {
+    local folder="$WORK/bulk-media"
+    local data="$WORK/bulk-data"
+    mkdir -p "$folder" "$data"
+    printf 'video-content' > "$folder/a.mp4"
+    printf 'audio-content' > "$folder/b.m4a"
+    local before after
+    before="$(find "$folder" -type f -exec sha256sum {} \; | awk '{print $1}' | sort)"
+
+    XDG_DATA_HOME="$data" "$APP" --cli library --list --json >/dev/null 2>&1 || true
+    python3 - "$data/OpenYT/openyt.db" "$folder" <<'PY' || { fail "seeding bulk data failed"; return 1; }
+import sqlite3, sys
+connection = sqlite3.connect(sys.argv[1])
+folder = sys.argv[2]
+connection.execute("DELETE FROM library_entry")
+connection.execute(
+    "INSERT INTO library_entry(id,title,kind,file_path,size_bytes,created_at,thumbnail_url,source) VALUES (?,?,?,?,?,?,?,?)",
+    ("bulk-a", "Alpha", "VIDEO", f"{folder}/a.mp4", 13, 0, None, "import"),
+)
+connection.execute(
+    "INSERT INTO library_entry(id,title,kind,file_path,size_bytes,created_at,thumbnail_url,source) VALUES (?,?,?,?,?,?,?,?)",
+    ("bulk-b", "Beta", "AUDIO", f"{folder}/b.m4a", 13, 0, None, "import"),
+)
+connection.commit()
+PY
+
+    local output
+    output="$(XDG_DATA_HOME="$data" "$APP" --cli library --bulk-rename "{title} [{id}]" --ids bulk-a,bulk-b --json)" \
+        || { fail "bulk rename failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+result = data["bulkResult"]
+assert result["success"] is True and result["rolledBack"] is False, result
+' || { fail "bulk rename result invalid"; return 1; }
+    [[ -f "$folder/Alpha [bulk-a].mp4" && -f "$folder/Beta [bulk-b].m4a" ]] \
+        || { fail "renamed files are missing"; return 1; }
+
+    output="$(XDG_DATA_HOME="$data" "$APP" --cli library --bulk-move "$folder/moved" --ids bulk-a,bulk-b --json)" \
+        || { fail "bulk move failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+result = data["bulkResult"]
+assert result["success"] is True and result["rolledBack"] is False, result
+' || { fail "bulk move result invalid"; return 1; }
+    [[ -f "$folder/moved/Alpha [bulk-a].mp4" && -f "$folder/moved/Beta [bulk-b].m4a" ]] \
+        || { fail "moved files are missing"; return 1; }
+
+    output="$(XDG_DATA_HOME="$data" "$APP" --cli library --list --json)" \
+        || { fail "listing bulk library failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+paths = {entry["id"]: entry["filePath"] for entry in data["entries"]}
+assert paths["bulk-a"].endswith("moved/Alpha [bulk-a].mp4"), paths
+assert paths["bulk-b"].endswith("moved/Beta [bulk-b].m4a"), paths
+' || { fail "bulk paths not persisted"; return 1; }
+
+    after="$(find "$folder" -type f -exec sha256sum {} \; | awk '{print $1}' | sort)"
+    [[ "$before" == "$after" ]] || { fail "bulk operation changed file contents"; return 1; }
+    [[ "$(find "$folder" -type f | wc -l)" -eq 2 ]] || { fail "bulk operation lost files"; return 1; }
+    pass "bulk rename/move applied, persisted and files preserved"
+}
+
 scenario_gui() {
     if [[ -z "${DISPLAY:-}" ]]; then skip "gui (no DISPLAY)"; return 0; fi
     command -v xwininfo >/dev/null 2>&1 || { skip "gui (no xwininfo)"; return 0; }
@@ -614,6 +679,7 @@ case "$SCENARIO" in
         run "archive" scenario_archive
         run "watch" scenario_watch
         run "storage" scenario_storage
+        run "bulk" scenario_bulk
         run "gui" scenario_gui
         ;;
     tests) scenario_tests ;;
@@ -628,6 +694,7 @@ case "$SCENARIO" in
     archive) run_after_prepare "archive" scenario_archive ;;
     watch) run_after_prepare "watch" scenario_watch ;;
     storage) run_after_prepare "storage" scenario_storage ;;
+    bulk) run_after_prepare "bulk" scenario_bulk ;;
     gui) run_after_prepare "gui" scenario_gui ;;
     *) echo "unknown scenario: $SCENARIO" >&2; exit 2 ;;
 esac

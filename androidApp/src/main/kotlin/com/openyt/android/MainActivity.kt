@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
                 mediaTagger = container.mediaTagger,
                 libraryArchiveService = container.libraryArchiveService,
                 folderImportService = container.folderImportService,
+                bulkFileService = container.bulkFileService,
                 initialSharedUrl = pendingSharedUrl,
                 onSharedUrlConsumed = { sharedUrl.value = null },
             )

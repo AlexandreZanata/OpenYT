@@ -4,6 +4,8 @@ import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.EnqueuePlaylistUseCase
 import com.openyt.core.application.FolderImportService
 import com.openyt.core.application.InspectMediaUseCase
+import com.openyt.core.application.BulkFilePlanner
+import com.openyt.core.application.BulkFileService
 import com.openyt.core.application.LibraryArchiveCodec
 import com.openyt.core.application.LibraryArchiveService
 import com.openyt.core.application.LibraryImportPolicy
@@ -26,6 +28,7 @@ import com.openyt.core.domain.SmartCollection
 import com.openyt.core.domain.PlaylistEntry
 import com.openyt.core.domain.PlaylistInfo
 import com.openyt.data.EncryptedCookieRepository
+import com.openyt.data.FileBulkFileOperator
 import com.openyt.data.FileFolderScanner
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.createOpenYtDatabase
@@ -241,6 +244,8 @@ object DesktopCli {
         val importPath = args.value("import")
         val scanPath = args.value("scan")
         val storage = args.flag("storage")
+        val bulkRename = args.value("bulk-rename")
+        val bulkMove = args.value("bulk-move")
         if (
             !args.flag("list") &&
             addTag == null &&
@@ -252,7 +257,9 @@ object DesktopCli {
             exportPath == null &&
             importPath == null &&
             scanPath == null &&
-            !storage
+            !storage &&
+            bulkRename == null &&
+            bulkMove == null
         ) {
             throw CliException(
                 "library requires --list, --add-tag, --remove-tag, --create-smart, " +
@@ -268,6 +275,24 @@ object DesktopCli {
             repository.removeLibraryTag(args.required("entry"), removeTag)
         }
         val archiveService = LibraryArchiveService(repository)
+        var bulkResult: com.openyt.core.application.BulkApplyResult? = null
+        if (bulkRename != null || bulkMove != null) {
+            val ids = args.value("ids")
+                ?.split(',')
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() }
+                ?.toSet()
+                .orEmpty()
+            if (ids.isEmpty()) throw CliException("--ids is required for bulk operations")
+            val selected = repository.loadLibrary().filter { it.id in ids }
+            if (selected.isEmpty()) throw CliException("no library entries matched --ids")
+            val plan = if (bulkRename != null) {
+                BulkFilePlanner.planRename(selected, bulkRename) { File(it).exists() }
+            } else {
+                BulkFilePlanner.planMove(selected, bulkMove.orEmpty()) { File(it).exists() }
+            }
+            bulkResult = BulkFileService(FileBulkFileOperator(), repository).apply(plan)
+        }
         var storageReport: com.openyt.core.application.StorageReport? = null
         if (storage) {
             val known = FileFolderScanner().scan(
@@ -351,6 +376,29 @@ object DesktopCli {
                     put("createdSmartCollection", it.id)
                 }
                 exportedPath?.let { put("exportPath", it) }
+                bulkResult?.let { result ->
+                    put(
+                        "bulkResult",
+                        buildJsonObject {
+                            put("success", result.success)
+                            put("rolledBack", result.rolledBack)
+                            put(
+                                "applied",
+                                buildJsonArray {
+                                    result.applied.forEach { change ->
+                                        add(
+                                            buildJsonObject {
+                                                put("entryId", change.entryId)
+                                                put("fromPath", change.fromPath)
+                                                put("toPath", change.toPath)
+                                            },
+                                        )
+                                    }
+                                },
+                            )
+                        },
+                    )
+                }
                 storageReport?.let { report ->
                     put(
                         "storage",
@@ -769,6 +817,8 @@ object DesktopCli {
               main --cli library  --import <path> [--policy merge|replace] [--json]
               main --cli library  --scan <directory> [--json]
               main --cli library  --storage [--storage-dir <directory>] [--json]
+              main --cli library  --bulk-rename <pattern> --ids <id,id> [--json]
+              main --cli library  --bulk-move <directory> --ids <id,id> [--json]
               main --cli cookies  [--import <path>] [--check] [--clear] [--json]
               main --cli version
             """.trimIndent(),

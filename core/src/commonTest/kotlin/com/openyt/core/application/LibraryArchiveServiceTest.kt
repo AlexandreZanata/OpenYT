@@ -133,6 +133,7 @@ class LibraryArchiveServiceTest {
             library.removeAll { it.id == id }
         }
 
+        override suspend fun updateLibraryPath(id: String, filePath: String) = Unit
         override suspend fun updateLibraryMetadata(id: String, title: String, author: String?) = Unit
         override suspend fun addLibraryTag(entryId: String, tag: String) = Unit
         override suspend fun removeLibraryTag(entryId: String, tag: String) = Unit
