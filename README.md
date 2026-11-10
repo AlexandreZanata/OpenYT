@@ -13,6 +13,87 @@ backend: the app runs entirely on the device.
 > library persist locally; recovery marks interrupted downloads instead of
 > auto-resuming them. Only features listed under "Current status" are implied.
 
+## Screenshots
+
+| Desktop (Linux) | Android |
+|-----------------|---------|
+| ![OpenYT desktop library](docs/assets/phase9-desktop-dark.png) | ![OpenYT Android home](docs/assets/phase9-android-home-dark.png) |
+| ![OpenYT desktop update banner](docs/assets/phase14-update-banner.png) | ![OpenYT Android inspect result](docs/assets/phase7-android-home-thumbnail.png) |
+
+## Download and install
+
+Get the latest files from the [Releases page](https://github.com/AlexandreZanata/OpenYT/releases/latest)
+(Android APK, Linux `.deb`, Windows `.msi`, macOS `.dmg`, checksums).
+
+### Android
+
+1. Download `androidApp-release.apk`.
+2. Allow installing unknown apps for the browser or file manager.
+3. Open the APK and install. Requires Android 8.0+ (`minSdk 26`); verified on arm64.
+
+The Android build bundles yt-dlp and FFmpeg, so no extra setup is required.
+
+### Linux
+
+```bash
+# Debian/Ubuntu (amd64)
+wget https://github.com/AlexandreZanata/OpenYT/releases/latest/download/openyt_1.3.0_amd64.deb
+sudo apt install ./openyt_1.3.0_amd64.deb
+
+# Runtime dependencies for real downloads
+sudo apt install yt-dlp ffmpeg
+```
+
+Keep `yt-dlp` updated; sites change frequently. Other distributions can install
+`yt-dlp` and `ffmpeg` from their package manager.
+
+### Windows
+
+1. Download `OpenYT-1.3.0.msi`, run it, and confirm the SmartScreen prompt
+   (More info → Run anyway) because the installer is unsigned.
+2. Install the runtime dependencies and make sure both are on `PATH`:
+
+```powershell
+winget install yt-dlp.yt-dlp
+winget install Gyan.FFmpeg
+```
+
+The Windows package is built in CI but not yet validated on a real device.
+
+### macOS
+
+1. Download `OpenYT-1.3.0.dmg`, open it, and drag OpenYT to Applications.
+2. The app is unsigned, so right-click → Open (or remove the quarantine flag):
+
+```bash
+xattr -dr com.apple.quarantine /Applications/OpenYT.app
+brew install yt-dlp ffmpeg
+```
+
+The macOS package is built in CI but not yet validated on a real device.
+
+## Download examples
+
+Only download content you are authorized to obtain.
+
+### Video (real example)
+
+1. Paste `https://www.youtube.com/watch?v=jNQXAC9IVRw` (Me at the zoo).
+2. Select **Inspect**.
+3. Choose **Video** and pick a format, e.g. `240p · MP4 · 314.8 KB`.
+4. Select **Download**; the file appears in **Downloads** and **Library**.
+
+### Audio
+
+1. Paste the same URL, or any authorized audio source.
+2. Select **Inspect**, switch to **Audio**, and pick a format such as M4A or Opus.
+3. Select **Download**.
+
+### Photos and images
+
+Photo/image download is not supported yet. OpenYT downloads video and audio;
+thumbnails are displayed in the app but are not saved as separate files.
+
 ## Stack
 
 | Concern            | Choice                                                |
