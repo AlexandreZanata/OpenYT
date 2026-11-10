@@ -407,6 +407,19 @@ Validation:
 
 - Version bumped to 1.8.0 (Android versionCode 17).
 
+## Phase 22 completed (organization presets and templates)
+
+- New organization presets: playlist, playlist + channel, playlist + year,
+  channel, and year, using yt-dlp metadata for channel/year folders.
+- Editable file-name template with validation (no path separators, no `..`, must
+  contain `%(ext)s`); invalid templates fall back to the default.
+- Presets and template are persisted in schema 10 and applied to both single
+  downloads and playlist entries.
+- CLI accepts `--preset` and `--template`; Linux validation downloads a playlist
+  entry with the channel preset and asserts the uploader folder.
+
+- Version bumped to 1.9.0 (Android versionCode 18).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

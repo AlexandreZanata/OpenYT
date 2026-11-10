@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.EnqueuePlaylistUseCase
 import com.openyt.core.application.InspectMediaUseCase
+import com.openyt.core.application.OrganizationPlanner
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadRequest
@@ -57,6 +58,7 @@ import com.openyt.core.domain.EngineResult
 import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaFormat
 import com.openyt.core.domain.MediaInfo
+import com.openyt.core.domain.OrganizationPreset
 import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.PlaylistEntry
 import com.openyt.core.domain.PlaylistEntrySelection
@@ -83,6 +85,8 @@ fun HomeScreen(
     coordinator: DownloadCoordinator,
     downloadsDirectory: String,
     onDownloadStarted: () -> Unit,
+    organizationPreset: OrganizationPreset = OrganizationPreset.PLAYLIST,
+    fileNameTemplate: String? = null,
     initialSharedUrl: String? = null,
     onSharedUrlConsumed: () -> Unit = {},
     showBrand: Boolean = false,
@@ -179,6 +183,8 @@ fun HomeScreen(
                     sourceUrl = current.sourceUrl,
                     coordinator = coordinator,
                     downloadsDirectory = downloadsDirectory,
+                    organizationPreset = organizationPreset,
+                    fileNameTemplate = fileNameTemplate,
                     onDownloadStarted = onDownloadStarted,
                 )
 
@@ -187,6 +193,8 @@ fun HomeScreen(
                     engine = engine,
                     coordinator = coordinator,
                     downloadsDirectory = downloadsDirectory,
+                    organizationPreset = organizationPreset,
+                    fileNameTemplate = fileNameTemplate,
                     onDownloadStarted = onDownloadStarted,
                 )
             }
@@ -200,6 +208,8 @@ private fun MediaSummary(
     sourceUrl: String,
     coordinator: DownloadCoordinator,
     downloadsDirectory: String,
+    organizationPreset: OrganizationPreset,
+    fileNameTemplate: String?,
     onDownloadStarted: () -> Unit,
 ) {
     val strings = LocalStrings.current
@@ -331,6 +341,8 @@ private fun PlaylistSummary(
     engine: DownloadEngine,
     coordinator: DownloadCoordinator,
     downloadsDirectory: String,
+    organizationPreset: OrganizationPreset,
+    fileNameTemplate: String?,
     onDownloadStarted: () -> Unit,
 ) {
     val strings = LocalStrings.current
@@ -435,6 +447,8 @@ private fun PlaylistSummary(
                         kind = kind,
                         downloadsDirectory = downloadsDirectory,
                         overrides = overrides,
+                        preset = organizationPreset,
+                        customFileNameTemplate = fileNameTemplate,
                     )
                     onDownloadStarted()
                 },

@@ -1,6 +1,7 @@
 package com.openyt.core.application
 
 import com.openyt.core.domain.MediaKind
+import com.openyt.core.domain.OrganizationPreset
 import com.openyt.core.domain.PlaylistEntry
 import com.openyt.core.domain.PlaylistEntrySelection
 import com.openyt.core.domain.PlaylistInfo
@@ -61,6 +62,28 @@ class EnqueuePlaylistUseCaseTest {
         val directory = coordinator.tasks.value.single().request.destinationDirectory
         assertEquals(".._.._AC_DC_ Live_", directory.substringAfterLast('/'))
         assertFalse(directory.split('/').any { it == ".." })
+    }
+
+    @Test
+    fun organizesByChannelPreset() = runTest {
+        val coordinator = DownloadCoordinator(FakeDownloadEngine(), coordinatorScope())
+        val playlist = playlist("Preset", listOf(entry(1, "First")))
+
+        EnqueuePlaylistUseCase(coordinator)(
+            playlist,
+            playlist.entries,
+            MediaKind.VIDEO,
+            "/tmp/openyt",
+            preset = OrganizationPreset.CHANNEL,
+        )
+        advanceUntilIdle()
+
+        val task = coordinator.tasks.value.single()
+        assertEquals("/tmp/openyt", task.request.destinationDirectory)
+        assertEquals(
+            "%(uploader).80B/01 - %(title).150B [%(id)s].%(ext)s",
+            task.request.fileNameTemplate,
+        )
     }
 
     @Test
