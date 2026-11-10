@@ -274,6 +274,24 @@ Validation:
   skipped), and 8 Android device tests. Screenshot:
   `docs/assets/phase12-android-diagnostics.png`.
 
+## Phase 13 completed (icons, SAF destination, assisted updates, production APK)
+
+- Integrated PR #1 branding: shared BrandIcon/wordmark, window icon, adaptive
+  Android launcher icon, and Linux/Windows/macOS installer icons. Verified the
+  branded PNG is embedded in the `.deb` and the APK uses the adaptive launcher.
+- Android SAF destination: choose an external tree with persistable permission;
+  completed downloads are copied into it while the app keeps its local copy for
+  library, sharing, and probing.
+- Update flow now offers "Baixar e instalar": downloads the platform asset from the
+  GitHub release and opens the OS package installer (assisted, not silent).
+- Android production signing: a local 4096-bit RSA keystore was generated outside
+  the repository and the four signing secrets were configured. The next APK is
+  signed with `CN=OpenYT`, not the Android debug key.
+- Windows/macOS trusted signing/notarization still requires external certificates
+  and Apple credentials; the requirements are documented in `SIGNING.md`. Artifacts
+  remain unsigned until those credentials are supplied.
+- Version bumped to 1.2.0 (Android versionCode 9).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
@@ -287,10 +305,12 @@ Validation:
   are pending.
 - No pause support (engine only supports cancellation).
 - Media playback and subtitle download are not implemented.
-- Import copies files into app storage; choosing an external SAF download
-  destination is not implemented.
-- Auto-update is a check + release link, not an automatic installer; artifacts are
-  unsigned (Windows/macOS) or debug-signed without Android secrets.
+- SAF destination copies completed files to the chosen tree; the app keeps its local
+  copy instead of moving the only file.
+- Updates download the installer and require OS/user confirmation; silent install is
+  not implemented. Windows/macOS artifacts are unsigned until certificates are set.
+- Back up `~/.openyt/android-release.jks`; losing it prevents installing updates over
+  production-signed APKs.
 - Desktop has no file import yet (Android-only SAF import).
 - Android probing may omit audio codec/bitrate when the extractor does not expose
   them; desktop probing requires FFprobe on the machine.

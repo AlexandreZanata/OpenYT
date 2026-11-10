@@ -6,7 +6,7 @@ Workflow: `.github/workflows/release.yml`.
 
 - Runs on every push to `main` and on manual dispatch.
 - `gradle.properties` is the single source of truth:
-  - `openyt.version` (SemVer, currently `1.1.0`)
+  - `openyt.version` (SemVer, currently `1.2.0`)
   - `openyt.versionCode` (Android integer)
 - Every main push rebuilds and **updates** the release for `v<version>`. Bump the
   version before merging to publish a new release; otherwise assets of the current
@@ -33,8 +33,9 @@ Android release signing is optional and driven by repository secrets:
 - `ANDROID_KEY_ALIAS`
 - `ANDROID_KEY_PASSWORD`
 
-Without them, the workflow produces a **debug-signed** APK for testing. It is not
-suitable for public production distribution.
+Without them, the workflow produces a **debug-signed** APK for testing. Production
+signing is now configured through these repository secrets; the keystore and
+passwords are stored outside the repository (`~/.openyt`). Back them up.
 
 Windows and macOS installers are currently unsigned. macOS Gatekeeper will warn;
 Windows SmartScreen may warn. Code signing/notarization is a future step and
