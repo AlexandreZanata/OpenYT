@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
         --no-build) BUILD=0; shift ;;
         --offline) OFFLINE=1; shift ;;
         -h|--help)
-            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|metadata|cookies|library|archive|watch|gui]"
+            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|metadata|cookies|library|archive|watch|storage|gui]"
             echo "          [--deb path] [--no-build] [--offline]"
             exit 0
             ;;
@@ -494,6 +494,59 @@ assert result["added"] == 0 and result["skipped"] == 2, result
     pass "watch folder imported in place and idempotently"
 }
 
+scenario_storage() {
+    local folder="$WORK/storage-media"
+    local data="$WORK/storage-data"
+    mkdir -p "$folder" "$data"
+    printf 'dup-bytes' > "$folder/dup.mp4"
+    printf 'orphan-bytes' > "$folder/orphan.mp4"
+    local before after
+    before="$(find "$folder" -type f -exec sha256sum {} \; | sort)"
+
+    XDG_DATA_HOME="$data" "$APP" --cli library --list --json >/dev/null 2>&1 || true
+    python3 - "$data/OpenYT/openyt.db" "$folder" <<'PY' || { fail "seeding storage data failed"; return 1; }
+import sqlite3, sys
+connection = sqlite3.connect(sys.argv[1])
+folder = sys.argv[2]
+connection.execute("DELETE FROM library_entry")
+connection.execute("DELETE FROM library_tag")
+connection.execute(
+    "INSERT INTO library_entry(id,title,kind,file_path,size_bytes,created_at,thumbnail_url,source) VALUES (?,?,?,?,?,?,?,?)",
+    ("store-a", "Dup A", "VIDEO", f"{folder}/dup.mp4", 3, 0, None, "import"),
+)
+connection.execute(
+    "INSERT INTO library_entry(id,title,kind,file_path,size_bytes,created_at,thumbnail_url,source) VALUES (?,?,?,?,?,?,?,?)",
+    ("store-b", "Dup B", "VIDEO", f"{folder}/dup.mp4", 3, 0, None, "import"),
+)
+connection.execute(
+    "INSERT INTO library_entry(id,title,kind,file_path,size_bytes,created_at,thumbnail_url,source) VALUES (?,?,?,?,?,?,?,?)",
+    ("store-c", "Missing", "AUDIO", f"{folder}/missing.mp4", 2, 0, None, "import"),
+)
+connection.commit()
+PY
+
+    local output
+    output="$(XDG_DATA_HOME="$data" "$APP" --cli library --storage --storage-dir "$folder" --json)" \
+        || { fail "storage report failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+report = data["storage"]
+assert report["totalEntries"] == 3, report
+assert report["totalBytes"] == 8, report
+assert len(report["largest"]) == 3, report
+assert report["largest"][0]["sizeBytes"] == 3, report
+assert len(report["duplicateGroups"]) == 1, report
+assert report["missing"] == ["store-c"], report
+assert any(path.endswith("orphan.mp4") for path in report["orphans"]), report
+assert not any(path.endswith("dup.mp4") for path in report["orphans"]), report
+' || { fail "storage report content invalid"; return 1; }
+
+    after="$(find "$folder" -type f -exec sha256sum {} \; | sort)"
+    [[ "$before" == "$after" ]] || { fail "storage report mutated files"; return 1; }
+    pass "storage report totals, duplicates, missing and orphans"
+}
+
 scenario_gui() {
     if [[ -z "${DISPLAY:-}" ]]; then skip "gui (no DISPLAY)"; return 0; fi
     command -v xwininfo >/dev/null 2>&1 || { skip "gui (no xwininfo)"; return 0; }
@@ -560,6 +613,7 @@ case "$SCENARIO" in
         run "library" scenario_library
         run "archive" scenario_archive
         run "watch" scenario_watch
+        run "storage" scenario_storage
         run "gui" scenario_gui
         ;;
     tests) scenario_tests ;;
@@ -573,6 +627,7 @@ case "$SCENARIO" in
     library) run_after_prepare "library" scenario_library ;;
     archive) run_after_prepare "archive" scenario_archive ;;
     watch) run_after_prepare "watch" scenario_watch ;;
+    storage) run_after_prepare "storage" scenario_storage ;;
     gui) run_after_prepare "gui" scenario_gui ;;
     *) echo "unknown scenario: $SCENARIO" >&2; exit 2 ;;
 esac

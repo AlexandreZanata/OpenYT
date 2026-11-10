@@ -1,6 +1,6 @@
 # OpenYT Expansion Roadmap
 
-Status: Phase 0 (validation foundation) implemented. Program A (pipeline) is complete: A1–A8 implemented. Program B1 (tags), B2 (smart collections), B3 (metadata search), B4 (metadata editing/embedded tags), B5 (library export/import) and B6 (watch folder import) implemented. B7–B8 and Programs C–G are planning only.
+Status: Phase 0 (validation foundation) implemented. Program A (pipeline) is complete: A1–A8 implemented. Program B1 (tags), B2 (smart collections), B3 (metadata search), B4 (metadata editing/embedded tags), B5 (library export/import) B6 (watch folder import) and B7 (storage panel) implemented. B8 and Programs C–G are planning only.
 
 This roadmap covers the seven expansion areas requested after v1.4.1. It is
 organised into programs (A–G), each split into microphases (A1, A2, …). Every
