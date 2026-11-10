@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
         --no-build) BUILD=0; shift ;;
         --offline) OFFLINE=1; shift ;;
         -h|--help)
-            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|metadata|cookies|library|archive|gui]"
+            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|metadata|cookies|library|archive|watch|gui]"
             echo "          [--deb path] [--no-build] [--offline]"
             exit 0
             ;;
@@ -451,6 +451,49 @@ assert data["membership"]["collection-archive"] == ["archive-1"], data["membersh
     pass "library archive exported, wiped and imported"
 }
 
+scenario_watch() {
+    local folder="$WORK/watch"
+    mkdir -p "$folder/sub"
+    printf 'video-bytes' > "$folder/movie.mp4"
+    printf 'audio-bytes' > "$folder/song.m4a"
+    printf 'ignored' > "$folder/notes.txt"
+    local before after
+    before="$(find "$folder" -type f -exec sha256sum {} \; | sort)"
+
+    local output
+    output="$("$APP" --cli library --scan "$folder" --json)" \
+        || { fail "folder scan failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+assert data["scanResult"]["added"] == 2, data
+' || { fail "folder scan add count invalid"; return 1; }
+
+    output="$("$APP" --cli library --list --json)" \
+        || { fail "listing scanned library failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+paths = {entry["filePath"] for entry in data["entries"]}
+assert any(path.endswith("movie.mp4") for path in paths), paths
+assert any(path.endswith("song.m4a") for path in paths), paths
+assert not any(path.endswith("notes.txt") for path in paths), paths
+' || { fail "scanned entries invalid"; return 1; }
+
+    output="$("$APP" --cli library --scan "$folder" --json)" \
+        || { fail "second folder scan failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+result = data["scanResult"]
+assert result["added"] == 0 and result["skipped"] == 2, result
+' || { fail "folder scan is not idempotent"; return 1; }
+
+    after="$(find "$folder" -type f -exec sha256sum {} \; | sort)"
+    [[ "$before" == "$after" ]] || { fail "source files were mutated"; return 1; }
+    pass "watch folder imported in place and idempotently"
+}
+
 scenario_gui() {
     if [[ -z "${DISPLAY:-}" ]]; then skip "gui (no DISPLAY)"; return 0; fi
     command -v xwininfo >/dev/null 2>&1 || { skip "gui (no xwininfo)"; return 0; }
@@ -516,6 +559,7 @@ case "$SCENARIO" in
         run "cookies" scenario_cookies
         run "library" scenario_library
         run "archive" scenario_archive
+        run "watch" scenario_watch
         run "gui" scenario_gui
         ;;
     tests) scenario_tests ;;
@@ -528,6 +572,7 @@ case "$SCENARIO" in
     cookies) run_after_prepare "cookies" scenario_cookies ;;
     library) run_after_prepare "library" scenario_library ;;
     archive) run_after_prepare "archive" scenario_archive ;;
+    watch) run_after_prepare "watch" scenario_watch ;;
     gui) run_after_prepare "gui" scenario_gui ;;
     *) echo "unknown scenario: $SCENARIO" >&2; exit 2 ;;
 esac
