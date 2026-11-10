@@ -1,5 +1,11 @@
 package com.openyt.core.domain
 
+enum class DownloadPriority(val weight: Int) {
+    LOW(0),
+    NORMAL(1),
+    HIGH(2),
+}
+
 enum class DownloadStatus {
     QUEUED,
     DOWNLOADING,
@@ -28,4 +34,6 @@ data class DownloadTask(
     val filePath: String? = null,
     val sizeBytes: Long? = null,
     val failure: DownloadFailure? = null,
+    val priority: DownloadPriority = DownloadPriority.NORMAL,
+    val attempt: Int = 0,
 )

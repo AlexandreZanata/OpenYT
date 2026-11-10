@@ -20,7 +20,9 @@ CREATE TABLE download_task (
     size_bytes INTEGER,
     failure_kind TEXT,
     failure_detail TEXT,
-    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    priority TEXT NOT NULL DEFAULT 'NORMAL',
+    attempt INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE library_entry (
@@ -70,12 +72,12 @@ INSERT OR REPLACE INTO download_task(
     id, source_id, title, author, source, url, webpage_url, duration_seconds,
     thumbnail_url, kind, format_id, destination_directory, status, percent,
     speed_bytes_per_second, eta_seconds, file_path, size_bytes,
-    failure_kind, failure_detail
+    failure_kind, failure_detail, priority, attempt
 ) VALUES (
     :id, :source_id, :title, :author, :source, :url, :webpage_url, :duration_seconds,
     :thumbnail_url, :kind, :format_id, :destination_directory, :status, :percent,
     :speed_bytes_per_second, :eta_seconds, :file_path, :size_bytes,
-    :failure_kind, :failure_detail
+    :failure_kind, :failure_detail, :priority, :attempt
 );
 
 updateTask:
@@ -87,7 +89,9 @@ UPDATE download_task SET
     file_path = :file_path,
     size_bytes = :size_bytes,
     failure_kind = :failure_kind,
-    failure_detail = :failure_detail
+    failure_detail = :failure_detail,
+    priority = :priority,
+    attempt = :attempt
 WHERE id = :id;
 
 deleteTask:

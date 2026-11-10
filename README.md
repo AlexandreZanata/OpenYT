@@ -36,8 +36,8 @@ The Android build bundles yt-dlp and FFmpeg, so no extra setup is required.
 
 ```bash
 # Debian/Ubuntu (amd64)
-wget https://github.com/AlexandreZanata/OpenYT/releases/latest/download/openyt_1.4.1_amd64.deb
-sudo apt install ./openyt_1.4.1_amd64.deb
+wget https://github.com/AlexandreZanata/OpenYT/releases/latest/download/openyt_1.5.0_amd64.deb
+sudo apt install ./openyt_1.5.0_amd64.deb
 ```
 
 The release bundles yt-dlp, FFmpeg, FFprobe, and Deno. No extra setup is required.
@@ -45,7 +45,7 @@ Other distributions can install the package with their own `.deb` tooling.
 
 ### Windows
 
-1. Download `OpenYT-1.4.1.msi`, run it, and confirm the SmartScreen prompt
+1. Download `OpenYT-1.5.0.msi`, run it, and confirm the SmartScreen prompt
    (More info → Run anyway) because the installer is unsigned.
 2. Open OpenYT. yt-dlp, FFmpeg, FFprobe, and Deno are bundled.
 
@@ -53,7 +53,7 @@ The Windows package is built in CI but not yet validated on a real device.
 
 ### macOS
 
-1. Download `OpenYT-1.4.1.dmg`, open it, and drag OpenYT to Applications.
+1. Download `OpenYT-1.5.0.dmg`, open it, and drag OpenYT to Applications.
 2. The app is unsigned, so right-click → Open (or remove the quarantine flag):
 
 ```bash
@@ -167,9 +167,37 @@ Install the debug APK on a connected device:
 ./gradlew :androidApp:installDebug
 ```
 
+## Validation
+
+Unit and UI tests:
+
+```bash
+./gradlew :core:allTests :engine-ytdlp:allTests :data:desktopTest :desktopApp:test
+```
+
+Real Linux validation against the packaged `.deb` (extracts to an isolated
+prefix, uses isolated `XDG_*` directories, downloads real media and checks files,
+playlist layout, the database schema and a GUI screenshot):
+
+```bash
+./scripts/validate-linux.sh --scenario all
+./scripts/validate-linux.sh --scenario all --no-build   # reuse an existing deb
+./scripts/validate-linux.sh --scenario all --offline    # skip network scenarios
+```
+
+The packaged binary also exposes a headless CLI used by the validation script:
+
+```bash
+OpenYT --cli inspect  --url <url> --json
+OpenYT --cli download --url <url> --kind video --dir <path> --json
+OpenYT --cli playlist --url <url> --kind audio --limit 5 --json
+OpenYT --cli library  --list --json
+OpenYT --cli version
+```
+
 ## Releases
 
-Latest: [v1.4.1](https://github.com/AlexandreZanata/OpenYT/releases/tag/v1.4.1)
+Latest: [v1.5.0](https://github.com/AlexandreZanata/OpenYT/releases/tag/v1.5.0)
 (Android APK, Linux deb, Windows MSI, macOS DMG, checksums).
 
 Every push to `main` builds and publishes Android, Linux, Windows, and macOS
@@ -183,6 +211,8 @@ secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
   with progress, cancel/retry, and manage a persistent local Library.
 - Inspect playlists and channels, select items, and download them into a numbered
   playlist folder; provider icons identify common networks with a generic fallback.
+- Priority-aware queue (high/normal/low), automatic retries with backoff, and
+  bulk resume of interrupted downloads.
 - Queue and Library survive app restarts; interrupted downloads can be retried.
 - Removing a Library entry never deletes the downloaded file.
 - Library search, kind/availability/duplicate filters, title sorting, missing-file

@@ -4,6 +4,7 @@ import app.cash.sqldelight.db.SqlDriver
 import com.openyt.core.application.DownloadRepository
 import com.openyt.core.domain.Collection
 import com.openyt.core.domain.DownloadFailure
+import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
@@ -47,6 +48,8 @@ class SqlDelightDownloadRepository(
             size_bytes = task.sizeBytes,
             failure_kind = failureKind,
             failure_detail = failureDetail,
+            priority = task.priority.name,
+            attempt = task.attempt.toLong(),
         )
         Unit
     }
@@ -62,6 +65,8 @@ class SqlDelightDownloadRepository(
             size_bytes = task.sizeBytes,
             failure_kind = failureKind,
             failure_detail = failureDetail,
+            priority = task.priority.name,
+            attempt = task.attempt.toLong(),
             id = task.id,
         )
         Unit
@@ -178,6 +183,8 @@ class SqlDelightDownloadRepository(
         filePath = row.file_path,
         sizeBytes = row.size_bytes,
         failure = failureFrom(row.failure_kind, row.failure_detail),
+        priority = parsePriority(row.priority),
+        attempt = row.attempt.toInt(),
     )
 
     private fun parseKind(value: String): MediaKind =
@@ -185,6 +192,9 @@ class SqlDelightDownloadRepository(
 
     private fun parseStatus(value: String): DownloadStatus =
         runCatching { DownloadStatus.valueOf(value) }.getOrDefault(DownloadStatus.FAILED)
+
+    private fun parsePriority(value: String): DownloadPriority =
+        runCatching { DownloadPriority.valueOf(value) }.getOrDefault(DownloadPriority.NORMAL)
 
     private fun DownloadFailure?.stored(): Pair<String?, String?> = when (this) {
         null -> null to null

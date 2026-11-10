@@ -1,9 +1,5 @@
 package com.openyt.ui.screens
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,19 +8,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,21 +30,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.MediaActions
+import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.DownloadStatus
+import com.openyt.ui.components.DownloadProgressBar
 import com.openyt.ui.components.ProviderIcon
 import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.ShareableMedia
@@ -97,6 +90,11 @@ fun DownloadsScreen(
                         Text(strings.dismissSelected)
                     }
                 }
+                if (tasks.any { it.status == DownloadStatus.INTERRUPTED }) {
+                    TextButton(onClick = { coordinator.resumeInterrupted() }) {
+                        Text(strings.resumeInterrupted)
+                    }
+                }
                 if (tasks.any { it.status.isFinished }) {
                     TextButton(
                         onClick = {
@@ -132,6 +130,7 @@ fun DownloadsScreen(
                             onCancel = { coordinator.cancel(task.id) },
                             onRetry = { coordinator.retry(task.id) },
                             onDismiss = { coordinator.dismiss(task.id) },
+                            onPriorityChange = { coordinator.setPriority(task.id, it) },
                             mediaActions = mediaActions,
                         )
                     }
@@ -151,6 +150,7 @@ private fun DownloadTaskCard(
     onCancel: () -> Unit,
     onRetry: () -> Unit,
     onDismiss: () -> Unit,
+    onPriorityChange: (DownloadPriority) -> Unit,
     mediaActions: MediaActions,
 ) {
     val strings = LocalStrings.current
@@ -258,8 +258,13 @@ private fun DownloadTaskCard(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 when {
-                    task.status.isActive ->
+                    task.status.isActive -> {
+                        PriorityMenu(
+                            current = task.priority,
+                            onSelect = onPriorityChange,
+                        )
                         TextButton(onClick = onCancel) { Text(strings.cancelAction) }
+                    }
 
                     task.status == DownloadStatus.FAILED ||
                         task.status == DownloadStatus.INTERRUPTED -> {
@@ -307,39 +312,35 @@ private fun DownloadTaskCard(
 }
 
 @Composable
-private fun DownloadProgressBar(
-    title: String,
-    percent: Double,
-    modifier: Modifier = Modifier,
+private fun PriorityMenu(
+    current: DownloadPriority,
+    onSelect: (DownloadPriority) -> Unit,
 ) {
-    val target = (percent / 100.0).toFloat().coerceIn(0f, 1f)
-    val fraction by animateFloatAsState(
-        targetValue = target,
-        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
-        label = "download-progress",
-    )
-    val colors = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(percent = 50)
-    Box(
-        modifier = modifier
-            .height(6.dp)
-            .clip(shape)
-            .background(colors.secondary.copy(alpha = 0.16f))
-            .semantics {
-                contentDescription = "$title: ${percent.toInt()}%"
-                progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
-            },
-    ) {
-        Box(
-            Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(fraction)
-                .clip(shape)
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(colors.secondary, colors.tertiary),
-                    ),
-                ),
-        )
+    val strings = LocalStrings.current
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text("${strings.priorityLabel}: ${priorityLabel(current, strings)}")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DownloadPriority.entries.forEach { priority ->
+                DropdownMenuItem(
+                    text = { Text(priorityLabel(priority, strings)) },
+                    onClick = {
+                        expanded = false
+                        onSelect(priority)
+                    },
+                )
+            }
+        }
     }
+}
+
+private fun priorityLabel(
+    priority: DownloadPriority,
+    strings: com.openyt.ui.i18n.AppStrings,
+): String = when (priority) {
+    DownloadPriority.HIGH -> strings.priorityHigh
+    DownloadPriority.NORMAL -> strings.priorityNormal
+    DownloadPriority.LOW -> strings.priorityLow
 }

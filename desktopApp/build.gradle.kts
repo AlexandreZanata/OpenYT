@@ -113,6 +113,7 @@ dependencies {
 
     testImplementation(kotlin("test"))
     testImplementation(libs.junit)
+    testImplementation(libs.compose.ui.test.junit4)
 }
 
 compose.desktop {

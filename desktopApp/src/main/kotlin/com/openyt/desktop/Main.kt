@@ -29,6 +29,7 @@ import com.openyt.desktop.BuildInfo
 import com.openyt.desktop.diagnostics.DesktopDiagnosticsProvider
 import com.openyt.desktop.diagnostics.DesktopUpdateChecker
 import com.openyt.desktop.diagnostics.DesktopUpdateInstaller
+import com.openyt.desktop.cli.DesktopCli
 import com.openyt.desktop.diagnostics.DesktopUrlOpener
 import com.openyt.desktop.downloader.DesktopMediaProbe
 import com.openyt.desktop.downloader.DesktopYtDlpEngine
@@ -37,12 +38,20 @@ import com.openyt.ui.OpenYtApp
 import com.openyt.ui.components.BrandIconPainter
 import java.io.File
 import javax.swing.SwingUtilities
+import kotlin.system.exitProcess
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 
-fun main() = application {
+fun main(args: Array<String>) {
+    if (args.firstOrNull() == "--cli") {
+        exitProcess(DesktopCli.run(args.drop(1)))
+    }
+    launchApp()
+}
+
+private fun launchApp() = application {
     val engine = remember { DesktopYtDlpEngine() }
     val scope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
     val database = remember {
@@ -147,23 +156,4 @@ fun main() = application {
             folderPicker = folderPicker,
         )
     }
-}
-
-private fun defaultDownloadsDirectory(): String {
-    val home = System.getProperty("user.home") ?: "."
-    val preferred = File(home, "Downloads/OpenYT")
-    val directory = if (preferred.mkdirs() || preferred.isDirectory) {
-        preferred
-    } else {
-        File(System.getProperty("java.io.tmpdir"), "openyt-downloads")
-    }
-    directory.mkdirs()
-    cleanStaleTemporaryFiles(directory)
-    return directory.absolutePath
-}
-
-private fun cleanStaleTemporaryFiles(directory: File) {
-    if (!directory.isDirectory) return
-    directory.listFiles { file -> file.isDirectory && file.name.startsWith(".openyt-tmp-") }
-        ?.forEach { it.deleteRecursively() }
 }
