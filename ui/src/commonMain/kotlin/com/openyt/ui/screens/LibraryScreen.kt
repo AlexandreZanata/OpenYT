@@ -43,12 +43,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.AudioMetadata
+import com.openyt.core.application.LibraryArchiveCodec
+import com.openyt.core.application.LibraryArchiveService
+import com.openyt.core.application.LibraryImportPolicy
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.LibraryController
@@ -86,6 +91,7 @@ fun LibraryScreen(
     modifier: Modifier = Modifier,
     nowEpochMillis: () -> Long = { 0L },
     mediaTagger: MediaTagger? = null,
+    archiveService: LibraryArchiveService? = null,
 ) {
     val strings = LocalStrings.current
     val entries by coordinator.library.collectAsState()
@@ -117,6 +123,16 @@ fun LibraryScreen(
     var smartMaxMb by remember { mutableStateOf("") }
     var smartKind by remember { mutableStateOf<MediaKind?>(null) }
     var smartDays by remember { mutableStateOf(0) }
+    var showExport by remember { mutableStateOf(false) }
+    var exportJson by remember { mutableStateOf("") }
+    var includePaths by remember { mutableStateOf(true) }
+    var showImport by remember { mutableStateOf(false) }
+    var importText by remember { mutableStateOf("") }
+    var importPolicy by remember { mutableStateOf(LibraryImportPolicy.MERGE) }
+    var importMessage by remember { mutableStateOf<String?>(null) }
+    var importing by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
+    val archiveScope = rememberCoroutineScope()
 
     val activeCollectionId = selectedCollectionId?.takeIf { id -> collections.any { it.id == id } }
     val activeSmart = smartCollections.firstOrNull { it.id == selectedSmartId }
@@ -170,6 +186,25 @@ fun LibraryScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (archiveService != null) {
+                    TextButton(
+                        onClick = {
+                            exportJson = ""
+                            showExport = true
+                        },
+                    ) {
+                        Text(strings.exportLibrary)
+                    }
+                    TextButton(
+                        onClick = {
+                            importText = ""
+                            importMessage = null
+                            showImport = true
+                        },
+                    ) {
+                        Text(strings.importLibrary)
+                    }
+                }
                 if (mediaImporter?.canImport == true) {
                     TextButton(
                         onClick = {
@@ -577,6 +612,132 @@ fun LibraryScreen(
             dismissButton = {
                 TextButton(onClick = { confirmDeleteSmart = false }) {
                     Text(strings.cancelAction)
+                }
+            },
+        )
+    }
+
+    if (showExport) {
+        LaunchedEffect(showExport, includePaths, archiveService) {
+            if (showExport) {
+                exportJson = runCatching {
+                    archiveService?.export(includePaths)?.let(LibraryArchiveCodec::encode)
+                }.getOrNull().orEmpty()
+            }
+        }
+        AlertDialog(
+            onDismissRequest = { showExport = false },
+            title = { Text(strings.exportLibrary) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Checkbox(
+                            checked = includePaths,
+                            onCheckedChange = { includePaths = it },
+                        )
+                        Text(strings.exportIncludePaths)
+                    }
+                    OutlinedTextField(
+                        value = exportJson,
+                        onValueChange = {},
+                        readOnly = true,
+                        minLines = 8,
+                        maxLines = 14,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { clipboard.setText(AnnotatedString(exportJson)) },
+                    enabled = exportJson.isNotBlank(),
+                ) {
+                    Text(strings.copyAction)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExport = false }) {
+                    Text(strings.closeAction)
+                }
+            },
+        )
+    }
+
+    if (showImport) {
+        AlertDialog(
+            onDismissRequest = { showImport = false },
+            title = { Text(strings.importLibrary) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = importText,
+                        onValueChange = {
+                            importText = it
+                            importMessage = null
+                        },
+                        label = { Text(strings.importPasteLabel) },
+                        minLines = 6,
+                        maxLines = 12,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = importPolicy == LibraryImportPolicy.MERGE,
+                            onClick = { importPolicy = LibraryImportPolicy.MERGE },
+                            label = { Text(strings.importPolicyMerge) },
+                        )
+                        FilterChip(
+                            selected = importPolicy == LibraryImportPolicy.REPLACE,
+                            onClick = { importPolicy = LibraryImportPolicy.REPLACE },
+                            label = { Text(strings.importPolicyReplace) },
+                        )
+                    }
+                    importMessage?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = importText.isNotBlank() && !importing,
+                    onClick = {
+                        importing = true
+                        archiveScope.launch {
+                            val decoded = LibraryArchiveCodec.decode(importText)
+                            if (decoded.isFailure) {
+                                importMessage = strings.importInvalid
+                            } else {
+                                val result = archiveService?.import(
+                                    decoded.getOrThrow(),
+                                    importPolicy,
+                                )
+                                coordinator.reloadLibrary()
+                                libraryController.restore()
+                                importMessage = if (result != null) {
+                                    "${strings.importedEntries}: ${result.entriesImported} · " +
+                                        "${strings.updatedEntries}: ${result.entriesUpdated} · " +
+                                        "${strings.skippedEntries}: ${result.entriesSkipped}"
+                                } else {
+                                    strings.importInvalid
+                                }
+                            }
+                            importing = false
+                        }
+                    },
+                ) {
+                    Text(strings.importAction)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImport = false }) {
+                    Text(strings.closeAction)
                 }
             },
         )

@@ -101,6 +101,11 @@ class DownloadCoordinator(
         }
     }
 
+    suspend fun reloadLibrary() {
+        val repo = repository ?: return
+        runCatching { _library.value = repo.loadLibrary() }
+    }
+
     fun setMaxConcurrentDownloads(value: Int) {
         concurrencyLimit.value = value.coerceIn(1, MAX_CONCURRENT)
         requestSchedule()

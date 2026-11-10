@@ -478,6 +478,18 @@ Validation:
 
 - Version bumped to 2.4.0 (Android versionCode 23).
 
+## Phase 28 completed (library export/import)
+
+- JSON archive (schema version 1) with entries, tags, collections, membership,
+  smart collections and optional file paths.
+- Merge policy keeps local paths and merges tags; replace policy uses archive
+  paths. Missing files and duplicate paths are imported and flagged by the UI.
+- Library UI can export to a JSON text (copy) and import by pasting JSON.
+- CLI `library --export/--import`; Linux validation exports, wipes and imports
+  the database, asserting entries, tags, collections and smart collections.
+
+- Version bumped to 2.5.0 (Android versionCode 24).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

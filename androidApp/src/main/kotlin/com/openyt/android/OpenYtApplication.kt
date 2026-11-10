@@ -13,6 +13,7 @@ import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.CompletedDownloadHandler
 import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadRepository
+import com.openyt.core.application.LibraryArchiveService
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.MediaProbe
 import com.openyt.core.application.SettingsController
@@ -103,6 +104,7 @@ class AppContainer(context: Context) {
     )
 
     val libraryController: LibraryController = LibraryController(repository, appScope)
+    val libraryArchiveService = LibraryArchiveService(repository)
 
     init {
         cleanStaleTemporaryFiles(File(downloadsDirectory))

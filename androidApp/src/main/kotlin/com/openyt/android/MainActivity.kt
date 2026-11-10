@@ -56,6 +56,7 @@ class MainActivity : ComponentActivity() {
                 cookieRepository = container.cookieRepository,
                 nowEpochMillis = { System.currentTimeMillis() },
                 mediaTagger = container.mediaTagger,
+                libraryArchiveService = container.libraryArchiveService,
                 initialSharedUrl = pendingSharedUrl,
                 onSharedUrlConsumed = { sharedUrl.value = null },
             )
