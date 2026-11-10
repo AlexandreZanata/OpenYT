@@ -443,6 +443,8 @@ Validation:
 - CLI `library --entry <id> --add-tag/--remove-tag` and JSON output include tags;
   Linux validation seeds an entry, adds and removes a tag on the packaged image.
 
+- Version bumped to 2.1.0 (Android versionCode 20).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
