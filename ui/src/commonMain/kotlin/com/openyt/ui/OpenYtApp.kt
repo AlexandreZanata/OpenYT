@@ -289,7 +289,11 @@ private fun AppShell(
                         showBrand = !wide,
                     )
 
-                    1 -> DownloadsScreen(coordinator, mediaActions)
+                    1 -> DownloadsScreen(
+                        coordinator = coordinator,
+                        mediaActions = mediaActions,
+                        playbackLauncher = playbackLauncher,
+                    )
                     2 -> LibraryScreen(
                         coordinator,
                         fileAvailability,

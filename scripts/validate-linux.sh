@@ -627,7 +627,15 @@ assert data.get("ok") is True, data
 assert data.get("canPlay") is True, data
 print("  vlcAvailable:", data.get("vlcAvailable"))
 ' || { fail "playback payload invalid"; return 1; }
-    pass "desktop playback launcher (VLCJ) check"
+    output="$("$APP" --cli playback --queue-check --json)" \
+        || { fail "playback queue check failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+assert data["forward"] == ["A", "B", "C"], data
+assert data["backward"] == ["B", "A"], data
+' || { fail "playback queue order invalid"; return 1; }
+    pass "desktop playback launcher (VLCJ) and queue order"
 }
 
 scenario_gui() {
