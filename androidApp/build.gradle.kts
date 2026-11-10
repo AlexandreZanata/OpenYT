@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
 }
 
@@ -73,6 +74,12 @@ dependencies {
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(compose.foundation)
+    implementation(compose.material3)
+    implementation(compose.ui)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.session)
+    implementation(libs.androidx.media3.ui)
 
     implementation(libs.youtubedl.android.library)
     implementation(libs.youtubedl.android.ffmpeg)
