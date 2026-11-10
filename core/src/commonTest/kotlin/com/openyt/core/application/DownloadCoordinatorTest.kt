@@ -653,6 +653,12 @@ class DownloadCoordinatorTest {
             library.removeAll { it.id == id }
         }
 
+        override suspend fun updateLibraryPath(id: String, filePath: String) {
+            library.replaceAll { entry ->
+                if (entry.id == id) entry.copy(filePath = filePath) else entry
+            }
+        }
+
         override suspend fun updateLibraryMetadata(id: String, title: String, author: String?) {
             library.replaceAll { entry ->
                 if (entry.id == id) entry.copy(title = title, author = author) else entry

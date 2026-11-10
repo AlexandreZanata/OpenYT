@@ -47,6 +47,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
+import com.openyt.core.application.BulkFileService
 import com.openyt.core.application.CookieRepository
 import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadCoordinator
@@ -107,6 +108,7 @@ fun OpenYtApp(
     mediaTagger: MediaTagger? = null,
     libraryArchiveService: LibraryArchiveService? = null,
     folderImportService: FolderImportService? = null,
+    bulkFileService: BulkFileService? = null,
 ) {
     val settings by settingsController.settings.collectAsState()
     val strings = stringsFor(settings.language)
@@ -172,6 +174,7 @@ fun OpenYtApp(
                     mediaTagger = mediaTagger,
                     libraryArchiveService = libraryArchiveService,
                     folderImportService = folderImportService,
+                    bulkFileService = bulkFileService,
                 )
             }
         }
@@ -211,6 +214,7 @@ private fun AppShell(
     mediaTagger: MediaTagger?,
     libraryArchiveService: LibraryArchiveService?,
     folderImportService: FolderImportService?,
+    bulkFileService: BulkFileService?,
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -294,6 +298,7 @@ private fun AppShell(
                         mediaTagger = mediaTagger,
                         archiveService = libraryArchiveService,
                         folderImportService = folderImportService,
+                        bulkFileService = bulkFileService,
                     )
                     else -> SettingsScreen(
                         engine = engine,

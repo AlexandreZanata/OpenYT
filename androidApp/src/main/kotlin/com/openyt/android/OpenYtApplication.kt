@@ -14,6 +14,7 @@ import com.openyt.core.application.CompletedDownloadHandler
 import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadRepository
 import com.openyt.core.application.LibraryArchiveService
+import com.openyt.core.application.BulkFileService
 import com.openyt.core.application.FolderImportService
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.MediaProbe
@@ -23,6 +24,7 @@ import com.openyt.core.application.UpdateInstaller
 import com.openyt.core.application.SettingsRepository
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.data.EncryptedCookieRepository
+import com.openyt.data.FileBulkFileOperator
 import com.openyt.data.FileFolderScanner
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.SqlDelightSettingsRepository
@@ -108,6 +110,7 @@ class AppContainer(context: Context) {
     val libraryController: LibraryController = LibraryController(repository, appScope)
     val libraryArchiveService = LibraryArchiveService(repository)
     val folderImportService = FolderImportService(FileFolderScanner(), repository)
+    val bulkFileService = BulkFileService(FileBulkFileOperator(), repository)
 
     init {
         cleanStaleTemporaryFiles(File(downloadsDirectory))

@@ -36,8 +36,8 @@ The Android build bundles yt-dlp and FFmpeg, so no extra setup is required.
 
 ```bash
 # Debian/Ubuntu (amd64)
-wget https://github.com/AlexandreZanata/OpenYT/releases/latest/download/openyt_2.7.0_amd64.deb
-sudo apt install ./openyt_2.7.0_amd64.deb
+wget https://github.com/AlexandreZanata/OpenYT/releases/latest/download/openyt_2.8.0_amd64.deb
+sudo apt install ./openyt_2.8.0_amd64.deb
 ```
 
 The release bundles yt-dlp, FFmpeg, FFprobe, and Deno. No extra setup is required.
@@ -45,7 +45,7 @@ Other distributions can install the package with their own `.deb` tooling.
 
 ### Windows
 
-1. Download `OpenYT-2.7.0.msi`, run it, and confirm the SmartScreen prompt
+1. Download `OpenYT-2.8.0.msi`, run it, and confirm the SmartScreen prompt
    (More info → Run anyway) because the installer is unsigned.
 2. Open OpenYT. yt-dlp, FFmpeg, FFprobe, and Deno are bundled.
 
@@ -53,7 +53,7 @@ The Windows package is built in CI but not yet validated on a real device.
 
 ### macOS
 
-1. Download `OpenYT-2.7.0.dmg`, open it, and drag OpenYT to Applications.
+1. Download `OpenYT-2.8.0.dmg`, open it, and drag OpenYT to Applications.
 2. The app is unsigned, so right-click → Open (or remove the quarantine flag):
 
 ```bash
@@ -197,7 +197,7 @@ OpenYT --cli version
 
 ## Releases
 
-Latest: [v2.7.0](https://github.com/AlexandreZanata/OpenYT/releases/tag/v2.7.0)
+Latest: [v2.8.0](https://github.com/AlexandreZanata/OpenYT/releases/tag/v2.8.0)
 (Android APK, Linux deb, Windows MSI, macOS DMG, checksums).
 
 Every push to `main` builds and publishes Android, Linux, Windows, and macOS
@@ -217,7 +217,7 @@ secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
   presets and editable file-name templates, encrypted local browser cookies for
   authorized content, library tags, smart collections, metadata search/editing,
   JSON library export/import, watch-folder import, a read-only storage report,
-  and bulk resume of interrupted downloads.
+  bulk rename/move with preview, and bulk resume of interrupted downloads.
 - Queue and Library survive app restarts; interrupted downloads can be retried.
 - Removing a Library entry never deletes the downloaded file.
 - Library search, kind/availability/duplicate filters, title sorting, missing-file

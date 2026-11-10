@@ -19,11 +19,13 @@ import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderImportService
 import com.openyt.core.application.FolderPicker
+import com.openyt.core.application.BulkFileService
 import com.openyt.core.application.LibraryArchiveService
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.SettingsController
 import com.openyt.core.application.UpdateController
 import com.openyt.data.EncryptedCookieRepository
+import com.openyt.data.FileBulkFileOperator
 import com.openyt.data.FileFolderScanner
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.SqlDelightSettingsRepository
@@ -88,6 +90,9 @@ private fun launchApp() = application {
     val libraryArchiveService = remember(repository) { LibraryArchiveService(repository) }
     val folderImportService = remember(repository) {
         FolderImportService(FileFolderScanner(), repository)
+    }
+    val bulkFileService = remember(repository) {
+        BulkFileService(FileBulkFileOperator(), repository)
     }
     val mediaProbe = remember { DesktopMediaProbe() }
     val mediaTagger = remember { DesktopMediaTagger() }
@@ -184,6 +189,7 @@ private fun launchApp() = application {
             mediaTagger = mediaTagger,
             libraryArchiveService = libraryArchiveService,
             folderImportService = folderImportService,
+            bulkFileService = bulkFileService,
         )
     }
 }

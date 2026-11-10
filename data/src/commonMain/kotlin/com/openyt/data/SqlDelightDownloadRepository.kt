@@ -207,6 +207,12 @@ class SqlDelightDownloadRepository(
         Unit
     }
 
+    override suspend fun updateLibraryPath(id: String, filePath: String) =
+        withContext(Dispatchers.Default) {
+            queries.updateLibraryPath(filePath, id)
+            Unit
+        }
+
     override suspend fun updateLibraryMetadata(id: String, title: String, author: String?) =
         withContext(Dispatchers.Default) {
             queries.updateLibraryMetadata(title, author, id)

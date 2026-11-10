@@ -52,6 +52,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.AudioMetadata
+import com.openyt.core.application.BulkFilePlanner
+import com.openyt.core.application.BulkFileService
+import com.openyt.core.application.BulkPlan
 import com.openyt.core.application.LibraryArchiveCodec
 import com.openyt.core.application.LibraryArchiveService
 import com.openyt.core.application.LibraryImportPolicy
@@ -98,6 +101,7 @@ fun LibraryScreen(
     mediaTagger: MediaTagger? = null,
     archiveService: LibraryArchiveService? = null,
     folderImportService: FolderImportService? = null,
+    bulkFileService: BulkFileService? = null,
 ) {
     val strings = LocalStrings.current
     val entries by coordinator.library.collectAsState()
@@ -144,6 +148,13 @@ fun LibraryScreen(
     var showStorage by remember { mutableStateOf(false) }
     var storageReport by remember { mutableStateOf<StorageReport?>(null) }
     var storageLoading by remember { mutableStateOf(false) }
+    var showBulkRename by remember { mutableStateOf(false) }
+    var bulkRenamePattern by remember { mutableStateOf("{title}") }
+    var showBulkMove by remember { mutableStateOf(false) }
+    var bulkMoveDestination by remember { mutableStateOf("") }
+    var bulkMessage by remember { mutableStateOf<String?>(null) }
+    var bulkApplying by remember { mutableStateOf(false) }
+    var bulkSelection by remember { mutableStateOf<Set<String>>(emptySet()) }
     val clipboard = LocalClipboardManager.current
     val archiveScope = rememberCoroutineScope()
 
@@ -280,6 +291,28 @@ fun LibraryScreen(
                         },
                     ) {
                         Text(strings.removeSelected)
+                    }
+                    if (bulkFileService != null) {
+                        TextButton(
+                            onClick = {
+                                bulkRenamePattern = "{title}"
+                                bulkMessage = null
+                                bulkSelection = activeSelection
+                                showBulkRename = true
+                            },
+                        ) {
+                            Text(strings.bulkRename)
+                        }
+                        TextButton(
+                            onClick = {
+                                bulkMoveDestination = downloadsDirectory
+                                bulkMessage = null
+                                bulkSelection = activeSelection
+                                showBulkMove = true
+                            },
+                        ) {
+                            Text(strings.bulkMove)
+                        }
                     }
                 }
                 if (activeCollectionId != null) {
@@ -942,6 +975,79 @@ fun LibraryScreen(
         )
     }
 
+    if (showBulkRename && bulkFileService != null) {
+        val selectedEntries = entries.filter { it.id in bulkSelection }
+        val plan = BulkFilePlanner.planRename(
+            entries = selectedEntries,
+            pattern = bulkRenamePattern,
+            targetExists = { path -> fileAvailability.exists(path) },
+        )
+        BulkPlanDialog(
+            title = strings.bulkRename,
+            plan = plan,
+            input = {
+                OutlinedTextField(
+                    value = bulkRenamePattern,
+                    onValueChange = { bulkRenamePattern = it },
+                    label = { Text(strings.bulkPattern) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    strings.bulkPatternHint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            message = bulkMessage,
+            applying = bulkApplying,
+            onApply = {
+                bulkApplying = true
+                archiveScope.launch {
+                    val result = bulkFileService.apply(plan)
+                    coordinator.reloadLibrary()
+                    bulkMessage = if (result.success) strings.bulkApplied else strings.bulkFailed
+                    bulkApplying = false
+                }
+            },
+            onClose = { showBulkRename = false },
+        )
+    }
+
+    if (showBulkMove && bulkFileService != null) {
+        val selectedEntries = entries.filter { it.id in bulkSelection }
+        val plan = BulkFilePlanner.planMove(
+            entries = selectedEntries,
+            destinationDirectory = bulkMoveDestination,
+            targetExists = { path -> fileAvailability.exists(path) },
+        )
+        BulkPlanDialog(
+            title = strings.bulkMove,
+            plan = plan,
+            input = {
+                OutlinedTextField(
+                    value = bulkMoveDestination,
+                    onValueChange = { bulkMoveDestination = it },
+                    label = { Text(strings.bulkDestination) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            message = bulkMessage,
+            applying = bulkApplying,
+            onApply = {
+                bulkApplying = true
+                archiveScope.launch {
+                    val result = bulkFileService.apply(plan)
+                    coordinator.reloadLibrary()
+                    bulkMessage = if (result.success) strings.bulkApplied else strings.bulkFailed
+                    bulkApplying = false
+                }
+            },
+            onClose = { showBulkMove = false },
+        )
+    }
+
     assigningEntry?.let { entry ->
         AlertDialog(
             onDismissRequest = { assigningEntry = null },
@@ -1159,6 +1265,76 @@ private fun LibraryCard(
         }
     }
 }
+
+@Composable
+private fun BulkPlanDialog(
+    title: String,
+    plan: BulkPlan,
+    input: @Composable () -> Unit,
+    message: String?,
+    applying: Boolean,
+    onApply: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val strings = LocalStrings.current
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                input()
+                Text(strings.bulkPreview, style = MaterialTheme.typography.labelLarge)
+                if (plan.changes.isEmpty()) {
+                    Text(strings.notAvailable, style = MaterialTheme.typography.bodySmall)
+                } else {
+                    plan.changes.take(5).forEach { change ->
+                        Text(
+                            "${fileNameOf(change.fromPath)} → ${fileNameOf(change.toPath)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                if (plan.conflicts.isNotEmpty()) {
+                    Text(
+                        strings.bulkConflicts,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    plan.conflicts.take(5).forEach { conflict ->
+                        Text(
+                            conflict,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+                message?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onApply,
+                enabled = plan.canApply && !applying,
+            ) {
+                Text(strings.bulkApply)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onClose) { Text(strings.closeAction) }
+        },
+    )
+}
+
+private fun fileNameOf(path: String): String =
+    path.substringAfterLast('/').substringAfterLast('\\')
 
 @Composable
 private fun LibraryDetailsDialog(
