@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
                 mediaActions = mediaActions,
                 mediaImporter = mediaImporter,
                 diagnosticsProvider = container.diagnosticsProvider,
-                updateChecker = container.updateChecker,
+                updateController = container.updateController,
                 updateInstaller = container.updateInstaller,
                 urlOpener = urlOpener,
                 safDestinationPicker = safDestinationPicker,

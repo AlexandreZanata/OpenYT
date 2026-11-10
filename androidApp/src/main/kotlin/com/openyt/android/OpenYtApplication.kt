@@ -15,7 +15,7 @@ import com.openyt.core.application.DownloadRepository
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.MediaProbe
 import com.openyt.core.application.SettingsController
-import com.openyt.core.application.UpdateChecker
+import com.openyt.core.application.UpdateController
 import com.openyt.core.application.UpdateInstaller
 import com.openyt.core.application.SettingsRepository
 import com.openyt.core.domain.DownloadEngine
@@ -48,7 +48,18 @@ class AppContainer(context: Context) {
     val diagnosticsProvider: DiagnosticsProvider =
         AndroidDiagnosticsProvider(appContext, engine, downloadsDirectory)
 
-    val updateChecker: UpdateChecker = AndroidUpdateChecker()
+    val appVersion: String = runCatching {
+        appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName
+    }.getOrNull() ?: "unknown"
+
+    val updateController: UpdateController = UpdateController(
+        checker = AndroidUpdateChecker(),
+        currentVersion = appVersion,
+        scope = appScope,
+        hasPlatformAsset = { info ->
+            info.assets.any { it.name.endsWith(".apk", ignoreCase = true) }
+        },
+    )
 
     val updateInstaller: UpdateInstaller = AndroidUpdateInstaller(appContext)
 

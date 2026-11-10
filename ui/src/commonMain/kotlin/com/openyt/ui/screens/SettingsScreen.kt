@@ -40,9 +40,9 @@ import com.openyt.core.application.LibraryController
 import com.openyt.core.application.PlatformDiagnostics
 import com.openyt.core.application.SafDestinationPicker
 import com.openyt.core.application.SettingsController
-import com.openyt.core.application.UpdateChecker
-import com.openyt.core.application.UpdateInfo
+import com.openyt.core.application.UpdateController
 import com.openyt.core.application.UpdateInstaller
+import com.openyt.core.application.UpdateState
 import com.openyt.core.application.UrlOpener
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.AppSettings
@@ -60,7 +60,7 @@ fun SettingsScreen(
     coordinator: DownloadCoordinator,
     libraryController: LibraryController,
     diagnosticsProvider: DiagnosticsProvider,
-    updateChecker: UpdateChecker,
+    updateController: UpdateController,
     updateInstaller: UpdateInstaller,
     urlOpener: UrlOpener,
     safDestinationPicker: SafDestinationPicker? = null,
@@ -76,9 +76,7 @@ fun SettingsScreen(
     var capabilities by remember { mutableStateOf<EngineCapabilities?>(null) }
     var diagnostics by remember { mutableStateOf<PlatformDiagnostics?>(null) }
     var copied by remember { mutableStateOf<Boolean?>(null) }
-    var checkingUpdates by remember { mutableStateOf(false) }
-    var update by remember { mutableStateOf<UpdateInfo?>(null) }
-    var updatesChecked by remember { mutableStateOf(false) }
+    val updateState by updateController.state.collectAsState()
     var installingUpdate by remember { mutableStateOf(false) }
     var installMessage by remember { mutableStateOf<String?>(null) }
 
@@ -267,67 +265,66 @@ fun SettingsScreen(
                 Text(strings.updatesTitle, style = MaterialTheme.typography.labelLarge)
                 SettingRow(strings.diagnosticsAppVersion, diagnostics?.appVersion ?: "—")
                 TextButton(
-                    enabled = diagnostics != null && !checkingUpdates,
-                    onClick = {
-                        val version = diagnostics?.appVersion ?: return@TextButton
-                        scope.launch {
-                            checkingUpdates = true
-                            update = updateChecker.latest(version)
-                            updatesChecked = true
-                            checkingUpdates = false
-                        }
-                    },
+                    enabled = updateState != UpdateState.Checking,
+                    onClick = { updateController.check() },
                 ) {
                     Text(strings.checkUpdates)
                 }
-                if (checkingUpdates) {
-                    Text(
+                when (val current = updateState) {
+                    UpdateState.Idle -> Unit
+                    UpdateState.Checking -> Text(
                         strings.checkingUpdates,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-                val availableUpdate = update
-                if (availableUpdate != null) {
-                    Text("${strings.updateAvailable} v${availableUpdate.version}")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(
-                            enabled = !installingUpdate,
-                            onClick = {
-                                scope.launch {
-                                    installingUpdate = true
-                                    installMessage = null
-                                    val installed = updateInstaller.install(availableUpdate)
-                                    installMessage = if (installed) {
-                                        strings.installerOpened
-                                    } else {
-                                        strings.installFailed
+
+                    is UpdateState.Available -> {
+                        Text("${strings.updateAvailable} v${current.update.version}")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(
+                                enabled = !installingUpdate,
+                                onClick = {
+                                    scope.launch {
+                                        installingUpdate = true
+                                        installMessage = null
+                                        val installed = updateInstaller.install(current.update)
+                                        installMessage = if (installed) {
+                                            strings.installerOpened
+                                        } else {
+                                            strings.installFailed
+                                        }
+                                        installingUpdate = false
                                     }
-                                    installingUpdate = false
-                                }
-                            },
-                        ) {
-                            Text(strings.installUpdate)
+                                },
+                            ) {
+                                Text(strings.installUpdate)
+                            }
+                            TextButton(onClick = { urlOpener.open(current.update.releaseUrl) }) {
+                                Text(strings.openRelease)
+                            }
                         }
-                        TextButton(onClick = { urlOpener.open(availableUpdate.releaseUrl) }) {
-                            Text(strings.openRelease)
+                        if (installingUpdate) {
+                            Text(
+                                strings.installingUpdate,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        installMessage?.let {
+                            Text(it, style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    if (installingUpdate) {
-                        Text(
-                            strings.installingUpdate,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    installMessage?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall)
-                    }
-                } else if (updatesChecked && !checkingUpdates) {
-                    Text(
+
+                    UpdateState.UpToDate -> Text(
                         strings.upToDate,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    UpdateState.Failed -> Text(
+                        strings.updateCheckFailed,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
             }

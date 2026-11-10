@@ -20,10 +20,12 @@ import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.SettingsController
+import com.openyt.core.application.UpdateController
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.SqlDelightSettingsRepository
 import com.openyt.data.createOpenYtDatabase
 import com.openyt.data.defaultDatabasePath
+import com.openyt.desktop.BuildInfo
 import com.openyt.desktop.diagnostics.DesktopDiagnosticsProvider
 import com.openyt.desktop.diagnostics.DesktopUpdateChecker
 import com.openyt.desktop.diagnostics.DesktopUpdateInstaller
@@ -60,7 +62,22 @@ fun main() = application {
     val diagnosticsProvider = remember {
         DesktopDiagnosticsProvider(engine, downloadsDirectory)
     }
-    val updateChecker = remember { DesktopUpdateChecker() }
+    val updateController = remember {
+        val os = System.getProperty("os.name").orEmpty().lowercase()
+        val suffix = when {
+            os.contains("win") -> ".msi"
+            os.contains("mac") -> ".dmg"
+            else -> ".deb"
+        }
+        UpdateController(
+            checker = DesktopUpdateChecker(),
+            currentVersion = BuildInfo.version,
+            scope = scope,
+            hasPlatformAsset = { info ->
+                info.assets.any { it.name.endsWith(suffix, ignoreCase = true) }
+            },
+        )
+    }
     val updateInstaller = remember { DesktopUpdateInstaller() }
     val urlOpener = remember { DesktopUrlOpener() }
     val folderPicker = remember { FolderPicker { current -> DesktopFolderPicker.pick(current) } }
@@ -120,7 +137,7 @@ fun main() = application {
             mediaProbe = mediaProbe,
             mediaActions = mediaActions,
             diagnosticsProvider = diagnosticsProvider,
-            updateChecker = updateChecker,
+            updateController = updateController,
             updateInstaller = updateInstaller,
             urlOpener = urlOpener,
             downloadsDirectory = downloadsDirectory,
