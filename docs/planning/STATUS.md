@@ -341,7 +341,9 @@ Validation:
   Threads, Telegram, Bilibili, and Rumble, with a generic icon fallback.
 - Extraction remains delegated to yt-dlp, so site coverage follows its extractors.
   Image and subtitle downloads are still not implemented.
-- Version bumped to 1.4.0 (Android versionCode 12).
+- Download cards use an animated, rounded gradient progress bar with inline
+  percentage and speed/ETA beneath it.
+- Version bumped to 1.4.1 (Android versionCode 13).
 
 ## Known limitations
 
