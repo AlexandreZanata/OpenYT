@@ -122,7 +122,7 @@ compose.desktop {
         mainClass = "com.openyt.desktop.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Msi, TargetFormat.Dmg)
+            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg)
             appResourcesRootDir.set(layout.buildDirectory.dir("bundled-tools"))
             modules("java.sql")
             packageName = "OpenYT"

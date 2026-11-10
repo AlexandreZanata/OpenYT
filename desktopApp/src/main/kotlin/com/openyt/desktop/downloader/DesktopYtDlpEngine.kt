@@ -89,7 +89,10 @@ class DesktopYtDlpEngine(
             val tempDirectory = File(directory, ".openyt-tmp-$safeId").apply { mkdirs() }
             val arguments = buildList {
                 add(binary)
-                add("--no-playlist")
+                request.playlistItemIndex?.let {
+                    add("--playlist-items")
+                    add(it.toString())
+                } ?: add("--no-playlist")
                 add("--newline")
                 add("--no-quiet")
                 add("-P")

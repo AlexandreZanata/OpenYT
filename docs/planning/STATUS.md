@@ -559,6 +559,13 @@ Validation:
 
 - Version bumped to 3.1.0 (Android versionCode 30).
 
+## Phase 35 completed (Windows EXE and playlist reliability)
+
+- Windows CI now publishes an `.exe` installer (`packageExe`) alongside the MSI.
+- Playlist entries are downloaded through the playlist URL with
+  `--playlist-items <index>` instead of relying on flat entry URLs; deduplication
+  includes the playlist item index. This improves compatibility across extractors.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

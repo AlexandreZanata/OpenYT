@@ -45,8 +45,9 @@ Other distributions can install the package with their own `.deb` tooling.
 
 ### Windows
 
-1. Download `OpenYT-3.1.0.msi`, run it, and confirm the SmartScreen prompt
-   (More info → Run anyway) because the installer is unsigned.
+1. Download `OpenYT-3.1.0.exe` (recommended) or `OpenYT-3.1.0.msi`, run it, and
+   confirm the SmartScreen prompt (More info → Run anyway) because the installer
+   is unsigned.
 2. Open OpenYT. yt-dlp, FFmpeg, FFprobe, and Deno are bundled.
 
 The Windows package is built in CI but not yet validated on a real device.

@@ -40,6 +40,8 @@ class EnqueuePlaylistUseCaseTest {
         val tasks = coordinator.tasks.value
         assertEquals("/tmp/openyt/My playlist", tasks[0].request.destinationDirectory)
         assertEquals("01 - %(title).150B [%(id)s].%(ext)s", tasks[0].request.fileNameTemplate)
+        assertEquals("https://example.com/list", tasks[0].request.url)
+        assertEquals(1, tasks[0].request.playlistItemIndex)
         assertEquals("02 - %(title).150B [%(id)s].%(ext)s", tasks[1].request.fileNameTemplate)
     }
 

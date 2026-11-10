@@ -18,7 +18,7 @@ Workflow: `.github/workflows/release.yml`.
 |----------|------|----------|
 | Android | `:androidApp:assembleRelease` | `androidApp-release.apk` |
 | Linux | `:desktopApp:packageDeb` | `openyt_<version>_amd64.deb` |
-| Windows | `:desktopApp:packageMsi` | `OpenYT-<version>.msi` |
+| Windows | `:desktopApp:packageMsi` + `:desktopApp:packageExe` | `OpenYT-<version>.msi`, `OpenYT-<version>.exe` |
 | macOS | `:desktopApp:packageDmg` | `OpenYT-<version>.dmg` |
 
 Desktop packages embed yt-dlp, FFmpeg, FFprobe, and Deno through
