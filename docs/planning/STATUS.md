@@ -557,6 +557,8 @@ Validation:
   well as the Library; Android keeps background audio via MediaSessionService.
 - CLI `playback --queue-check`; Linux validation asserts forward/backward order.
 
+- Version bumped to 3.1.0 (Android versionCode 30).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
