@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
         --no-build) BUILD=0; shift ;;
         --offline) OFFLINE=1; shift ;;
         -h|--help)
-            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|library|gui]"
+            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|library|gui]"
             echo "          [--deb path] [--no-build] [--offline]"
             exit 0
             ;;
@@ -154,6 +154,27 @@ print(tasks[0]["filePath"])
     pass "playlist layout $(basename "$file")"
 }
 
+scenario_pause() {
+    if [[ "$OFFLINE" == "1" ]]; then skip "pause/resume (offline)"; return 0; fi
+    local resources="$PREFIX/opt/openyt/lib/app/resources"
+    local tools="$WORK/tools"
+    mkdir -p "$tools"
+    local tool
+    for tool in yt-dlp ffmpeg ffprobe deno; do
+        cp "$resources/$tool" "$tools/$tool" || { fail "missing $tool"; return 1; }
+        chmod +x "$tools/$tool"
+    done
+    (cd "$ROOT" && \
+        OPENYT_RUN_NETWORK_TESTS=1 \
+        OPENYT_YTDLP="$tools/yt-dlp" \
+        OPENYT_FFMPEG="$tools/ffmpeg" \
+        OPENYT_FFPROBE="$tools/ffprobe" \
+        OPENYT_JS_RUNTIME="$tools/deno" \
+        ./gradlew :desktopApp:test \
+            --tests '*DesktopYtDlpEngineIntegrationTest.pausesAndResumesRealDownload' \
+            --rerun-tasks --no-daemon --console=plain)
+}
+
 scenario_library() {
     local output
     output="$("$APP" --cli library --list --json)" \
@@ -227,6 +248,7 @@ case "$SCENARIO" in
         run "inspect" scenario_inspect
         run "download" scenario_download
         run "playlist" scenario_playlist
+        run "pause" scenario_pause
         run "library" scenario_library
         run "gui" scenario_gui
         ;;
@@ -235,6 +257,7 @@ case "$SCENARIO" in
     inspect) run_after_prepare "inspect" scenario_inspect ;;
     download) run_after_prepare "download" scenario_download ;;
     playlist) run_after_prepare "playlist" scenario_playlist ;;
+    pause) run_after_prepare "pause" scenario_pause ;;
     library) run_after_prepare "library" scenario_library ;;
     gui) run_after_prepare "gui" scenario_gui ;;
     *) echo "unknown scenario: $SCENARIO" >&2; exit 2 ;;

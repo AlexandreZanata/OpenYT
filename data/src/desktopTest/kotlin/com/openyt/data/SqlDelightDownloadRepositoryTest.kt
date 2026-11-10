@@ -82,6 +82,7 @@ class SqlDelightDownloadRepositoryTest {
         repository.insertTask(sampleTask("download-2", DownloadStatus.DOWNLOADING))
         repository.insertTask(sampleTask("download-3", DownloadStatus.PROCESSING))
         repository.insertTask(sampleTask("download-4", DownloadStatus.COMPLETED))
+        repository.insertTask(sampleTask("download-5", DownloadStatus.PAUSED))
         repository.markActiveInterrupted()
 
         val byId = repository.loadTasks().associateBy { it.id }
@@ -89,6 +90,7 @@ class SqlDelightDownloadRepositoryTest {
         assertEquals(DownloadStatus.INTERRUPTED, byId.getValue("download-2").status)
         assertEquals(DownloadStatus.INTERRUPTED, byId.getValue("download-3").status)
         assertEquals(DownloadStatus.COMPLETED, byId.getValue("download-4").status)
+        assertEquals(DownloadStatus.PAUSED, byId.getValue("download-5").status)
     }
 
     @Test

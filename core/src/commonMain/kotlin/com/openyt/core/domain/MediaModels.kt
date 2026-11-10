@@ -60,6 +60,8 @@ sealed interface DownloadEvent {
     data class Failed(val failure: DownloadFailure) : DownloadEvent
 
     data object Canceled : DownloadEvent
+
+    data object Paused : DownloadEvent
 }
 
 sealed interface DownloadFailure {

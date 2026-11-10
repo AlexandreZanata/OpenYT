@@ -430,6 +430,62 @@ class DownloadCoordinatorTest {
         assertEquals(DownloadStatus.COMPLETED, coordinator.tasks.value.single().status)
     }
 
+
+    @Test
+    fun pausesQueuedTaskWithoutStartingIt() = runTest {
+        val engine = OrderingEngine()
+        val coordinator = DownloadCoordinator(
+            engine,
+            coordinatorScope(),
+            initialMaxConcurrentDownloads = 1,
+        )
+
+        val first = coordinator.enqueue(media("first"), request("first"))
+        advanceUntilIdle()
+        val second = coordinator.enqueue(media("second"), request("second"))
+        coordinator.pause(second)
+        advanceUntilIdle()
+
+        assertEquals(DownloadStatus.PAUSED, coordinator.tasks.value.associateBy { it.id }.getValue(second).status)
+        engine.release(first)
+        advanceUntilIdle()
+        assertEquals(listOf(first), engine.started)
+    }
+
+    @Test
+    fun pausesActiveTaskAndResumesIt() = runTest {
+        val engine = PausingEngine()
+        val coordinator = DownloadCoordinator(engine, coordinatorScope())
+
+        val id = coordinator.enqueue(media("pause"), request("pause"))
+        advanceUntilIdle()
+        assertEquals(DownloadStatus.DOWNLOADING, coordinator.tasks.value.single().status)
+
+        coordinator.pause(id)
+        advanceUntilIdle()
+        assertEquals(DownloadStatus.PAUSED, coordinator.tasks.value.single().status)
+
+        coordinator.resume(id)
+        advanceUntilIdle()
+        assertEquals(DownloadStatus.COMPLETED, coordinator.tasks.value.single().status)
+        assertEquals(2, engine.calls)
+    }
+
+    @Test
+    fun restoresPausedTasksAndResumesThem() = runTest {
+        val repository = FakeRepository(
+            tasks = mutableListOf(persistedTask("download-7", DownloadStatus.PAUSED)),
+        )
+        val coordinator = DownloadCoordinator(FakeDownloadEngine(), coordinatorScope(), repository)
+        coordinator.restore()
+
+        assertEquals(DownloadStatus.PAUSED, coordinator.tasks.value.single().status)
+
+        coordinator.resume("download-7")
+        advanceUntilIdle()
+        assertEquals(DownloadStatus.COMPLETED, coordinator.tasks.value.single().status)
+    }
+
     private fun TestScope.coordinatorScope(): CoroutineScope =
         CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
 
@@ -560,6 +616,40 @@ class DownloadCoordinatorTest {
 
         override suspend fun capabilities(): EngineCapabilities =
             EngineCapabilities("test", "0", supportsPause = false, supportsSubtitles = false)
+
+        override fun close() = Unit
+    }
+
+    private class PausingEngine : DownloadEngine {
+        var calls: Int = 0
+            private set
+        private val pauseGate = CompletableDeferred<Unit>()
+
+        override suspend fun inspect(url: String): EngineResult<Inspection> =
+            EngineResult.Failure(DownloadFailure.UnsupportedSource)
+
+        override fun download(request: DownloadRequest, downloadId: String): Flow<DownloadEvent> = flow {
+            calls += 1
+            emit(DownloadEvent.Starting)
+            emit(DownloadEvent.Progress(20.0))
+            if (calls == 1) {
+                pauseGate.await()
+                emit(DownloadEvent.Canceled)
+            } else {
+                emit(DownloadEvent.Completed("/tmp/$downloadId.bin", 1))
+            }
+        }
+
+        override suspend fun pause(downloadId: String) {
+            pauseGate.complete(Unit)
+        }
+
+        override suspend fun cancel(downloadId: String) {
+            pauseGate.complete(Unit)
+        }
+
+        override suspend fun capabilities(): EngineCapabilities =
+            EngineCapabilities("test", "0", supportsPause = true, supportsSubtitles = false)
 
         override fun close() = Unit
     }

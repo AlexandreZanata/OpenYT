@@ -17,6 +17,7 @@ import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.Flow
@@ -37,6 +38,7 @@ class AndroidYtDlpEngine(
 ) : DownloadEngine {
 
     private val initMutex = Mutex()
+    private val paused = ConcurrentHashMap.newKeySet<String>()
 
     @Volatile
     private var initialized = false
@@ -73,6 +75,10 @@ class AndroidYtDlpEngine(
                 send(DownloadEvent.Failed(DownloadFailure.UnsupportedSource))
                 return@channelFlow
             }
+            if (paused.remove(downloadId)) {
+                send(DownloadEvent.Paused)
+                return@channelFlow
+            }
 
             val directory = File(request.destinationDirectory).apply { mkdirs() }
             val safeId = downloadId.filter { it.isLetterOrDigit() || it == '-' || it == '_' }
@@ -81,6 +87,7 @@ class AndroidYtDlpEngine(
             val tempDirectory = File(directory, ".openyt-tmp-$safeId").apply { mkdirs() }
             send(DownloadEvent.Starting)
 
+            var pausedByUser = false
             try {
                 val response = withContext(Dispatchers.IO) {
                     val ytDlpRequest = YoutubeDLRequest(request.url).apply {
@@ -130,15 +137,30 @@ class AndroidYtDlpEngine(
                     )
                 }
             } catch (e: YoutubeDL.CanceledException) {
-                send(DownloadEvent.Canceled)
+                pausedByUser = paused.remove(downloadId)
+                if (pausedByUser) {
+                    send(DownloadEvent.Paused)
+                } else {
+                    send(DownloadEvent.Canceled)
+                }
             } catch (e: Exception) {
-                send(DownloadEvent.Failed(YtDlpErrorMapper.fromToolOutput(e.message.orEmpty())))
+                if (paused.remove(downloadId)) {
+                    pausedByUser = true
+                    send(DownloadEvent.Paused)
+                } else {
+                    send(DownloadEvent.Failed(YtDlpErrorMapper.fromToolOutput(e.message.orEmpty())))
+                }
             } finally {
-                tempDirectory.deleteRecursively()
+                if (!pausedByUser) tempDirectory.deleteRecursively()
             }
         }.flowOn(Dispatchers.IO)
 
     override suspend fun cancel(downloadId: String) {
+        YoutubeDL.getInstance().destroyProcessById(downloadId)
+    }
+
+    override suspend fun pause(downloadId: String) {
+        paused.add(downloadId)
         YoutubeDL.getInstance().destroyProcessById(downloadId)
     }
 

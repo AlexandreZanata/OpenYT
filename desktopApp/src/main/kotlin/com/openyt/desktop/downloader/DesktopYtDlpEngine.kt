@@ -35,6 +35,7 @@ class DesktopYtDlpEngine(
 
     private val processes = ConcurrentHashMap<String, Process>()
     private val canceled = ConcurrentHashMap.newKeySet<String>()
+    private val paused = ConcurrentHashMap.newKeySet<String>()
 
     override suspend fun inspect(url: String): EngineResult<Inspection> = withContext(Dispatchers.IO) {
         val binary = locator.findYtDlp()
@@ -70,6 +71,10 @@ class DesktopYtDlpEngine(
             val binary = locator.findYtDlp()
             if (binary == null) {
                 send(DownloadEvent.Failed(DownloadFailure.DependencyMissing("yt-dlp")))
+                return@channelFlow
+            }
+            if (paused.remove(downloadId)) {
+                send(DownloadEvent.Paused)
                 return@channelFlow
             }
             if (canceled.remove(downloadId)) {
@@ -144,6 +149,7 @@ class DesktopYtDlpEngine(
             }
 
             var finalPath: String? = null
+            var pausedByUser = false
             try {
                 process.inputStream.bufferedReader().forEachLine { line ->
                     YtDlpProgressParser.parse(line)?.let { trySend(it) }
@@ -156,7 +162,10 @@ class DesktopYtDlpEngine(
                 val exitCode = process.waitFor()
                 stderrThread.join()
 
+                pausedByUser = paused.remove(downloadId)
                 when {
+                    pausedByUser -> send(DownloadEvent.Paused)
+
                     canceled.remove(downloadId) -> send(DownloadEvent.Canceled)
 
                     exitCode == 0 -> {
@@ -189,12 +198,17 @@ class DesktopYtDlpEngine(
                 processes.remove(downloadId)
                 canceled.remove(downloadId)
                 if (process.isAlive) killTree(process)
-                tempDirectory.deleteRecursively()
+                if (!pausedByUser) tempDirectory.deleteRecursively()
             }
         }.flowOn(Dispatchers.IO)
 
     override suspend fun cancel(downloadId: String) {
         canceled.add(downloadId)
+        processes.remove(downloadId)?.let(::killTree)
+    }
+
+    override suspend fun pause(downloadId: String) {
+        paused.add(downloadId)
         processes.remove(downloadId)?.let(::killTree)
     }
 
