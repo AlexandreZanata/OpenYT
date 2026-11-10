@@ -536,6 +536,8 @@ Validation:
 - Local validation covers Android `assembleDebug`; real device playback still
   needs emulator/device evidence.
 
+- Version bumped to 2.9.0 (Android versionCode 28).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
