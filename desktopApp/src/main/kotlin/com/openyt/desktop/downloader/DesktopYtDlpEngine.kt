@@ -46,7 +46,7 @@ class DesktopYtDlpEngine(
             add("--no-warnings")
             add("--no-playlist")
             add("--skip-download")
-            locator.findJsRuntime()?.let {
+            locator.findJsRuntimeArgument()?.let {
                 add("--js-runtimes")
                 add(it)
             }
@@ -113,7 +113,7 @@ class DesktopYtDlpEngine(
                     add("--ffmpeg-location")
                     add(it)
                 }
-                locator.findJsRuntime()?.let {
+                locator.findJsRuntimeArgument()?.let {
                     add("--js-runtimes")
                     add(it)
                 }

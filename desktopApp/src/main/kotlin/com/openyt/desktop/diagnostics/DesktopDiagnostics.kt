@@ -26,12 +26,12 @@ class DesktopDiagnosticsProvider(
     private val downloadsDirectory: String,
     private val locator: ExecutableLocator = ExecutableLocator(),
 ) : DiagnosticsProvider {
-    override suspend fun snapshot(): PlatformDiagnostics {
+    override suspend fun snapshot(): PlatformDiagnostics = withContext(Dispatchers.IO) {
         val capabilities = engine.capabilities()
         val home = System.getProperty("user.home")
         val jsRuntime = locator.findJsRuntime()
 
-        return PlatformDiagnostics(
+        PlatformDiagnostics(
             appVersion = BuildInfo.version,
             platform = "${System.getProperty("os.name")} ${System.getProperty("os.version")}",
             engineName = capabilities.engineName,

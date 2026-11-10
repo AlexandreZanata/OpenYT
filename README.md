@@ -36,40 +36,32 @@ The Android build bundles yt-dlp and FFmpeg, so no extra setup is required.
 
 ```bash
 # Debian/Ubuntu (amd64)
-wget https://github.com/AlexandreZanata/OpenYT/releases/latest/download/openyt_1.3.0_amd64.deb
-sudo apt install ./openyt_1.3.0_amd64.deb
-
-# Runtime dependencies for real downloads
-sudo apt install yt-dlp ffmpeg
+wget https://github.com/AlexandreZanata/OpenYT/releases/latest/download/openyt_1.3.1_amd64.deb
+sudo apt install ./openyt_1.3.1_amd64.deb
 ```
 
-Keep `yt-dlp` updated; sites change frequently. Other distributions can install
-`yt-dlp` and `ffmpeg` from their package manager.
+The release bundles yt-dlp, FFmpeg, FFprobe, and Deno. No extra setup is required.
+Other distributions can install the package with their own `.deb` tooling.
 
 ### Windows
 
-1. Download `OpenYT-1.3.0.msi`, run it, and confirm the SmartScreen prompt
+1. Download `OpenYT-1.3.1.msi`, run it, and confirm the SmartScreen prompt
    (More info → Run anyway) because the installer is unsigned.
-2. Install the runtime dependencies and make sure both are on `PATH`:
-
-```powershell
-winget install yt-dlp.yt-dlp
-winget install Gyan.FFmpeg
-```
+2. Open OpenYT. yt-dlp, FFmpeg, FFprobe, and Deno are bundled.
 
 The Windows package is built in CI but not yet validated on a real device.
 
 ### macOS
 
-1. Download `OpenYT-1.3.0.dmg`, open it, and drag OpenYT to Applications.
+1. Download `OpenYT-1.3.1.dmg`, open it, and drag OpenYT to Applications.
 2. The app is unsigned, so right-click → Open (or remove the quarantine flag):
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/OpenYT.app
-brew install yt-dlp ffmpeg
 ```
 
-The macOS package is built in CI but not yet validated on a real device.
+yt-dlp, FFmpeg, FFprobe, and Deno are bundled. The macOS package is built in CI
+but not yet validated on a real device.
 
 ## Download examples
 
@@ -111,7 +103,7 @@ thumbnails are displayed in the app but are not saved as separate files.
 
 - Android (primary, `minSdk 26`) — verified on a real arm64 device during Phase 0.
 - Linux desktop — verified during Phase 0.
-- Windows/macOS — planned; not yet validated.
+- Windows/macOS — built in CI; not yet validated on real devices.
 
 ## Repository layout
 
@@ -136,7 +128,9 @@ Requirements:
 - JDK 17+ (JDK 21 recommended)
 - Android SDK with platform 36 and build-tools 36
 - `ANDROID_HOME` or `local.properties` with `sdk.dir`
-- yt-dlp and FFmpeg on `PATH` for real desktop downloads (not needed to build)
+- Network access when packaging desktop builds (yt-dlp, FFmpeg, FFprobe, and Deno
+  are downloaded and embedded)
+- yt-dlp, FFmpeg, and Deno on `PATH` only when running the desktop app from source
 
 ```bash
 ./gradlew :core:allTests
@@ -154,7 +148,7 @@ Install the debug APK on a connected device:
 
 ## Releases
 
-Latest: [v1.3.0](https://github.com/AlexandreZanata/OpenYT/releases/tag/v1.3.0)
+Latest: [v1.3.1](https://github.com/AlexandreZanata/OpenYT/releases/tag/v1.3.1)
 (Android APK, Linux deb, Windows MSI, macOS DMG, checksums).
 
 Every push to `main` builds and publishes Android, Linux, Windows, and macOS

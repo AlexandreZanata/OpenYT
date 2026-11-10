@@ -6,7 +6,7 @@ Workflow: `.github/workflows/release.yml`.
 
 - Runs on every push to `main` and on manual dispatch.
 - `gradle.properties` is the single source of truth:
-  - `openyt.version` (SemVer, currently `1.3.0`)
+  - `openyt.version` (SemVer, currently `1.3.1`)
   - `openyt.versionCode` (Android integer)
 - Every main push rebuilds and **updates** the release for `v<version>`. Bump the
   version before merging to publish a new release; otherwise assets of the current
@@ -20,6 +20,19 @@ Workflow: `.github/workflows/release.yml`.
 | Linux | `:desktopApp:packageDeb` | `openyt_<version>_amd64.deb` |
 | Windows | `:desktopApp:packageMsi` | `OpenYT-<version>.msi` |
 | macOS | `:desktopApp:packageDmg` | `OpenYT-<version>.dmg` |
+
+Desktop packages embed yt-dlp, FFmpeg, FFprobe, and Deno through
+`desktopApp/build.gradle.kts` (`prepareBundledTools`). The task downloads the
+pinned versions below for the packaging host and `appResourcesRootDir` adds them
+to the package. At first run the app copies them to a user-writable cache and
+restores the executable bit, because native installers do not preserve file
+permissions.
+
+| Tool | Version | Source |
+|------|---------|--------|
+| yt-dlp | 2026.10.26 | `yt-dlp/yt-dlp` release binaries |
+| FFmpeg / FFprobe | b6.1.1 | `eugeneware/ffmpeg-static` |
+| Deno | 2.9.8 | `denoland/deno` releases |
 
 The publish job also generates `SHA256SUMS.txt` and attaches every artifact to the
 GitHub release `v<version>` (marked latest).
@@ -54,10 +67,13 @@ packagers.
 - Windows: WiX Toolset, installed by the workflow via Chocolatey.
 - macOS: `jpackage`/`hdiutil` from the runner JDK.
 - All desktop jobs use JDK 21 and the Gradle wrapper.
+- Desktop jobs need network access to download the pinned yt-dlp, FFmpeg, and
+  Deno binaries during packaging.
 
 ## Safety
 
 - The publish job only runs when all builds succeed.
 - No release is created from pull requests.
 - Artifacts are built on native runners; Windows/macOS packages are not cross-built.
-- No automatic version bump or auto-update mechanism exists yet.
+- No automatic version bump; the pipeline publishes the version in
+  `gradle.properties`.

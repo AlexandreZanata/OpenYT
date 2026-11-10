@@ -314,6 +314,19 @@ Validation:
   skipped). Android device runtime validation remains pending because the phone is
   disconnected from ADB.
 
+## Phase 15 completed (self-contained desktop packages)
+
+- Desktop packages now embed yt-dlp 2026.10.26, FFmpeg/FFprobe (static `b6.1.1`),
+  and Deno 2.9.8; end users install only the OpenYT package.
+- The packaging task downloads the pinned tools and includes them through
+  `appResourcesRootDir`. At first run they are copied to a user-writable cache
+  with the executable bit restored.
+- `ExecutableLocator` prefers bundled tools, and JavaScript runtimes are passed
+  to yt-dlp as `deno:<path>`/`node:<path>`.
+- Linux `openyt_1.3.1_amd64.deb` built at 215 MB. The failing YouTube example
+  downloads successfully with the bundled tools (network integration test).
+- Version bumped to 1.3.1 (Android versionCode 11).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
@@ -322,7 +335,7 @@ Validation:
 - Desktop drag-and-drop accepts links only; local file import is not implemented.
 - Desktop folder chooser and multi-selection are not covered by UI automation in the
   current headless environment; their persistence and parsing are unit-tested.
-- Windows/macOS packages are configured but not built or validated.
+- Windows/macOS packages are built in CI but not validated on real devices.
 - Download folder on Android is still app-specific; SAF selection and storage usage
   are pending.
 - No pause support (engine only supports cancellation).
@@ -336,7 +349,7 @@ Validation:
   production-signed APKs.
 - Desktop has no file import yet (Android-only SAF import).
 - Android probing may omit audio codec/bitrate when the extractor does not expose
-  them; desktop probing requires FFprobe on the machine.
+  them; desktop probing requires FFprobe, which release packages bundle.
 - Collections have no rename UI (duplicate names are rejected; delete/recreate is
   available).
 - Thumbnails require the source URL; offline and uncached entries show the
