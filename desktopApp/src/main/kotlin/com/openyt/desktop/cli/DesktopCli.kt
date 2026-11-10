@@ -9,6 +9,7 @@ import com.openyt.core.application.LibraryArchiveService
 import com.openyt.core.application.LibraryImportPolicy
 import com.openyt.core.application.LibraryQuery
 import com.openyt.core.application.OrganizationPlanner
+import com.openyt.core.application.StorageAnalyzer
 import com.openyt.core.application.toLibraryFilter
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadPriority
@@ -239,6 +240,7 @@ object DesktopCli {
         val exportPath = args.value("export")
         val importPath = args.value("import")
         val scanPath = args.value("scan")
+        val storage = args.flag("storage")
         if (
             !args.flag("list") &&
             addTag == null &&
@@ -249,7 +251,8 @@ object DesktopCli {
             search == null &&
             exportPath == null &&
             importPath == null &&
-            scanPath == null
+            scanPath == null &&
+            !storage
         ) {
             throw CliException(
                 "library requires --list, --add-tag, --remove-tag, --create-smart, " +
@@ -265,6 +268,21 @@ object DesktopCli {
             repository.removeLibraryTag(args.required("entry"), removeTag)
         }
         val archiveService = LibraryArchiveService(repository)
+        var storageReport: com.openyt.core.application.StorageReport? = null
+        if (storage) {
+            val known = FileFolderScanner().scan(
+                args.value("storage-dir") ?: defaultDownloadsDirectory(),
+            )
+            val missingIds = repository.loadLibrary()
+                .filter { it.filePath.isBlank() || !File(it.filePath).isFile }
+                .map { it.id }
+                .toSet()
+            storageReport = StorageAnalyzer.analyze(
+                entries = repository.loadLibrary(),
+                missingIds = missingIds,
+                knownFiles = known,
+            )
+        }
         var scanResult: com.openyt.core.application.FolderImportResult? = null
         if (scanPath != null) {
             scanResult = FolderImportService(FileFolderScanner(), repository).import(scanPath)
@@ -333,6 +351,64 @@ object DesktopCli {
                     put("createdSmartCollection", it.id)
                 }
                 exportedPath?.let { put("exportPath", it) }
+                storageReport?.let { report ->
+                    put(
+                        "storage",
+                        buildJsonObject {
+                            put("totalEntries", report.totalEntries)
+                            put("totalBytes", report.totalBytes)
+                            put(
+                                "largest",
+                                buildJsonArray {
+                                    report.largest.forEach { entry ->
+                                        add(
+                                            buildJsonObject {
+                                                put("id", entry.id)
+                                                put("title", entry.title)
+                                                putNullable("sizeBytes", entry.sizeBytes)
+                                                put("filePath", entry.filePath)
+                                            },
+                                        )
+                                    }
+                                },
+                            )
+                            put(
+                                "duplicateGroups",
+                                buildJsonArray {
+                                    report.duplicateGroups.forEach { group ->
+                                        add(
+                                            buildJsonObject {
+                                                put(
+                                                    "entries",
+                                                    buildJsonArray {
+                                                        group.entries.forEach { entry ->
+                                                            add(JsonPrimitive(entry.id))
+                                                        }
+                                                    },
+                                                )
+                                                put("totalBytes", group.totalBytes)
+                                            },
+                                        )
+                                    }
+                                },
+                            )
+                            put(
+                                "missing",
+                                buildJsonArray {
+                                    report.missing.forEach { entry -> add(JsonPrimitive(entry.id)) }
+                                },
+                            )
+                            put(
+                                "orphans",
+                                buildJsonArray {
+                                    report.orphanFiles.forEach { file ->
+                                        add(JsonPrimitive(file.path))
+                                    }
+                                },
+                            )
+                        },
+                    )
+                }
                 scanResult?.let { result ->
                     put(
                         "scanResult",
@@ -692,6 +768,7 @@ object DesktopCli {
               main --cli library  --export <path> [--json]
               main --cli library  --import <path> [--policy merge|replace] [--json]
               main --cli library  --scan <directory> [--json]
+              main --cli library  --storage [--storage-dir <directory>] [--json]
               main --cli cookies  [--import <path>] [--check] [--clear] [--json]
               main --cli version
             """.trimIndent(),

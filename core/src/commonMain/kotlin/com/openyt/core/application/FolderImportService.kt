@@ -28,6 +28,8 @@ class FolderImportService(
     private val scanner: FolderScanner,
     private val repository: DownloadRepository?,
 ) {
+    suspend fun scan(directory: String): List<ScannedMedia> = scanner.scan(directory)
+
     suspend fun import(directory: String): FolderImportResult {
         val repo = repository ?: return FolderImportResult()
         val existingPaths = repo.loadLibrary().map { it.filePath }.toSet()
