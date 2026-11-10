@@ -524,6 +524,8 @@ Validation:
 - Linux validation renames and moves a fixture batch, asserts DB paths and that
   file contents/count are unchanged.
 
+- Version bumped to 2.8.0 (Android versionCode 27). Program B is complete.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
