@@ -6,7 +6,7 @@ Workflow: `.github/workflows/release.yml`.
 
 - Runs on every push to `main` and on manual dispatch.
 - `gradle.properties` is the single source of truth:
-  - `openyt.version` (SemVer, currently `1.4.1`)
+  - `openyt.version` (SemVer, currently `1.5.0`)
   - `openyt.versionCode` (Android integer)
 - Every main push rebuilds and **updates** the release for `v<version>`. Bump the
   version before merging to publish a new release; otherwise assets of the current
@@ -69,6 +69,21 @@ packagers.
 - All desktop jobs use JDK 21 and the Gradle wrapper.
 - Desktop jobs need network access to download the pinned yt-dlp, FFmpeg, and
   Deno binaries during packaging.
+
+## Pre-release validation
+
+Run the real Linux validation against the built `.deb` before merging a release
+branch:
+
+```bash
+./scripts/validate-linux.sh --scenario all
+```
+
+It extracts the package into an isolated prefix, uses isolated `XDG_*` directories,
+exercises the headless CLI against real sources, checks playlist layout and
+database migration, and captures a GUI screenshot. Use `--offline` to skip network
+scenarios. The scheduled/manual `network-integration` CI job runs the real-network
+integration tests separately.
 
 ## Safety
 

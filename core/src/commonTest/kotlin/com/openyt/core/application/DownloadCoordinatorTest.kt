@@ -4,6 +4,7 @@ import com.openyt.core.domain.Collection
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.DownloadEvent
 import com.openyt.core.domain.DownloadFailure
+import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
@@ -345,6 +346,90 @@ class DownloadCoordinatorTest {
         assertEquals(DownloadStatus.DOWNLOADING, after.getValue(second).status)
     }
 
+
+    @Test
+    fun startsHigherPriorityQueuedTaskFirst() = runTest {
+        val engine = OrderingEngine()
+        val coordinator = DownloadCoordinator(
+            engine,
+            coordinatorScope(),
+            initialMaxConcurrentDownloads = 1,
+        )
+
+        val low = coordinator.enqueue(media("low"), request("low"), DownloadPriority.LOW)
+        advanceUntilIdle()
+        val normal = coordinator.enqueue(media("normal"), request("normal"), DownloadPriority.NORMAL)
+        val high = coordinator.enqueue(media("high"), request("high"), DownloadPriority.HIGH)
+        advanceUntilIdle()
+
+        assertEquals(listOf(low), engine.started)
+        engine.release(low)
+        advanceUntilIdle()
+        assertEquals(listOf(low, high), engine.started)
+
+        engine.release(high)
+        advanceUntilIdle()
+        assertEquals(listOf(low, high, normal), engine.started)
+    }
+
+    @Test
+    fun setPriorityReordersQueuedTask() = runTest {
+        val engine = OrderingEngine()
+        val coordinator = DownloadCoordinator(
+            engine,
+            coordinatorScope(),
+            initialMaxConcurrentDownloads = 1,
+        )
+
+        val first = coordinator.enqueue(media("first"), request("first"))
+        advanceUntilIdle()
+        val second = coordinator.enqueue(media("second"), request("second"))
+        val third = coordinator.enqueue(media("third"), request("third"))
+        coordinator.setPriority(third, DownloadPriority.HIGH)
+        advanceUntilIdle()
+
+        engine.release(first)
+        advanceUntilIdle()
+        assertEquals(listOf(first, third), engine.started)
+
+        engine.release(third)
+        advanceUntilIdle()
+        assertEquals(listOf(first, third, second), engine.started)
+    }
+
+    @Test
+    fun retriesTransientFailureWithBackoff() = runTest {
+        val engine = FlakyEngine(failures = 1)
+        val coordinator = DownloadCoordinator(
+            engine,
+            coordinatorScope(),
+            maxAutomaticRetries = 2,
+            retryDelayMillis = { 100L },
+        )
+
+        coordinator.enqueue(media("retry"), request("retry"))
+        advanceUntilIdle()
+
+        val task = coordinator.tasks.value.single()
+        assertEquals(DownloadStatus.COMPLETED, task.status)
+        assertEquals(1, task.attempt)
+        assertEquals(2, engine.calls)
+    }
+
+    @Test
+    fun resumesInterruptedTasks() = runTest {
+        val repository = FakeRepository(
+            tasks = mutableListOf(persistedTask("download-7", DownloadStatus.INTERRUPTED)),
+        )
+        val coordinator = DownloadCoordinator(FakeDownloadEngine(), coordinatorScope(), repository)
+        coordinator.restore()
+
+        coordinator.resumeInterrupted()
+        advanceUntilIdle()
+
+        assertEquals(DownloadStatus.COMPLETED, coordinator.tasks.value.single().status)
+    }
+
     private fun TestScope.coordinatorScope(): CoroutineScope =
         CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
 
@@ -355,9 +440,15 @@ class DownloadCoordinatorTest {
         status = status,
     )
 
-    private fun request() = DownloadRequest(
-        url = "https://example.com/watch?v=1",
+    private fun request(url: String = "https://example.com/watch?v=1") = DownloadRequest(
+        url = url,
         destinationDirectory = "/tmp/openyt",
+    )
+
+    private fun media(id: String) = FakeDownloadEngine.SAMPLE_MEDIA.copy(
+        sourceId = id,
+        title = id,
+        webpageUrl = "https://example.com/$id",
     )
 
     private class ImmediateEngine(private val events: List<DownloadEvent>) : DownloadEngine {
@@ -436,6 +527,58 @@ class DownloadCoordinatorTest {
 
         fun release(downloadId: String) {
             gates.getOrPut(downloadId) { CompletableDeferred() }.complete(Unit)
+        }
+
+        override suspend fun cancel(downloadId: String) = Unit
+
+        override suspend fun capabilities(): EngineCapabilities =
+            EngineCapabilities("test", "0", supportsPause = false, supportsSubtitles = false)
+
+        override fun close() = Unit
+    }
+
+    private class OrderingEngine : DownloadEngine {
+        val started: MutableList<String> = mutableListOf()
+        private val releases = mutableMapOf<String, CompletableDeferred<Unit>>()
+
+        override suspend fun inspect(url: String): EngineResult<Inspection> =
+            EngineResult.Failure(DownloadFailure.UnsupportedSource)
+
+        override fun download(request: DownloadRequest, downloadId: String): Flow<DownloadEvent> = flow {
+            started += downloadId
+            emit(DownloadEvent.Starting)
+            emit(DownloadEvent.Progress(10.0))
+            releases.getOrPut(downloadId) { CompletableDeferred() }.await()
+            emit(DownloadEvent.Completed("/tmp/$downloadId.bin", 1))
+        }
+
+        fun release(downloadId: String) {
+            releases.getOrPut(downloadId) { CompletableDeferred() }.complete(Unit)
+        }
+
+        override suspend fun cancel(downloadId: String) = Unit
+
+        override suspend fun capabilities(): EngineCapabilities =
+            EngineCapabilities("test", "0", supportsPause = false, supportsSubtitles = false)
+
+        override fun close() = Unit
+    }
+
+    private class FlakyEngine(private val failures: Int) : DownloadEngine {
+        var calls: Int = 0
+            private set
+
+        override suspend fun inspect(url: String): EngineResult<Inspection> =
+            EngineResult.Failure(DownloadFailure.UnsupportedSource)
+
+        override fun download(request: DownloadRequest, downloadId: String): Flow<DownloadEvent> = flow {
+            calls += 1
+            emit(DownloadEvent.Starting)
+            if (calls <= failures) {
+                emit(DownloadEvent.Failed(DownloadFailure.Network))
+            } else {
+                emit(DownloadEvent.Completed("/tmp/$downloadId.bin", 1))
+            }
         }
 
         override suspend fun cancel(downloadId: String) = Unit

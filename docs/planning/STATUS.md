@@ -345,6 +345,31 @@ Validation:
   percentage and speed/ETA beneath it.
 - Version bumped to 1.4.1 (Android versionCode 13).
 
+## Phase 17 completed (validation foundation)
+
+- Desktop binary exposes a headless CLI (`--cli inspect|download|playlist|library|version`)
+  that reuses the same core use cases as the UI.
+- `scripts/validate-linux.sh` builds/extracts the real `.deb`, uses isolated
+  `XDG_*` directories, and validates tools, inspect, download, playlist layout,
+  library access and GUI startup with a screenshot.
+- Compose desktop UI tests cover the animated progress bar (golden image) and the
+  Downloads screen semantics.
+- Database migration tests cover v6 to v7 and provider-source round-trips.
+- CI has an opt-in scheduled/manual real-network integration job.
+
+## Phase 18 completed (pipeline reliability core)
+
+- Queue scheduling respects `DownloadPriority` (high, normal, low) with FIFO
+  ordering inside the same priority. The priority can be changed from Downloads.
+- Transient failures (network, unavailable, unexpected) retry automatically with
+  exponential backoff (2s, 4s, 8s; max 3 attempts by default).
+- Interrupted tasks can be resumed in bulk from the Downloads header.
+- Engines now reject completions whose output file is missing or empty.
+- Database schema 8 adds `priority` and `attempt` to `download_task`.
+- CLI download/playlist accept `--priority high|normal|low`.
+- Pause/resume, bandwidth limits and time windows remain for the next phase.
+- Version bumped to 1.5.0 (Android versionCode 14).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

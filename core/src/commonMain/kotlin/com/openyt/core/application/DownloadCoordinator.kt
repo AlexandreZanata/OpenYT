@@ -2,6 +2,7 @@ package com.openyt.core.application
 
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.DownloadEvent
+import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.DownloadStatus
@@ -10,12 +11,11 @@ import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -34,6 +34,8 @@ class DownloadCoordinator(
     private val repository: DownloadRepository? = null,
     initialMaxConcurrentDownloads: Int = DEFAULT_MAX_CONCURRENT,
     private val completedHandler: CompletedDownloadHandler? = null,
+    private val maxAutomaticRetries: Int = DEFAULT_MAX_AUTOMATIC_RETRIES,
+    private val retryDelayMillis: (Int) -> Long = ::defaultRetryDelayMillis,
 ) {
     init {
         require(initialMaxConcurrentDownloads > 0) { "initialMaxConcurrentDownloads must be positive" }
@@ -51,11 +53,18 @@ class DownloadCoordinator(
         get() = concurrencyLimit.value
 
     private val persistence = Channel<suspend () -> Unit>(Channel.UNLIMITED)
+    private val scheduleSignal = Channel<Unit>(Channel.CONFLATED)
+    private val backoffTasks = MutableStateFlow<Set<String>>(emptySet())
 
     private var nextId = 0
     private var restored = false
 
     init {
+        scope.launch {
+            for (ignored in scheduleSignal) {
+                dispatch()
+            }
+        }
         scope.launch {
             for (operation in persistence) {
                 runCatching { operation() }
@@ -86,9 +95,14 @@ class DownloadCoordinator(
 
     fun setMaxConcurrentDownloads(value: Int) {
         concurrencyLimit.value = value.coerceIn(1, MAX_CONCURRENT)
+        requestSchedule()
     }
 
-    fun enqueue(media: MediaInfo, request: DownloadRequest): String {
+    fun enqueue(
+        media: MediaInfo,
+        request: DownloadRequest,
+        priority: DownloadPriority = DownloadPriority.NORMAL,
+    ): String {
         val duplicate = _tasks.value.firstOrNull { task ->
             task.status.isActive &&
                 task.request.url == request.url &&
@@ -101,10 +115,11 @@ class DownloadCoordinator(
             id = nextTaskId(),
             media = media,
             request = request,
+            priority = priority,
         )
         _tasks.update { it + task }
         persist { repository?.insertTask(task) }
-        launchDownload(task)
+        requestSchedule()
         return task.id
     }
 
@@ -116,6 +131,35 @@ class DownloadCoordinator(
             return
         }
         scope.launch { engine.cancel(id) }
+    }
+
+    fun setPriority(id: String, priority: DownloadPriority) {
+        val task = _tasks.value.firstOrNull { it.id == id } ?: return
+        if (task.status != DownloadStatus.QUEUED && task.status != DownloadStatus.DOWNLOADING) {
+            return
+        }
+        val updated = task.copy(priority = priority)
+        _tasks.update { tasks -> tasks.map { if (it.id == id) updated else it } }
+        persist { repository?.updateTask(updated) }
+        requestSchedule()
+    }
+
+    fun resumeInterrupted() {
+        _tasks.value
+            .filter { it.status == DownloadStatus.INTERRUPTED }
+            .forEach { task ->
+                val resumed = task.copy(
+                    status = DownloadStatus.QUEUED,
+                    percent = 0.0,
+                    speedBytesPerSecond = null,
+                    etaSeconds = null,
+                    failure = null,
+                    attempt = 0,
+                )
+                _tasks.update { tasks -> tasks.map { if (it.id == task.id) resumed else it } }
+                persist { repository?.updateTask(resumed) }
+            }
+        requestSchedule()
     }
 
     fun addLibraryEntries(entries: List<LibraryEntry>) {
@@ -145,7 +189,7 @@ class DownloadCoordinator(
         )
         _tasks.update { it + task }
         persist { repository?.insertTask(task) }
-        launchDownload(task)
+        requestSchedule()
     }
 
     fun dismiss(id: String) {
@@ -175,12 +219,33 @@ class DownloadCoordinator(
         ids.toList().forEach(::dismiss)
     }
 
-    private fun launchDownload(task: DownloadTask) {
+    private fun requestSchedule() {
+        scheduleSignal.trySend(Unit)
+    }
+
+    private fun dispatch() {
+        while (activeDownloads.value < concurrencyLimit.value) {
+            val next = nextEligibleQueuedTask() ?: return
+            val started = next.copy(status = DownloadStatus.DOWNLOADING)
+            _tasks.update { tasks -> tasks.map { if (it.id == started.id) started else it } }
+            persist { repository?.updateTask(started) }
+            activeDownloads.update { it + 1 }
+            startTask(started)
+        }
+    }
+
+    private fun nextEligibleQueuedTask(): DownloadTask? =
+        _tasks.value.withIndex()
+            .filter { it.value.status == DownloadStatus.QUEUED && it.value.id !in backoffTasks.value }
+            .minWithOrNull(
+                compareByDescending<IndexedValue<DownloadTask>> { it.value.priority.weight }
+                    .thenBy { it.index },
+            )
+            ?.value
+
+    private fun startTask(task: DownloadTask) {
         scope.launch {
-            acquireSlot()
             try {
-                val current = _tasks.value.firstOrNull { it.id == task.id }
-                if (current?.status != DownloadStatus.QUEUED) return@launch
                 engine.download(task.request, task.id).collect { event ->
                     applyEvent(task.id, event)
                 }
@@ -190,22 +255,8 @@ class DownloadCoordinator(
                 applyEvent(task.id, DownloadEvent.Failed(DownloadFailure.Unexpected(null)))
             } finally {
                 activeDownloads.update { (it - 1).coerceAtLeast(0) }
+                requestSchedule()
             }
-        }
-    }
-
-    private suspend fun acquireSlot() {
-        while (true) {
-            val active = activeDownloads.value
-            if (
-                active < concurrencyLimit.value &&
-                activeDownloads.compareAndSet(active, active + 1)
-            ) {
-                return
-            }
-            combine(activeDownloads, concurrencyLimit) { running, limit ->
-                running < limit
-            }.first { it }
         }
     }
 
@@ -220,6 +271,26 @@ class DownloadCoordinator(
             (updated.percent.toInt() / PROGRESS_BUCKET) != (previous.percent.toInt() / PROGRESS_BUCKET)
         if (event !is DownloadEvent.Progress || percentageBucketChanged) {
             persist { repository?.updateTask(updated) }
+        }
+
+        if (event is DownloadEvent.Failed && shouldRetry(updated)) {
+            val retry = updated.copy(
+                status = DownloadStatus.QUEUED,
+                percent = 0.0,
+                speedBytesPerSecond = null,
+                etaSeconds = null,
+                failure = null,
+                attempt = updated.attempt + 1,
+            )
+            backoffTasks.update { it + retry.id }
+            _tasks.update { tasks -> tasks.map { if (it.id == retry.id) retry else it } }
+            persist { repository?.updateTask(retry) }
+            scope.launch {
+                delay(retryDelayMillis(retry.attempt))
+                backoffTasks.update { it - retry.id }
+                requestSchedule()
+            }
+            return
         }
 
         if (event is DownloadEvent.Completed) {
@@ -241,6 +312,17 @@ class DownloadCoordinator(
             persist { repository?.insertLibraryEntry(entry) }
         }
     }
+
+    private fun shouldRetry(task: DownloadTask): Boolean =
+        task.attempt < maxAutomaticRetries &&
+            when (task.failure) {
+                is DownloadFailure.Network,
+                is DownloadFailure.Unavailable,
+                is DownloadFailure.Unexpected,
+                -> true
+
+                else -> false
+            }
 
     private fun nextTaskId(): String = "$TASK_ID_PREFIX${++nextId}"
 
@@ -280,5 +362,9 @@ class DownloadCoordinator(
         const val MAX_CONCURRENT = 4
         const val PROGRESS_BUCKET = 10
         const val TASK_ID_PREFIX = "download-"
+        const val DEFAULT_MAX_AUTOMATIC_RETRIES = 3
+
+        fun defaultRetryDelayMillis(attempt: Int): Long =
+            (2_000L shl (attempt - 1)).coerceAtMost(30_000L)
     }
 }

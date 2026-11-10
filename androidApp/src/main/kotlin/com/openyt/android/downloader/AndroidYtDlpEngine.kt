@@ -117,11 +117,17 @@ class AndroidYtDlpEngine(
                     }
                 }
 
-                val path = YtDlpOutputParser.extractFilePath(response.out)
-                if (path != null) {
-                    send(DownloadEvent.Completed(path, File(path).length().takeIf { it > 0 }))
+                val file = YtDlpOutputParser.extractFilePath(response.out)
+                    ?.let(::File)
+                    ?.takeIf { it.isFile && it.length() > 0 }
+                if (file != null) {
+                    send(DownloadEvent.Completed(file.absolutePath, file.length()))
                 } else {
-                    send(DownloadEvent.Failed(DownloadFailure.ProcessingFailed(null)))
+                    send(
+                        DownloadEvent.Failed(
+                            DownloadFailure.ProcessingFailed("output file missing or empty"),
+                        ),
+                    )
                 }
             } catch (e: YoutubeDL.CanceledException) {
                 send(DownloadEvent.Canceled)

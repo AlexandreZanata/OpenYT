@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -64,6 +67,41 @@ jobs:
           name: openyt-linux-deb
           path: desktopApp/build/compose/binaries/main/deb/*.deb
           if-no-files-found: error
+
+  network-integration:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Download bundled tools
+        run: ./gradlew :desktopApp:prepareBundledTools --console=plain
+
+      - name: Real-network integration tests
+        env:
+          OPENYT_RUN_NETWORK_TESTS: "1"
+          OPENYT_YTDLP: ${{ github.workspace }}/desktopApp/build/bundled-tools/linux-x64/yt-dlp
+          OPENYT_FFMPEG: ${{ github.workspace }}/desktopApp/build/bundled-tools/linux-x64/ffmpeg
+          OPENYT_FFPROBE: ${{ github.workspace }}/desktopApp/build/bundled-tools/linux-x64/ffprobe
+          OPENYT_JS_RUNTIME: ${{ github.workspace }}/desktopApp/build/bundled-tools/linux-x64/deno
+        run: >
+          ./gradlew :desktopApp:test
+          --tests '*IntegrationTest'
+          --rerun-tasks
+          --console=plain
+          --stacktrace
 
   desktop-compile:
     strategy:

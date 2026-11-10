@@ -72,6 +72,10 @@ class DesktopYtDlpEngine(
                 send(DownloadEvent.Failed(DownloadFailure.DependencyMissing("yt-dlp")))
                 return@channelFlow
             }
+            if (canceled.remove(downloadId)) {
+                send(DownloadEvent.Canceled)
+                return@channelFlow
+            }
 
             val directory = File(request.destinationDirectory).apply { mkdirs() }
             val safeId = downloadId.filter { it.isLetterOrDigit() || it == '-' || it == '_' }
@@ -156,13 +160,21 @@ class DesktopYtDlpEngine(
                     canceled.remove(downloadId) -> send(DownloadEvent.Canceled)
 
                     exitCode == 0 -> {
-                        val file = finalPath?.let(::File)?.takeIf { it.isFile }
-                        send(
-                            DownloadEvent.Completed(
-                                filePath = file?.absolutePath ?: directory.absolutePath,
-                                sizeBytes = file?.length(),
-                            ),
-                        )
+                        val file = finalPath?.let(::File)?.takeIf { it.isFile && it.length() > 0 }
+                        if (file != null) {
+                            send(
+                                DownloadEvent.Completed(
+                                    filePath = file.absolutePath,
+                                    sizeBytes = file.length(),
+                                ),
+                            )
+                        } else {
+                            send(
+                                DownloadEvent.Failed(
+                                    DownloadFailure.ProcessingFailed("output file missing or empty"),
+                                ),
+                            )
+                        }
                     }
 
                     else -> send(

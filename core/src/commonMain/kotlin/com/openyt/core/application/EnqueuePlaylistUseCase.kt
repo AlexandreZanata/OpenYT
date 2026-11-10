@@ -2,6 +2,7 @@ package com.openyt.core.application
 
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.MediaInfo
+import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.PlaylistEntry
 import com.openyt.core.domain.PlaylistInfo
@@ -18,6 +19,7 @@ class EnqueuePlaylistUseCase(
         entries: List<PlaylistEntry>,
         kind: MediaKind,
         downloadsDirectory: String,
+        priority: DownloadPriority = DownloadPriority.NORMAL,
     ): List<String> {
         if (entries.isEmpty()) return emptyList()
         val directory = downloadsDirectory.trimEnd('/', '\\') + "/" + safeSegment(playlist.title)
@@ -41,6 +43,7 @@ class EnqueuePlaylistUseCase(
                     destinationDirectory = directory,
                     fileNameTemplate = "$prefix - %(title).150B [%(id)s].%(ext)s",
                 ),
+                priority = priority,
             )
         }
     }

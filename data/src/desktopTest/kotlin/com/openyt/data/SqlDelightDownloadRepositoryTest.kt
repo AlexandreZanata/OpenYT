@@ -3,6 +3,7 @@ package com.openyt.data
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.openyt.core.domain.Collection
 import com.openyt.core.domain.DownloadFailure
+import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
@@ -24,13 +25,20 @@ class SqlDelightDownloadRepositoryTest {
         try {
             var database = createOpenYtDatabase(file.absolutePath)
             var repository = SqlDelightDownloadRepository(database)
-            repository.insertTask(sampleTask(id = "download-1"))
+            repository.insertTask(
+                sampleTask(id = "download-1").copy(
+                    priority = DownloadPriority.HIGH,
+                    attempt = 2,
+                ),
+            )
             repository.updateTask(
                 sampleTask(id = "download-1").copy(
                     status = DownloadStatus.COMPLETED,
                     percent = 100.0,
                     filePath = "/tmp/video.mp4",
                     sizeBytes = 1234,
+                    priority = DownloadPriority.HIGH,
+                    attempt = 2,
                 ),
             )
             repository.insertLibraryEntry(
@@ -52,6 +60,8 @@ class SqlDelightDownloadRepositoryTest {
             assertEquals(DownloadStatus.COMPLETED, tasks.single().status)
             assertEquals("/tmp/video.mp4", tasks.single().filePath)
             assertEquals(1234L, tasks.single().sizeBytes)
+            assertEquals(DownloadPriority.HIGH, tasks.single().priority)
+            assertEquals(2, tasks.single().attempt)
 
             val library = repository.loadLibrary()
             assertEquals(1, library.size)
