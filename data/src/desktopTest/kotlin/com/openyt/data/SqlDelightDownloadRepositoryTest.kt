@@ -75,6 +75,23 @@ class SqlDelightDownloadRepositoryTest {
     }
 
     @Test
+    fun persistsLibraryAuthor() = runBlocking {
+        val database = fileDatabase()
+        val repository = SqlDelightDownloadRepository(database)
+        repository.insertLibraryEntry(
+            LibraryEntry(
+                id = "author-entry",
+                title = "Clip",
+                kind = MediaKind.VIDEO,
+                filePath = "/tmp/clip.mp4",
+                author = "Jawed Karim",
+            ),
+        )
+
+        assertEquals("Jawed Karim", repository.loadLibrary().single().author)
+    }
+
+    @Test
     fun persistsSmartCollections() = runBlocking {
         val database = fileDatabase()
         val repository = SqlDelightDownloadRepository(database)

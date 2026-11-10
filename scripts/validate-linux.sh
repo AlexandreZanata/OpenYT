@@ -267,8 +267,8 @@ connection = sqlite3.connect(sys.argv[1])
 connection.execute(
     """
     INSERT OR REPLACE INTO library_entry(
-        id, title, kind, file_path, size_bytes, created_at, thumbnail_url, source
-    ) VALUES ('tag-entry', 'Tag entry', 'AUDIO', '/tmp/tag-entry.m4a', 1, 0, NULL, 'soundcloud')
+        id, title, author, kind, file_path, size_bytes, created_at, thumbnail_url, source
+    ) VALUES ('tag-entry', 'Tag entry', 'Jawed Karim', 'AUDIO', '/tmp/tag-entry.m4a', 1, 0, NULL, 'soundcloud')
     """
 )
 connection.commit()
@@ -300,8 +300,8 @@ connection = sqlite3.connect(sys.argv[1])
 connection.execute(
     """
     INSERT OR REPLACE INTO library_entry(
-        id, title, kind, file_path, size_bytes, created_at, thumbnail_url, source
-    ) VALUES ('other-entry', 'Other entry', 'VIDEO', '/tmp/other.mp4', 1, 0, NULL, 'vimeo')
+        id, title, author, kind, file_path, size_bytes, created_at, thumbnail_url, source
+    ) VALUES ('other-entry', 'Other entry', 'Someone', 'VIDEO', '/tmp/other.mp4', 1, 0, NULL, 'vimeo')
     """
 )
 connection.commit()
@@ -333,7 +333,24 @@ import json, sys
 data = json.load(sys.stdin)
 assert data["smartCollections"] == [], data
 ' || { fail "smart collection was not deleted"; return 1; }
-    pass "library tags and smart collection membership"
+
+    output="$("$APP" --cli library --search jawed --json)" \
+        || { fail "metadata search failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+ids = [entry["id"] for entry in data["entries"]]
+assert ids == ["tag-entry"], data
+' || { fail "metadata search result invalid"; return 1; }
+
+    output="$("$APP" --cli library --search zzz-none --json)" \
+        || { fail "empty search failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+assert data["entries"] == [], data
+' || { fail "empty search returned results"; return 1; }
+    pass "library tags, smart collection and metadata search"
 }
 
 scenario_gui() {
@@ -381,7 +398,7 @@ scenario_gui() {
 import sqlite3, sys
 connection = sqlite3.connect(sys.argv[1])
 version = connection.execute("PRAGMA user_version").fetchone()[0]
-assert version == 12, f"user_version={version}"
+assert version == 13, f"user_version={version}"
 PY
     kill -- -"$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true

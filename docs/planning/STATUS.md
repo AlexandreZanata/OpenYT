@@ -456,6 +456,14 @@ Validation:
 
 - Version bumped to 2.2.0 (Android versionCode 21).
 
+## Phase 26 completed (metadata search)
+
+- Library entries store the author (schema 13), populated from the download media.
+- Search covers title, author, file name, source and tags, with relevance ranking
+  (exact/prefix title first, then author, tag, source and file name).
+- CLI `library --search <query>` returns the ranked results; Linux validation seeds
+  mixed entries, asserts an author match and an empty result.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

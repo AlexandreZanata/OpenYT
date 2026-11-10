@@ -168,6 +168,7 @@ class SqlDelightDownloadRepository(
             LibraryEntry(
                 id = row.id,
                 title = row.title,
+                author = row.author,
                 kind = parseKind(row.kind),
                 filePath = row.file_path,
                 sizeBytes = row.size_bytes,
@@ -184,6 +185,7 @@ class SqlDelightDownloadRepository(
             queries.insertLibraryEntry(
                 id = entry.id,
                 title = entry.title,
+                author = entry.author,
                 kind = entry.kind.name,
                 file_path = entry.filePath,
                 size_bytes = entry.sizeBytes,

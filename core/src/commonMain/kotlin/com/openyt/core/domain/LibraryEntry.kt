@@ -10,4 +10,5 @@ data class LibraryEntry(
     val thumbnailUrl: String? = null,
     val source: String? = null,
     val tags: List<String> = emptyList(),
+    val author: String? = null,
 )

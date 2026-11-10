@@ -412,6 +412,7 @@ class DownloadCoordinator(
             val entry = LibraryEntry(
                 id = updated.id,
                 title = updated.media.title,
+                author = updated.media.author,
                 kind = updated.request.kind,
                 filePath = applied.filePath,
                 sizeBytes = applied.sizeBytes,

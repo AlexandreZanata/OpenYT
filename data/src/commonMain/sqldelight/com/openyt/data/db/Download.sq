@@ -28,6 +28,7 @@ CREATE TABLE download_task (
 CREATE TABLE library_entry (
     id TEXT NOT NULL PRIMARY KEY,
     title TEXT NOT NULL,
+    author TEXT,
     kind TEXT NOT NULL,
     file_path TEXT NOT NULL,
     size_bytes INTEGER,
@@ -119,8 +120,8 @@ selectAllLibrary:
 SELECT * FROM library_entry ORDER BY created_at DESC, id ASC;
 
 insertLibraryEntry:
-INSERT OR REPLACE INTO library_entry(id, title, kind, file_path, size_bytes, thumbnail_url, source)
-VALUES (:id, :title, :kind, :file_path, :size_bytes, :thumbnail_url, :source);
+INSERT OR REPLACE INTO library_entry(id, title, author, kind, file_path, size_bytes, thumbnail_url, source)
+VALUES (:id, :title, :author, :kind, :file_path, :size_bytes, :thumbnail_url, :source);
 
 deleteLibraryEntry:
 DELETE FROM library_entry WHERE id = :id;
