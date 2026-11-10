@@ -431,6 +431,8 @@ Validation:
 - CLI adds `cookies --import/--check/--clear`; Linux validation asserts the
   encrypted file exists, does not contain the canary, and is removed on clear.
 
+- Version bumped to 2.0.0 (Android versionCode 19). Program A is complete.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
