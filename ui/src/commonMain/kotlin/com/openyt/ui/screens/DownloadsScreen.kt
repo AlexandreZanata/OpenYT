@@ -1,23 +1,30 @@
 package com.openyt.ui.screens
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -28,12 +35,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
@@ -194,27 +205,32 @@ private fun DownloadTaskCard(
                         task.status == DownloadStatus.DOWNLOADING ||
                         task.status == DownloadStatus.PROCESSING
                     ) {
-                        LinearProgressIndicator(
-                            progress = { (task.percent / 100.0).toFloat().coerceIn(0f, 1f) },
-                            color = MaterialTheme.colorScheme.secondary,
-                            trackColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .semantics {
-                                    contentDescription =
-                                        "${task.media.title}: ${task.percent.toInt()}%"
-                                },
-                        )
-                        val details = buildList {
-                            add("${task.percent.toInt()}%")
-                            formatSpeed(task.speedBytesPerSecond)?.let(::add)
-                            formatDuration(task.etaSeconds)?.let { add("${strings.etaLabel} $it") }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            DownloadProgressBar(
+                                title = task.media.title,
+                                percent = task.percent,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                "${task.percent.toInt()}%",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.secondary,
+                            )
                         }
-                        Text(
-                            details.joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        val details = listOfNotNull(
+                            formatSpeed(task.speedBytesPerSecond),
+                            formatDuration(task.etaSeconds)?.let { "${strings.etaLabel} $it" },
+                        ).joinToString(" · ")
+                        if (details.isNotBlank()) {
+                            Text(
+                                details,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
 
                     task.failure?.let { failure ->
@@ -287,5 +303,43 @@ private fun DownloadTaskCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DownloadProgressBar(
+    title: String,
+    percent: Double,
+    modifier: Modifier = Modifier,
+) {
+    val target = (percent / 100.0).toFloat().coerceIn(0f, 1f)
+    val fraction by animateFloatAsState(
+        targetValue = target,
+        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+        label = "download-progress",
+    )
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(percent = 50)
+    Box(
+        modifier = modifier
+            .height(6.dp)
+            .clip(shape)
+            .background(colors.secondary.copy(alpha = 0.16f))
+            .semantics {
+                contentDescription = "$title: ${percent.toInt()}%"
+                progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
+            },
+    ) {
+        Box(
+            Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(fraction)
+                .clip(shape)
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(colors.secondary, colors.tertiary),
+                    ),
+                ),
+        )
     }
 }
