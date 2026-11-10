@@ -1,4 +1,7 @@
-# OpenYT
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/branding/openyt-lockup-dark.svg">
+  <img src="docs/branding/openyt-lockup-light.svg" width="310" alt="OpenYT">
+</picture>
 
 Local-first, multiplatform media downloader and library manager built with Kotlin.
 
@@ -71,7 +74,7 @@ Install the debug APK on a connected device:
 
 ## Releases
 
-Latest: [v1.1.0](https://github.com/AlexandreZanata/OpenYT/releases/tag/v1.1.0)
+Latest: [v1.2.0](https://github.com/AlexandreZanata/OpenYT/releases/tag/v1.2.0)
 (Android APK, Linux deb, Windows MSI, macOS DMG, checksums).
 
 Every push to `main` builds and publishes Android, Linux, Windows, and macOS
@@ -91,13 +94,16 @@ secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
 - Library collections: create, filter, and assign media; deleting a collection
   never touches files or library entries.
 - Desktop uses larger responsive thumbnails and a themed wide layout.
-- Cohesive light/dark themes with a teal visual identity and an OpenYT brand mark.
+- Shared OpenYT identity with light and dark themes, an adaptive Android launcher
+  icon, and desktop window and package icons.
 - Library details show technical metadata (duration, resolution, codecs, bitrate,
   container) via platform probes.
 - Share completed media to WhatsApp, Drive, and any installed Android handler via
   the system chooser; open or reveal files on desktop.
-- Import existing video/audio through the Android Storage Access Framework.
-- Redacted diagnostics (copyable) and a GitHub release update check.
+- Import existing video/audio through the Android Storage Access Framework and
+  export completed downloads to a chosen SAF tree.
+- Redacted diagnostics (copyable), GitHub update check, and assisted installer.
+- Branded OpenYT launcher/installer icons; production-signed Android APK.
 - Theme, language (pt-BR/en), and download concurrency are persisted locally.
 - Desktop: sidebar layout, dropped-link intake, Ctrl+1…4/Ctrl+Q shortcuts, folder
   selection, multi-selection, and a Linux `.deb` package.
@@ -105,6 +111,7 @@ secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
 - Project status and limitations: `docs/planning/STATUS.md`
 - Architecture and module rules: `docs/architecture/OVERVIEW.md`
 - Decisions: `docs/adr/`
+- [Brand assets and usage guidelines](docs/branding/README.md)
 
 ## Licensing
 

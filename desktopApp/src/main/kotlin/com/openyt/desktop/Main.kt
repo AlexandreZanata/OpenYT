@@ -26,11 +26,13 @@ import com.openyt.data.createOpenYtDatabase
 import com.openyt.data.defaultDatabasePath
 import com.openyt.desktop.diagnostics.DesktopDiagnosticsProvider
 import com.openyt.desktop.diagnostics.DesktopUpdateChecker
+import com.openyt.desktop.diagnostics.DesktopUpdateInstaller
 import com.openyt.desktop.diagnostics.DesktopUrlOpener
 import com.openyt.desktop.downloader.DesktopMediaProbe
 import com.openyt.desktop.downloader.DesktopYtDlpEngine
 import com.openyt.desktop.share.DesktopMediaActions
 import com.openyt.ui.OpenYtApp
+import com.openyt.ui.components.BrandIconPainter
 import java.io.File
 import javax.swing.SwingUtilities
 import kotlinx.coroutines.CoroutineScope
@@ -59,6 +61,7 @@ fun main() = application {
         DesktopDiagnosticsProvider(engine, downloadsDirectory)
     }
     val updateChecker = remember { DesktopUpdateChecker() }
+    val updateInstaller = remember { DesktopUpdateInstaller() }
     val urlOpener = remember { DesktopUrlOpener() }
     val folderPicker = remember { FolderPicker { current -> DesktopFolderPicker.pick(current) } }
     var sharedUrl by remember { mutableStateOf<String?>(null) }
@@ -79,6 +82,7 @@ fun main() = application {
             exitApplication()
         },
         title = "OpenYT",
+        icon = BrandIconPainter(),
         state = rememberWindowState(width = 1100.dp, height = 780.dp),
         onPreviewKeyEvent = { event ->
             if (
@@ -117,6 +121,7 @@ fun main() = application {
             mediaActions = mediaActions,
             diagnosticsProvider = diagnosticsProvider,
             updateChecker = updateChecker,
+            updateInstaller = updateInstaller,
             urlOpener = urlOpener,
             downloadsDirectory = downloadsDirectory,
             fileAvailability = FileAvailability { File(it).isFile },

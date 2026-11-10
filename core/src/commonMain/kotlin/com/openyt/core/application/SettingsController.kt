@@ -55,4 +55,7 @@ class SettingsController(
 
     fun setDownloadsDirectory(path: String?) =
         update(_settings.value.copy(downloadsDirectory = path?.takeIf { it.isNotBlank() }))
+
+    fun setStorageTreeUri(uri: String?) =
+        update(_settings.value.copy(storageTreeUri = uri?.takeIf { it.isNotBlank() }))
 }

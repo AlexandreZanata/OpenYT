@@ -5,14 +5,18 @@ import android.content.Context
 import com.openyt.android.downloader.AndroidYtDlpEngine
 import com.openyt.android.diagnostics.AndroidDiagnosticsProvider
 import com.openyt.android.diagnostics.AndroidUpdateChecker
+import com.openyt.android.diagnostics.AndroidUpdateInstaller
 import com.openyt.android.probe.AndroidMediaProbe
+import com.openyt.android.saf.AndroidSafExporter
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.CompletedDownloadHandler
 import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadRepository
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.MediaProbe
 import com.openyt.core.application.SettingsController
 import com.openyt.core.application.UpdateChecker
+import com.openyt.core.application.UpdateInstaller
 import com.openyt.core.application.SettingsRepository
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.data.SqlDelightDownloadRepository
@@ -46,17 +50,35 @@ class AppContainer(context: Context) {
 
     val updateChecker: UpdateChecker = AndroidUpdateChecker()
 
+    val updateInstaller: UpdateInstaller = AndroidUpdateInstaller(appContext)
+
     private val database = runCatching { createOpenYtDatabase(appContext) }
         .onFailure { android.util.Log.e("OpenYT", "database initialization failed: ${'$'}{it.message}") }
 
     val repository: DownloadRepository? = database.getOrNull()?.let(::SqlDelightDownloadRepository)
 
-    val coordinator: DownloadCoordinator = DownloadCoordinator(engine, appScope, repository)
-
     val settingsRepository: SettingsRepository? =
         database.getOrNull()?.let(::SqlDelightSettingsRepository)
 
     val settingsController: SettingsController = SettingsController(settingsRepository, appScope)
+
+    private val safExporter = AndroidSafExporter(appContext)
+
+    val coordinator: DownloadCoordinator = DownloadCoordinator(
+        engine = engine,
+        scope = appScope,
+        repository = repository,
+        completedHandler = CompletedDownloadHandler { task ->
+            val tree = settingsController.settings.value.storageTreeUri
+            val path = task.filePath
+            if (tree != null && path != null) {
+                val exported = safExporter.export(path, tree)
+                if (!exported) {
+                    android.util.Log.w("OpenYT", "SAF export failed")
+                }
+            }
+        },
+    )
 
     val libraryController: LibraryController = LibraryController(repository, appScope)
 

@@ -7,7 +7,9 @@
         android:name=".OpenYtApplication"
         android:allowBackup="false"
         android:extractNativeLibs="true"
+        android:icon="@mipmap/openyt_launcher"
         android:label="OpenYT"
+        android:roundIcon="@mipmap/openyt_launcher"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 

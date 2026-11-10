@@ -152,6 +152,21 @@ class DownloadCoordinatorTest {
     }
 
     @Test
+    fun invokesCompletedHandlerWithFinalPath() = runTest {
+        var completedPath: String? = null
+        val coordinator = DownloadCoordinator(
+            engine = FakeDownloadEngine(),
+            scope = coordinatorScope(),
+            completedHandler = CompletedDownloadHandler { task -> completedPath = task.filePath },
+        )
+
+        coordinator.enqueue(FakeDownloadEngine.SAMPLE_MEDIA, request())
+        advanceUntilIdle()
+
+        assertEquals("/tmp/openyt/download-1.bin", completedPath)
+    }
+
+    @Test
     fun addsImportedEntriesToLibraryAndPersists() = runTest {
         val repository = FakeRepository()
         val coordinator = DownloadCoordinator(FakeDownloadEngine(), coordinatorScope(), repository)

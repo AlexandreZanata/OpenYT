@@ -94,3 +94,53 @@ class DesktopUrlOpener : UrlOpener {
         }.getOrDefault(false)
     }
 }
+
+class DesktopUpdateInstaller : com.openyt.core.application.UpdateInstaller {
+    override suspend fun install(update: com.openyt.core.application.UpdateInfo): Boolean =
+        withContext(Dispatchers.IO) {
+            val os = System.getProperty("os.name").orEmpty().lowercase()
+            val suffix = when {
+                os.contains("win") -> ".msi"
+                os.contains("mac") -> ".dmg"
+                else -> ".deb"
+            }
+            val asset = update.assets.firstOrNull {
+                it.name.endsWith(suffix, ignoreCase = true)
+            } ?: return@withContext false
+            val directory = java.io.File(
+                System.getProperty("user.home") ?: ".",
+                "Downloads/OpenYT/updates",
+            ).apply { mkdirs() }
+            val file = java.io.File(directory, asset.name)
+            val downloaded = runCatching {
+                val connection = URL(asset.url).openConnection() as HttpURLConnection
+                connection.connectTimeout = 15_000
+                connection.readTimeout = 120_000
+                connection.instanceFollowRedirects = true
+                connection.setRequestProperty("User-Agent", "OpenYT")
+                try {
+                    if (connection.responseCode !in 200..299) return@runCatching false
+                    connection.inputStream.use { input ->
+                        file.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    true
+                } finally {
+                    connection.disconnect()
+                }
+            }.getOrDefault(false)
+            if (!downloaded) return@withContext false
+
+            val opened = runCatching {
+                if (Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().open(file)
+                    true
+                } else {
+                    false
+                }
+            }.getOrDefault(false)
+            opened || runCatching {
+                ProcessBuilder("xdg-open", file.absolutePath).start()
+                true
+            }.getOrDefault(false)
+        }
+}

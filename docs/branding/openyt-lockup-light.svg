@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 522 152" role="img" aria-labelledby="title">
+  <title id="title">OpenYT logo for light backgrounds</title>
+  <defs>
+    <linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="12" y1="2" x2="116" y2="126">
+      <stop stop-color="#252E2C"/>
+      <stop offset="1" stop-color="#101010"/>
+    </linearGradient>
+    <linearGradient id="ring" gradientUnits="userSpaceOnUse" x1="29" y1="86" x2="96" y2="23">
+      <stop stop-color="#0F766E"/>
+      <stop offset=".55" stop-color="#1EB8A8"/>
+      <stop offset="1" stop-color="#5EEAD4"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(12 12)">
+    <rect x="2" y="2" width="124" height="124" rx="30" fill="url(#tile)" stroke="#354441" stroke-width="1.5"/>
+    <path d="M45 84 A35 35 0 1 1 83 84" fill="none" stroke="url(#ring)" stroke-width="12" stroke-linecap="round"/>
+    <path d="M55 44 Q55 41 58 43 L76 53 Q79.5 55 76 57 L58 67 Q55 69 55 66 Z" fill="#F7F7F5"/>
+    <path d="M60 75 Q60 73 62 73 H66 Q68 73 68 75 V91 H75 Q79 91 76 94 L66 105 Q64 107 62 105 L52 94 Q49 91 53 91 H60 Z" fill="#5EEAD4"/>
+    <path d="M37 99 V103 Q37 114 48 114 H80 Q91 114 91 103 V99" fill="none" stroke="#479E92" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(163 41)" fill="#101010">
+    <path fill-rule="evenodd" d="M32 0 C13 0 0 13 0 32 S13 64 32 64 S64 51 64 32 S51 0 32 0 Z M32 12 C43 12 51 20 51 32 S43 52 32 52 S13 44 13 32 S21 12 32 12 Z"/>
+    <path fill-rule="evenodd" d="M72 18 H84 V23 C88 19 93 17 99 17 C112 17 121 27 121 41 C121 55 112 64 99 64 C93 64 88 62 84 58 V79 H72 Z M96 28 C89 28 84 33 84 41 S89 53 96 53 S109 49 109 41 S103 28 96 28 Z"/>
+    <path fill-rule="evenodd" d="M151 17 C165 17 174 27 174 42 V45 H138 C140 51 145 54 152 54 C157 54 162 52 166 48 L172 56 C167 61 160 64 151 64 C136 64 126 54 126 41 C126 27 136 17 151 17 Z M150 27 C144 27 139 31 138 36 H162 C161 31 157 27 150 27 Z"/>
+    <path d="M182 18 H194 V24 C198 19 203 17 210 17 C221 17 228 24 228 36 V63 H216 V39 C216 32 212 28 206 28 C199 28 194 33 194 40 V63 H182 Z"/>
+    <path d="M230 1 H245 L259 25 L273 1 H288 L265 37 V63 H252 V37 Z M294 1 H347 V13 H327 V63 H314 V13 H294 Z" fill="#0F766E"/>
+  </g>
+</svg>

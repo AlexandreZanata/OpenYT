@@ -56,7 +56,11 @@ fallback. Collections are a many-to-many relation persisted in `collection` and
 
 `ui/theme/Theme.kt` defines complete light and dark Material3 palettes, including
 surface container roles, so cards, navigation, chips, and backgrounds share one
-neutral scale with a teal accent. `BrandMark` provides the OpenYT glyph and wordmark.
+neutral scale with a teal accent. `BrandMark` pairs the shared `BrandIconPainter`
+with scalable text. The desktop host uses the same painter for the window and
+supplies native icon files to jpackage. Android supplies adaptive launcher layers.
+The [brand guidelines](../branding/README.md) link to the SVG master and platform
+assets.
 
 ## Technical metadata
 
