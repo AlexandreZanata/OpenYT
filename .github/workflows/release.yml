@@ -70,9 +70,7 @@ jobs:
           - os: windows-latest
             task: packageMsi packageExe
             artifact: windows-installer
-            path: |
-              desktopApp/build/compose/binaries/main/msi/*.msi
-              desktopApp/build/compose/binaries/main/exe/*.exe
+            path: release-windows/*
           - os: macos-latest
             task: packageDmg
             artifact: macos-dmg
@@ -93,6 +91,13 @@ jobs:
       - name: Package desktop
         shell: bash
         run: ./gradlew :desktopApp:${{ matrix.task }} --console=plain --stacktrace
+      - name: Flatten Windows installers
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p release-windows
+          cp desktopApp/build/compose/binaries/main/msi/*.msi release-windows/
+          cp desktopApp/build/compose/binaries/main/exe/*.exe release-windows/
       - name: Show packaging logs on failure
         if: failure()
         shell: bash
@@ -126,6 +131,8 @@ jobs:
       - name: Generate checksums
         run: |
           cd release-artifacts
+          find . -mindepth 2 -type f -exec mv -t . {} +
+          find . -mindepth 1 -type d -empty -delete
           sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
       - name: Publish GitHub release
