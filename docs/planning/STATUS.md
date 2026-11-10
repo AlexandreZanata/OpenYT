@@ -292,6 +292,28 @@ Validation:
   remain unsigned until those credentials are supplied.
 - Version bumped to 1.2.0 (Android versionCode 9).
 
+## Phase 14 completed (automatic update banner)
+
+- On entering the app, `UpdateController` checks the latest GitHub release once per
+  process, using the GitHub API without any server.
+- The release is filtered to the device platform: APK on Android, DEB/MSI/DMG on
+  desktop.
+- When a newer release exists, a dismissible teal banner appears above every tab
+  with the version, "Baixar e instalar" (assisted OS installer), and "Abrir release".
+- Settings shares the same update state and can re-check manually; failures are
+  shown explicitly there.
+- Version bumped to 1.3.0 (Android versionCode 10).
+
+Validation:
+
+- Desktop auto-check found the published `v1.2.0` release from a `1.1.0` context and
+  rendered the banner; screenshot in `docs/assets/phase14-update-banner.png`.
+- `UpdateController` unit tests cover automatic-once, manual re-check, platform
+  filtering, up-to-date, and failure.
+- 55 core tests, 13 engine tests, 12 data tests, 9 desktop tests (4 network opt-in
+  skipped). Android device runtime validation remains pending because the phone is
+  disconnected from ADB.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
@@ -308,7 +330,8 @@ Validation:
 - SAF destination copies completed files to the chosen tree; the app keeps its local
   copy instead of moving the only file.
 - Updates download the installer and require OS/user confirmation; silent install is
-  not implemented. Windows/macOS artifacts are unsigned until certificates are set.
+  not implemented. Automatic checks run once per process; manual re-check is in
+  Settings. Windows/macOS artifacts are unsigned until certificates are set.
 - Back up `~/.openyt/android-release.jks`; losing it prevents installing updates over
   production-signed APKs.
 - Desktop has no file import yet (Android-only SAF import).
