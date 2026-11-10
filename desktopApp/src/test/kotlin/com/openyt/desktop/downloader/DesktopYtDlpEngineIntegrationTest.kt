@@ -61,6 +61,59 @@ class DesktopYtDlpEngineIntegrationTest {
         assertTrue(playlist.entries.first().url.startsWith("https://"))
     }
 
+
+    @Test
+    fun pausesAndResumesRealDownload(): Unit = runBlocking {
+        val youtube = "https://www.youtube.com/watch?v=aqz-KE-bpKQ"
+        val inspection = withTimeout(180_000) { engine.inspect(youtube) }
+        val media = ((inspection as EngineResult.Success).value as Inspection.Single).media
+        val format = media.formats
+            .filter { it.kind == MediaKind.VIDEO && (it.height ?: 0) in 360..720 }
+            .minByOrNull { it.sizeBytes ?: Long.MAX_VALUE }
+            ?: media.formats.first { it.kind == MediaKind.VIDEO }
+
+        val directory = File(System.getProperty("java.io.tmpdir"), "openyt-desktop-pause")
+        directory.deleteRecursively()
+        directory.mkdirs()
+        val request = DownloadRequest(
+            url = youtube,
+            kind = MediaKind.VIDEO,
+            formatId = format.id,
+            destinationDirectory = directory.absolutePath,
+        )
+
+        val firstEvents = Collections.synchronizedList(mutableListOf<DownloadEvent>())
+        val pauser = launch(Dispatchers.IO) {
+            var pauseRequested = false
+            engine.download(request, "pause-test").collect { event ->
+                firstEvents += event
+                if (event is DownloadEvent.Progress && !pauseRequested) {
+                    pauseRequested = true
+                    delay(1_500)
+                    runCatching { engine.pause("pause-test") }
+                }
+            }
+        }
+        withTimeout(60_000) { pauser.join() }
+
+        assertTrue(
+            firstEvents.any { it is DownloadEvent.Paused },
+            "expected paused event, got $firstEvents",
+        )
+        val temp = File(directory, ".openyt-tmp-pause-test")
+        assertTrue(temp.isDirectory, "paused download must keep its temp directory")
+
+        val resumed = withTimeout(600_000) {
+            engine.download(request, "pause-test").toList()
+        }
+        val completed = resumed.filterIsInstance<DownloadEvent.Completed>().lastOrNull()
+        assertTrue(completed != null, "expected completion, got $resumed")
+        val file = File(completed!!.filePath)
+        assertTrue(file.isFile, "final file is missing")
+        assertTrue(file.length() > 0, "final file is empty")
+        directory.deleteRecursively()
+    }
+
     @Test
     fun downloadsWithProgressAndProducesValidFile(): Unit = runBlocking {
         val inspection = withTimeout(180_000) { engine.inspect(source) }

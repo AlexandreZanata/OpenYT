@@ -15,6 +15,10 @@ interface DownloadEngine {
 
     suspend fun cancel(downloadId: String)
 
+    suspend fun pause(downloadId: String) {
+        cancel(downloadId)
+    }
+
     suspend fun capabilities(): EngineCapabilities
 
     fun close()

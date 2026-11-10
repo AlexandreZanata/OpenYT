@@ -370,6 +370,17 @@ Validation:
 - Pause/resume, bandwidth limits and time windows remain for the next phase.
 - Version bumped to 1.5.0 (Android versionCode 14).
 
+## Phase 19 completed (pause and resume)
+
+- New `PAUSED` status and real pause/resume without losing partial files.
+- Desktop and Android engines keep the temporary directory when paused; stale
+  temp cleanup now waits 7 days so paused/interrupted progress survives restarts.
+- Pause works on queued tasks (immediately) and on active tasks (engine pause).
+- Resume requeues the same task id so yt-dlp continues from the partial file.
+- UI adds Pause, Resume and Cancel actions; paused tasks survive database restore.
+- Real-network integration test pauses a YouTube download, keeps the temp
+  directory, resumes it and verifies the final file.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

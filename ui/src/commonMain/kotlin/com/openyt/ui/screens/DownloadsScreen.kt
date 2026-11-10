@@ -128,6 +128,8 @@ fun DownloadsScreen(
                                 selected = if (checked) selected + task.id else selected - task.id
                             },
                             onCancel = { coordinator.cancel(task.id) },
+                            onPause = { coordinator.pause(task.id) },
+                            onResume = { coordinator.resume(task.id) },
                             onRetry = { coordinator.retry(task.id) },
                             onDismiss = { coordinator.dismiss(task.id) },
                             onPriorityChange = { coordinator.setPriority(task.id, it) },
@@ -148,6 +150,8 @@ private fun DownloadTaskCard(
     selected: Boolean,
     onSelect: (Boolean) -> Unit,
     onCancel: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     onRetry: () -> Unit,
     onDismiss: () -> Unit,
     onPriorityChange: (DownloadPriority) -> Unit,
@@ -263,6 +267,12 @@ private fun DownloadTaskCard(
                             current = task.priority,
                             onSelect = onPriorityChange,
                         )
+                        TextButton(onClick = onPause) { Text(strings.pauseAction) }
+                        TextButton(onClick = onCancel) { Text(strings.cancelAction) }
+                    }
+
+                    task.status == DownloadStatus.PAUSED -> {
+                        TextButton(onClick = onResume) { Text(strings.resumeAction) }
                         TextButton(onClick = onCancel) { Text(strings.cancelAction) }
                     }
 

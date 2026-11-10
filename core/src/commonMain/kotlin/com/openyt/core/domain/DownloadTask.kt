@@ -10,6 +10,7 @@ enum class DownloadStatus {
     QUEUED,
     DOWNLOADING,
     PROCESSING,
+    PAUSED,
     COMPLETED,
     FAILED,
     CANCELED,
@@ -19,8 +20,11 @@ enum class DownloadStatus {
     val isActive: Boolean
         get() = this == QUEUED || this == DOWNLOADING || this == PROCESSING
 
+    val isPaused: Boolean
+        get() = this == PAUSED
+
     val isFinished: Boolean
-        get() = !isActive
+        get() = this == COMPLETED || this == FAILED || this == CANCELED || this == INTERRUPTED
 }
 
 data class DownloadTask(

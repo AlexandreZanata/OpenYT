@@ -55,6 +55,7 @@ class DownloadCoordinator(
     private val persistence = Channel<suspend () -> Unit>(Channel.UNLIMITED)
     private val scheduleSignal = Channel<Unit>(Channel.CONFLATED)
     private val backoffTasks = MutableStateFlow<Set<String>>(emptySet())
+    private val pausingTasks = MutableStateFlow<Set<String>>(emptySet())
 
     private var nextId = 0
     private var restored = false
@@ -125,12 +126,52 @@ class DownloadCoordinator(
 
     fun cancel(id: String) {
         val task = _tasks.value.firstOrNull { it.id == id } ?: return
+        if (task.status == DownloadStatus.PAUSED) {
+            applyEvent(id, DownloadEvent.Canceled)
+            return
+        }
         if (!task.status.isActive) return
         if (task.status == DownloadStatus.QUEUED) {
             applyEvent(id, DownloadEvent.Canceled)
             return
         }
         scope.launch { engine.cancel(id) }
+    }
+
+    fun pause(id: String) {
+        val task = _tasks.value.firstOrNull { it.id == id } ?: return
+        when (task.status) {
+            DownloadStatus.QUEUED -> {
+                val paused = task.copy(status = DownloadStatus.PAUSED)
+                _tasks.update { tasks -> tasks.map { if (it.id == id) paused else it } }
+                persist { repository?.updateTask(paused) }
+                requestSchedule()
+            }
+
+            DownloadStatus.DOWNLOADING,
+            DownloadStatus.PROCESSING,
+            -> {
+                pausingTasks.update { it + id }
+                scope.launch { engine.pause(id) }
+            }
+
+            else -> Unit
+        }
+    }
+
+    fun resume(id: String) {
+        val task = _tasks.value.firstOrNull { it.id == id } ?: return
+        if (task.status != DownloadStatus.PAUSED) return
+        val resumed = task.copy(
+            status = DownloadStatus.QUEUED,
+            percent = 0.0,
+            speedBytesPerSecond = null,
+            etaSeconds = null,
+            failure = null,
+        )
+        _tasks.update { tasks -> tasks.map { if (it.id == id) resumed else it } }
+        persist { repository?.updateTask(resumed) }
+        requestSchedule()
     }
 
     fun setPriority(id: String, priority: DownloadPriority) {
@@ -262,18 +303,23 @@ class DownloadCoordinator(
 
     private fun applyEvent(id: String, event: DownloadEvent) {
         val previous = _tasks.value.firstOrNull { it.id == id } ?: return
+        val pausing = event == DownloadEvent.Canceled && id in pausingTasks.value
+        if (pausing) {
+            pausingTasks.update { it - id }
+        }
+        val applied = if (pausing) DownloadEvent.Paused else event
         _tasks.update { tasks ->
-            tasks.map { task -> if (task.id == id) task.apply(event) else task }
+            tasks.map { task -> if (task.id == id) task.apply(applied) else task }
         }
         val updated = _tasks.value.firstOrNull { it.id == id } ?: return
 
         val percentageBucketChanged =
             (updated.percent.toInt() / PROGRESS_BUCKET) != (previous.percent.toInt() / PROGRESS_BUCKET)
-        if (event !is DownloadEvent.Progress || percentageBucketChanged) {
+        if (applied !is DownloadEvent.Progress || percentageBucketChanged) {
             persist { repository?.updateTask(updated) }
         }
 
-        if (event is DownloadEvent.Failed && shouldRetry(updated)) {
+        if (applied is DownloadEvent.Failed && shouldRetry(updated)) {
             val retry = updated.copy(
                 status = DownloadStatus.QUEUED,
                 percent = 0.0,
@@ -293,7 +339,7 @@ class DownloadCoordinator(
             return
         }
 
-        if (event is DownloadEvent.Completed) {
+        if (applied is DownloadEvent.Completed) {
             scope.launch {
                 runCatching { completedHandler?.onCompleted(updated) }
             }
@@ -301,8 +347,8 @@ class DownloadCoordinator(
                 id = updated.id,
                 title = updated.media.title,
                 kind = updated.request.kind,
-                filePath = event.filePath,
-                sizeBytes = event.sizeBytes,
+                filePath = applied.filePath,
+                sizeBytes = applied.sizeBytes,
                 thumbnailUrl = updated.media.thumbnailUrl,
                 source = updated.media.source,
             )
@@ -355,6 +401,8 @@ class DownloadCoordinator(
         )
 
         DownloadEvent.Canceled -> copy(status = DownloadStatus.CANCELED)
+
+        DownloadEvent.Paused -> copy(status = DownloadStatus.PAUSED)
     }
 
     private companion object {

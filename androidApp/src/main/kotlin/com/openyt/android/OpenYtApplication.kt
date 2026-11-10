@@ -107,6 +107,12 @@ class AppContainer(context: Context) {
 }
 
 private fun cleanStaleTemporaryFiles(directory: File) {
-    directory.listFiles { file -> file.isDirectory && file.name.startsWith(".openyt-tmp-") }
-        ?.forEach { it.deleteRecursively() }
+    val cutoff = System.currentTimeMillis() - STALE_TEMP_MILLIS
+    directory.listFiles { file ->
+        file.isDirectory &&
+            file.name.startsWith(".openyt-tmp-") &&
+            file.lastModified() < cutoff
+    }?.forEach { it.deleteRecursively() }
 }
+
+private const val STALE_TEMP_MILLIS = 7L * 24 * 60 * 60 * 1000
