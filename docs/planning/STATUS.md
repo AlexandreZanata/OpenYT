@@ -433,6 +433,18 @@ Validation:
 
 - Version bumped to 2.0.0 (Android versionCode 19). Program A is complete.
 
+## Phase 24 completed (library tags)
+
+- Library entries can have tags; tags are stored in the new `library_tag` table
+  (schema 11) and survive restarts.
+- Tag search is case-insensitive and included in the Library query alongside
+  title, file name and source.
+- Details dialog adds/removes tags with chips and an input field.
+- CLI `library --entry <id> --add-tag/--remove-tag` and JSON output include tags;
+  Linux validation seeds an entry, adds and removes a tag on the packaged image.
+
+- Version bumped to 2.1.0 (Android versionCode 20).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

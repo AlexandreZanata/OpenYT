@@ -28,6 +28,10 @@ interface DownloadRepository {
 
     suspend fun deleteLibraryEntry(id: String)
 
+    suspend fun addLibraryTag(entryId: String, tag: String)
+
+    suspend fun removeLibraryTag(entryId: String, tag: String)
+
     suspend fun loadCollections(): List<Collection>
 
     suspend fun insertCollection(collection: Collection)

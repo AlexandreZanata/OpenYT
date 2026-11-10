@@ -1,6 +1,6 @@
 # OpenYT Expansion Roadmap
 
-Status: Phase 0 (validation foundation) implemented. Program A (pipeline) is complete: A1–A8 implemented. Programs B–G are planning only.
+Status: Phase 0 (validation foundation) implemented. Program A (pipeline) is complete: A1–A8 implemented. Program B1 (library tags) implemented. B2–B8 and Programs C–G are planning only.
 
 This roadmap covers the seven expansion areas requested after v1.4.1. It is
 organised into programs (A–G), each split into microphases (A1, A2, …). Every

@@ -23,6 +23,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -317,7 +322,13 @@ fun LibraryScreen(
     }
 
     detail?.let { item ->
-        LibraryDetailsDialog(item = item, mediaProbe = mediaProbe, onClose = { detail = null })
+        LibraryDetailsDialog(
+            item = item,
+            mediaProbe = mediaProbe,
+            onClose = { detail = null },
+            onAddTag = { coordinator.addLibraryTag(item.entry.id, it) },
+            onRemoveTag = { coordinator.removeLibraryTag(item.entry.id, it) },
+        )
     }
 
     if (showCreateCollection) {
@@ -584,11 +595,14 @@ private fun LibraryDetailsDialog(
     item: LibraryItem,
     mediaProbe: MediaProbe,
     onClose: () -> Unit,
+    onAddTag: (String) -> Unit,
+    onRemoveTag: (String) -> Unit,
 ) {
     val strings = LocalStrings.current
     val entry = item.entry
     var technical by remember(entry.id) { mutableStateOf<MediaTechnicalInfo?>(null) }
     var analyzing by remember(entry.id) { mutableStateOf(!item.missing) }
+    var tagText by remember(entry.id) { mutableStateOf("") }
 
     LaunchedEffect(entry.id, item.missing) {
         if (item.missing) {
@@ -648,6 +662,56 @@ private fun LibraryDetailsDialog(
                         info.audioCodec?.let { DetailRow(strings.detailsAudioCodec, it) }
                         info.bitrateKbps?.let { DetailRow(strings.detailsBitrate, "$it kbps") }
                         info.container?.let { DetailRow(strings.detailsContainer, it) }
+                    }
+                }
+
+                HorizontalDivider()
+                Text(strings.tagsLabel, style = MaterialTheme.typography.labelLarge)
+                if (entry.tags.isEmpty()) {
+                    Text(
+                        strings.tagsEmpty,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        entry.tags.forEach { tag ->
+                            InputChip(
+                                selected = false,
+                                onClick = { onRemoveTag(tag) },
+                                label = { Text(tag) },
+                                trailingIcon = {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = strings.removeTagAction,
+                                    )
+                                },
+                            )
+                        }
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = tagText,
+                        onValueChange = { tagText = it },
+                        label = { Text(strings.tagInputLabel) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(
+                        onClick = {
+                            onAddTag(tagText)
+                            tagText = ""
+                        },
+                        enabled = tagText.isNotBlank(),
+                    ) {
+                        Text(strings.addTagAction)
                     }
                 }
             }

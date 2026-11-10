@@ -37,6 +37,9 @@ class DatabaseMigrationTest {
             assertEquals(null, settings.downloadWindowEndMinutes)
             assertEquals(OrganizationPreset.PLAYLIST, settings.organizationPreset)
             assertEquals(null, settings.fileOrganizationTemplate)
+
+            repository.addLibraryTag("download-1", "migrated")
+            assertEquals(listOf("migrated"), repository.loadLibrary().single().tags)
         } finally {
             file.delete()
         }

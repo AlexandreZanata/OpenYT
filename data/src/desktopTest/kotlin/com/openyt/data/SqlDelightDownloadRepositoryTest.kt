@@ -74,6 +74,41 @@ class SqlDelightDownloadRepositoryTest {
     }
 
     @Test
+    fun persistsLibraryTagsAndRemovesThemWithTheEntry() = runBlocking {
+        val database = fileDatabase()
+        val repository = SqlDelightDownloadRepository(database)
+        repository.insertLibraryEntry(
+            LibraryEntry(
+                id = "tag-entry",
+                title = "Tagged",
+                kind = MediaKind.AUDIO,
+                filePath = "/tmp/tagged.m4a",
+                tags = listOf("music", "favorite"),
+            ),
+        )
+
+        assertEquals(
+            listOf("favorite", "music"),
+            repository.loadLibrary().single().tags,
+        )
+
+        repository.addLibraryTag("tag-entry", "live")
+        assertEquals(
+            listOf("favorite", "live", "music"),
+            repository.loadLibrary().single().tags,
+        )
+
+        repository.removeLibraryTag("tag-entry", "favorite")
+        assertEquals(
+            listOf("live", "music"),
+            repository.loadLibrary().single().tags,
+        )
+
+        repository.deleteLibraryEntry("tag-entry")
+        assertTrue(repository.loadLibrary().isEmpty())
+    }
+
+    @Test
     fun marksQueuedDownloadingAndProcessingAsInterrupted() = runBlocking {
         val database = fileDatabase()
         val repository = SqlDelightDownloadRepository(database)

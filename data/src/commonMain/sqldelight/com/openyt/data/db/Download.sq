@@ -125,6 +125,24 @@ VALUES (:id, :title, :kind, :file_path, :size_bytes, :thumbnail_url, :source);
 deleteLibraryEntry:
 DELETE FROM library_entry WHERE id = :id;
 
+CREATE TABLE library_tag (
+    entry_id TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    PRIMARY KEY (entry_id, tag)
+);
+
+selectAllLibraryTags:
+SELECT entry_id, tag FROM library_tag ORDER BY tag ASC;
+
+insertLibraryTag:
+INSERT OR IGNORE INTO library_tag(entry_id, tag) VALUES (?, ?);
+
+deleteLibraryTag:
+DELETE FROM library_tag WHERE entry_id = ? AND tag = ?;
+
+deleteLibraryTagsForEntry:
+DELETE FROM library_tag WHERE entry_id = ?;
+
 deleteCollectionEntriesForEntry:
 DELETE FROM collection_entry WHERE entry_id = :entry_id;
 

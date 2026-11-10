@@ -222,9 +222,20 @@ object DesktopCli {
         File(defaultDatabasePath()).parentFile.resolve("cookies")
 
     private suspend fun library(args: CliArgs): Int {
-        if (!args.flag("list")) throw CliException("library requires --list")
+        val addTag = args.value("add-tag")
+        val removeTag = args.value("remove-tag")
+        if (!args.flag("list") && addTag == null && removeTag == null) {
+            throw CliException("library requires --list, --add-tag, or --remove-tag")
+        }
         val database = createOpenYtDatabase(defaultDatabasePath())
-        val entries = SqlDelightDownloadRepository(database).loadLibrary()
+        val repository = SqlDelightDownloadRepository(database)
+        if (addTag != null) {
+            repository.addLibraryTag(args.required("entry"), addTag)
+        }
+        if (removeTag != null) {
+            repository.removeLibraryTag(args.required("entry"), removeTag)
+        }
+        val entries = repository.loadLibrary()
         if (args.flag("json")) {
             val payload = buildJsonObject {
                 put("ok", true)
@@ -243,6 +254,12 @@ object DesktopCli {
                                     putNullable("thumbnailUrl", entry.thumbnailUrl)
                                     putNullable("source", entry.source)
                                     put("createdAtEpochMillis", entry.createdAtEpochMillis)
+                                    put(
+                                        "tags",
+                                        buildJsonArray {
+                                            entry.tags.forEach { tag -> add(JsonPrimitive(tag)) }
+                                        },
+                                    )
                                 },
                             )
                         }
@@ -506,6 +523,7 @@ object DesktopCli {
                                   [--limit-bytes-per-second <n>]
                                   [--timeout-ms <n>] [--json]
               main --cli library  --list [--json]
+              main --cli library  --entry <id> --add-tag <tag>|--remove-tag <tag> [--json]
               main --cli cookies  [--import <path>] [--check] [--clear] [--json]
               main --cli version
             """.trimIndent(),
