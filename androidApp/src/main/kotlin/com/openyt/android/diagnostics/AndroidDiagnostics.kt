@@ -94,3 +94,50 @@ class AndroidUrlOpener(private val context: Context) : UrlOpener {
         true
     }.getOrDefault(false)
 }
+
+class AndroidUpdateInstaller(
+    private val context: Context,
+) : com.openyt.core.application.UpdateInstaller {
+    override suspend fun install(update: com.openyt.core.application.UpdateInfo): Boolean =
+        withContext(Dispatchers.IO) {
+            val asset = update.assets.firstOrNull {
+                it.name.endsWith(".apk", ignoreCase = true)
+            } ?: return@withContext false
+            val directory = java.io.File(context.cacheDir, "updates").apply { mkdirs() }
+            val file = java.io.File(directory, asset.name)
+            val downloaded = runCatching {
+                val connection = URL(asset.url).openConnection() as HttpURLConnection
+                connection.connectTimeout = 15_000
+                connection.readTimeout = 60_000
+                connection.instanceFollowRedirects = true
+                connection.setRequestProperty("User-Agent", "OpenYT")
+                try {
+                    if (connection.responseCode !in 200..299) return@runCatching false
+                    connection.inputStream.use { input ->
+                        file.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    true
+                } finally {
+                    connection.disconnect()
+                }
+            }.getOrDefault(false)
+            if (!downloaded) return@withContext false
+
+            runCatching {
+                val uri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file,
+                )
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.android.package-archive")
+                    addFlags(
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            android.content.Intent.FLAG_ACTIVITY_NEW_TASK,
+                    )
+                }
+                context.startActivity(intent)
+                true
+            }.getOrDefault(false)
+        }
+}

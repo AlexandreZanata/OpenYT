@@ -38,9 +38,11 @@ import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.PlatformDiagnostics
+import com.openyt.core.application.SafDestinationPicker
 import com.openyt.core.application.SettingsController
 import com.openyt.core.application.UpdateChecker
 import com.openyt.core.application.UpdateInfo
+import com.openyt.core.application.UpdateInstaller
 import com.openyt.core.application.UrlOpener
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.AppSettings
@@ -59,7 +61,9 @@ fun SettingsScreen(
     libraryController: LibraryController,
     diagnosticsProvider: DiagnosticsProvider,
     updateChecker: UpdateChecker,
+    updateInstaller: UpdateInstaller,
     urlOpener: UrlOpener,
+    safDestinationPicker: SafDestinationPicker? = null,
     folderPicker: FolderPicker? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -75,6 +79,8 @@ fun SettingsScreen(
     var checkingUpdates by remember { mutableStateOf(false) }
     var update by remember { mutableStateOf<UpdateInfo?>(null) }
     var updatesChecked by remember { mutableStateOf(false) }
+    var installingUpdate by remember { mutableStateOf(false) }
+    var installMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(engine) {
         capabilities = engine.capabilities()
@@ -216,6 +222,46 @@ fun SettingsScreen(
             }
         }
 
+        if (safDestinationPicker != null) {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(strings.safDestinationLabel, style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        if (settings.storageTreeUri != null) {
+                            strings.safConfigured
+                        } else {
+                            strings.safNotConfigured
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        strings.safDestinationHint,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(
+                            onClick = {
+                                safDestinationPicker.pick { uri ->
+                                    if (uri != null) settingsController.setStorageTreeUri(uri)
+                                }
+                            },
+                        ) {
+                            Text(strings.chooseSafFolder)
+                        }
+                        if (settings.storageTreeUri != null) {
+                            TextButton(
+                                onClick = { settingsController.setStorageTreeUri(null) },
+                            ) {
+                                Text(strings.clearSafFolder)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(strings.updatesTitle, style = MaterialTheme.typography.labelLarge)
@@ -244,8 +290,38 @@ fun SettingsScreen(
                 val availableUpdate = update
                 if (availableUpdate != null) {
                     Text("${strings.updateAvailable} v${availableUpdate.version}")
-                    TextButton(onClick = { urlOpener.open(availableUpdate.releaseUrl) }) {
-                        Text(strings.openRelease)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(
+                            enabled = !installingUpdate,
+                            onClick = {
+                                scope.launch {
+                                    installingUpdate = true
+                                    installMessage = null
+                                    val installed = updateInstaller.install(availableUpdate)
+                                    installMessage = if (installed) {
+                                        strings.installerOpened
+                                    } else {
+                                        strings.installFailed
+                                    }
+                                    installingUpdate = false
+                                }
+                            },
+                        ) {
+                            Text(strings.installUpdate)
+                        }
+                        TextButton(onClick = { urlOpener.open(availableUpdate.releaseUrl) }) {
+                            Text(strings.openRelease)
+                        }
+                    }
+                    if (installingUpdate) {
+                        Text(
+                            strings.installingUpdate,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    installMessage?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall)
                     }
                 } else if (updatesChecked && !checkingUpdates) {
                     Text(

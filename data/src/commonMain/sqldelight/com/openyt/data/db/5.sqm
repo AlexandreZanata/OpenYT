@@ -1,0 +1,1 @@
+ALTER TABLE app_settings ADD COLUMN storage_tree_uri TEXT;

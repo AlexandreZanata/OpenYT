@@ -24,6 +24,7 @@ class SqlDelightSettingsRepository(
                 AppSettings.MAX_CONCURRENT,
             ),
             downloadsDirectory = row?.downloads_directory,
+            storageTreeUri = row?.storage_tree_uri,
         )
     }
 
@@ -33,6 +34,7 @@ class SqlDelightSettingsRepository(
             language = settings.language.name,
             max_concurrent = settings.maxConcurrentDownloads.toLong(),
             downloads_directory = settings.downloadsDirectory,
+            storage_tree_uri = settings.storageTreeUri,
         )
         Unit
     }

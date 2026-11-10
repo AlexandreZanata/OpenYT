@@ -74,7 +74,7 @@ Install the debug APK on a connected device:
 
 ## Releases
 
-Latest: [v1.1.0](https://github.com/AlexandreZanata/OpenYT/releases/tag/v1.1.0)
+Latest: [v1.2.0](https://github.com/AlexandreZanata/OpenYT/releases/tag/v1.2.0)
 (Android APK, Linux deb, Windows MSI, macOS DMG, checksums).
 
 Every push to `main` builds and publishes Android, Linux, Windows, and macOS
@@ -100,8 +100,10 @@ secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
   container) via platform probes.
 - Share completed media to WhatsApp, Drive, and any installed Android handler via
   the system chooser; open or reveal files on desktop.
-- Import existing video/audio through the Android Storage Access Framework.
-- Redacted diagnostics (copyable) and a GitHub release update check.
+- Import existing video/audio through the Android Storage Access Framework and
+  export completed downloads to a chosen SAF tree.
+- Redacted diagnostics (copyable), GitHub update check, and assisted installer.
+- Branded OpenYT launcher/installer icons; production-signed Android APK.
 - Theme, language (pt-BR/en), and download concurrency are persisted locally.
 - Desktop: sidebar layout, dropped-link intake, Ctrl+1…4/Ctrl+Q shortcuts, folder
   selection, multi-selection, and a Linux `.deb` package.
