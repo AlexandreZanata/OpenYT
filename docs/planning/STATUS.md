@@ -394,6 +394,8 @@ Validation:
 - CLI accepts `--limit-bytes-per-second`; Linux validation downloads with a
   200 kB/s limit.
 
+- Version bumped to 1.7.0 (Android versionCode 16).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
