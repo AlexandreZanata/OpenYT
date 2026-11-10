@@ -38,6 +38,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -47,6 +48,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.openyt.core.application.AudioMetadata
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.LibraryController
@@ -57,6 +59,7 @@ import com.openyt.core.application.LibraryQuery
 import com.openyt.core.application.MediaActions
 import com.openyt.core.application.MediaImporter
 import com.openyt.core.application.MediaProbe
+import com.openyt.core.application.MediaTagger
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.MediaTechnicalInfo
@@ -68,6 +71,7 @@ import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.util.formatBytes
 import com.openyt.ui.util.formatDuration
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -81,6 +85,7 @@ fun LibraryScreen(
     mediaImporter: MediaImporter?,
     modifier: Modifier = Modifier,
     nowEpochMillis: () -> Long = { 0L },
+    mediaTagger: MediaTagger? = null,
 ) {
     val strings = LocalStrings.current
     val entries by coordinator.library.collectAsState()
@@ -379,12 +384,18 @@ fun LibraryScreen(
     }
 
     detail?.let { item ->
+        val current = entries.firstOrNull { it.id == item.entry.id }
+        val resolved = if (current != null) item.copy(entry = current) else item
         LibraryDetailsDialog(
-            item = item,
+            item = resolved,
             mediaProbe = mediaProbe,
+            mediaTagger = mediaTagger,
             onClose = { detail = null },
             onAddTag = { coordinator.addLibraryTag(item.entry.id, it) },
             onRemoveTag = { coordinator.removeLibraryTag(item.entry.id, it) },
+            onSaveMetadata = { title, author ->
+                coordinator.updateLibraryMetadata(item.entry.id, title, author)
+            },
         )
     }
 
@@ -793,15 +804,47 @@ private fun LibraryCard(
 private fun LibraryDetailsDialog(
     item: LibraryItem,
     mediaProbe: MediaProbe,
+    mediaTagger: MediaTagger?,
     onClose: () -> Unit,
     onAddTag: (String) -> Unit,
     onRemoveTag: (String) -> Unit,
+    onSaveMetadata: (String, String?) -> Unit,
 ) {
     val strings = LocalStrings.current
     val entry = item.entry
+    val scope = rememberCoroutineScope()
     var technical by remember(entry.id) { mutableStateOf<MediaTechnicalInfo?>(null) }
     var analyzing by remember(entry.id) { mutableStateOf(!item.missing) }
     var tagText by remember(entry.id) { mutableStateOf("") }
+    var editing by remember(entry.id) { mutableStateOf(false) }
+    var titleText by remember(entry.id) { mutableStateOf(entry.title) }
+    var authorText by remember(entry.id) { mutableStateOf(entry.author.orEmpty()) }
+    var embedTags by remember(entry.id) { mutableStateOf(entry.kind == MediaKind.AUDIO) }
+    var saving by remember(entry.id) { mutableStateOf(false) }
+    var message by remember(entry.id) { mutableStateOf<String?>(null) }
+
+    fun save() {
+        val title = titleText.trim()
+        if (title.isEmpty() || saving) return
+        val author = authorText.trim().ifBlank { null }
+        onSaveMetadata(title, author)
+        if (embedTags && mediaTagger != null && entry.kind == MediaKind.AUDIO) {
+            scope.launch {
+                saving = true
+                val ok = mediaTagger.writeTags(
+                    path = entry.filePath,
+                    metadata = AudioMetadata(title, author),
+                    coverUrl = entry.thumbnailUrl,
+                )
+                saving = false
+                message = if (ok) strings.metadataSaved else strings.metadataFailed
+                editing = false
+            }
+        } else {
+            message = strings.metadataSaved
+            editing = false
+        }
+    }
 
     LaunchedEffect(entry.id, item.missing) {
         if (item.missing) {
@@ -815,11 +858,79 @@ private fun LibraryDetailsDialog(
     AlertDialog(
         onDismissRequest = onClose,
         confirmButton = {
-            TextButton(onClick = onClose) { Text(strings.closeAction) }
+            if (editing) {
+                TextButton(onClick = ::save, enabled = titleText.isNotBlank() && !saving) {
+                    Text(strings.saveMetadata)
+                }
+            } else {
+                TextButton(onClick = onClose) { Text(strings.closeAction) }
+            }
         },
-        title = { Text(entry.title) },
+        dismissButton = {
+            if (editing) {
+                TextButton(
+                    onClick = {
+                        editing = false
+                        message = null
+                        titleText = entry.title
+                        authorText = entry.author.orEmpty()
+                    },
+                ) {
+                    Text(strings.cancelAction)
+                }
+            } else {
+                TextButton(
+                    onClick = {
+                        editing = true
+                        message = null
+                        titleText = entry.title
+                        authorText = entry.author.orEmpty()
+                    },
+                ) {
+                    Text(strings.editMetadata)
+                }
+            }
+        },
+        title = { Text(if (editing) titleText else entry.title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (editing) {
+                    OutlinedTextField(
+                        value = titleText,
+                        onValueChange = { titleText = it },
+                        label = { Text(strings.titleLabel) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = authorText,
+                        onValueChange = { authorText = it },
+                        label = { Text(strings.authorLabel) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (entry.kind == MediaKind.AUDIO && mediaTagger != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Checkbox(
+                                checked = embedTags,
+                                onCheckedChange = { embedTags = it },
+                            )
+                            Text(strings.embedMetadata)
+                        }
+                    }
+                } else {
+                    DetailRow(strings.authorLabel, entry.author ?: "—")
+                }
+                message?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 DetailRow(strings.detailsPath, entry.filePath)
                 formatBytes(entry.sizeBytes)?.let { DetailRow(strings.detailsSize, it) }
                 DetailRow(strings.detailsKind, kindLabel(entry.kind, strings))

@@ -15,6 +15,7 @@ import com.openyt.core.domain.EngineResult
 import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaInfo
+import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.SmartCollection
 import com.openyt.core.testing.FakeDownloadEngine
 import kotlinx.coroutines.CompletableDeferred
@@ -126,6 +127,32 @@ class DownloadCoordinatorTest {
 
         assertTrue(first != second)
         assertEquals(2, coordinator.tasks.value.size)
+    }
+
+    @Test
+    fun updatesLibraryMetadataWithoutRenamingTheFile() = runTest {
+        val repository = FakeRepository()
+        val coordinator = DownloadCoordinator(FakeDownloadEngine(), coordinatorScope(), repository)
+        coordinator.addLibraryEntries(
+            listOf(
+                LibraryEntry(
+                    id = "id-1",
+                    title = "Old title",
+                    kind = MediaKind.AUDIO,
+                    filePath = "/tmp/keep-name.m4a",
+                    sizeBytes = 1,
+                ),
+            ),
+        )
+        advanceUntilIdle()
+
+        coordinator.updateLibraryMetadata("id-1", "New title", "New author")
+        advanceUntilIdle()
+
+        val entry = coordinator.library.value.single()
+        assertEquals("New title", entry.title)
+        assertEquals("New author", entry.author)
+        assertEquals("/tmp/keep-name.m4a", entry.filePath)
     }
 
     @Test
@@ -626,6 +653,11 @@ class DownloadCoordinatorTest {
             library.removeAll { it.id == id }
         }
 
+        override suspend fun updateLibraryMetadata(id: String, title: String, author: String?) {
+            library.replaceAll { entry ->
+                if (entry.id == id) entry.copy(title = title, author = author) else entry
+            }
+        }
         override suspend fun addLibraryTag(entryId: String, tag: String) = Unit
 
         override suspend fun removeLibraryTag(entryId: String, tag: String) = Unit

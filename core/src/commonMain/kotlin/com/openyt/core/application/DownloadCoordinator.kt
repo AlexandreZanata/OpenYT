@@ -264,6 +264,18 @@ class DownloadCoordinator(
         finished.forEach { id -> persist { repository?.deleteTask(id) } }
     }
 
+    fun updateLibraryMetadata(id: String, title: String, author: String?) {
+        val trimmed = title.trim()
+        if (trimmed.isEmpty()) return
+        val entry = _library.value.firstOrNull { it.id == id } ?: return
+        val updated = entry.copy(
+            title = trimmed,
+            author = author?.trim()?.takeIf { it.isNotBlank() },
+        )
+        _library.update { entries -> entries.map { if (it.id == id) updated else it } }
+        persist { repository?.updateLibraryMetadata(id, updated.title, updated.author) }
+    }
+
     fun addLibraryTag(id: String, tag: String) {
         val normalized = normalizeTag(tag) ?: return
         val entry = _library.value.firstOrNull { it.id == id } ?: return

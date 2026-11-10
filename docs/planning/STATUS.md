@@ -466,6 +466,18 @@ Validation:
 
 - Version bumped to 2.3.0 (Android versionCode 22).
 
+## Phase 27 completed (metadata editing and embedded tags)
+
+- Library details dialog edits title and author without renaming the file.
+- Desktop embeds title/artist (and cover art for MP4/M4A) with the bundled FFmpeg;
+  the tagged copy replaces the original only after success.
+- Android reports embedding as unsupported because youtubedl-android does not
+  expose a public FFmpeg command runner; the DB metadata is still updated.
+- Opt-in tagger test generates a fixture with FFmpeg, writes tags and re-probes
+  them; Linux validation runs it with the packaged tools.
+
+- Version bumped to 2.4.0 (Android versionCode 23).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

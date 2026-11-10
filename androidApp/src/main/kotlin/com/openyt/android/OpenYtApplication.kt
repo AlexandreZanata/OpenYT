@@ -2,6 +2,7 @@ package com.openyt.android
 
 import android.app.Application
 import android.content.Context
+import com.openyt.android.downloader.AndroidMediaTagger
 import com.openyt.android.downloader.AndroidYtDlpEngine
 import com.openyt.android.diagnostics.AndroidDiagnosticsProvider
 import com.openyt.android.diagnostics.AndroidUpdateChecker
@@ -76,6 +77,7 @@ class AppContainer(context: Context) {
     val settingsController: SettingsController = SettingsController(settingsRepository, appScope)
 
     val cookieRepository = EncryptedCookieRepository(File(appContext.filesDir, "cookies"))
+    val mediaTagger = AndroidMediaTagger()
 
     private val safExporter = AndroidSafExporter(appContext)
 

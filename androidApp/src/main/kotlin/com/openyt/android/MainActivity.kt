@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
                 fileAvailability = FileAvailability { java.io.File(it).isFile },
                 cookieRepository = container.cookieRepository,
                 nowEpochMillis = { System.currentTimeMillis() },
+                mediaTagger = container.mediaTagger,
                 initialSharedUrl = pendingSharedUrl,
                 onSharedUrlConsumed = { sharedUrl.value = null },
             )
