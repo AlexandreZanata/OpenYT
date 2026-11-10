@@ -566,6 +566,8 @@ Validation:
   `--playlist-items <index>` instead of relying on flat entry URLs; deduplication
   includes the playlist item index. This improves compatibility across extractors.
 
+- Version bumped to 3.1.1 (Android versionCode 31).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
