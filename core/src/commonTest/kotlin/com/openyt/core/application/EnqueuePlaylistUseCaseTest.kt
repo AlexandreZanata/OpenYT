@@ -2,6 +2,7 @@ package com.openyt.core.application
 
 import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.PlaylistEntry
+import com.openyt.core.domain.PlaylistEntrySelection
 import com.openyt.core.domain.PlaylistInfo
 import com.openyt.core.testing.FakeDownloadEngine
 import kotlinx.coroutines.CoroutineScope
@@ -14,6 +15,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class EnqueuePlaylistUseCaseTest {
@@ -59,6 +61,32 @@ class EnqueuePlaylistUseCaseTest {
         val directory = coordinator.tasks.value.single().request.destinationDirectory
         assertEquals(".._.._AC_DC_ Live_", directory.substringAfterLast('/'))
         assertFalse(directory.split('/').any { it == ".." })
+    }
+
+    @Test
+    fun appliesPerEntryFormatOverrides() = runTest {
+        val coordinator = DownloadCoordinator(FakeDownloadEngine(), coordinatorScope())
+        val playlist = playlist(
+            title = "Overrides",
+            entries = listOf(entry(1, "First"), entry(2, "Second")),
+        )
+
+        EnqueuePlaylistUseCase(coordinator)(
+            playlist,
+            playlist.entries,
+            MediaKind.VIDEO,
+            "/tmp/openyt",
+            overrides = mapOf(
+                2 to PlaylistEntrySelection(MediaKind.AUDIO, "audio-format"),
+            ),
+        )
+        advanceUntilIdle()
+
+        val tasks = coordinator.tasks.value
+        assertEquals(MediaKind.VIDEO, tasks[0].request.kind)
+        assertNull(tasks[0].request.formatId)
+        assertEquals(MediaKind.AUDIO, tasks[1].request.kind)
+        assertEquals("audio-format", tasks[1].request.formatId)
     }
 
     private fun TestScope.coordinatorScope(): CoroutineScope =

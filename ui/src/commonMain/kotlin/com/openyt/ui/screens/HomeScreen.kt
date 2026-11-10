@@ -1,5 +1,6 @@
 package com.openyt.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
@@ -16,7 +17,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -28,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,6 +59,7 @@ import com.openyt.core.domain.MediaFormat
 import com.openyt.core.domain.MediaInfo
 import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.PlaylistEntry
+import com.openyt.core.domain.PlaylistEntrySelection
 import com.openyt.core.domain.PlaylistInfo
 import com.openyt.ui.components.BrandMark
 import com.openyt.ui.components.MediaThumbnail
@@ -179,6 +184,7 @@ fun HomeScreen(
 
                 is Inspection.Playlist -> PlaylistSummary(
                     playlist = inspection.playlist,
+                    engine = engine,
                     coordinator = coordinator,
                     downloadsDirectory = downloadsDirectory,
                     onDownloadStarted = onDownloadStarted,
@@ -322,6 +328,7 @@ private fun MediaSummary(
 @Composable
 private fun PlaylistSummary(
     playlist: PlaylistInfo,
+    engine: DownloadEngine,
     coordinator: DownloadCoordinator,
     downloadsDirectory: String,
     onDownloadStarted: () -> Unit,
@@ -332,6 +339,10 @@ private fun PlaylistSummary(
     var selected by remember(playlist) {
         mutableStateOf(playlist.entries.map { it.index }.toSet())
     }
+    var overrides by remember(playlist) {
+        mutableStateOf<Map<Int, PlaylistEntrySelection>>(emptyMap())
+    }
+    var formatEntry by remember(playlist) { mutableStateOf<PlaylistEntry?>(null) }
     val selectedEntries = playlist.entries.filter { it.index in selected }
 
     Card(Modifier.fillMaxWidth()) {
@@ -397,6 +408,7 @@ private fun PlaylistSummary(
                     PlaylistEntryRow(
                         entry = entry,
                         checked = entry.index in selected,
+                        override = overrides[entry.index],
                         onCheckedChange = { checked ->
                             selected = if (checked) {
                                 selected + entry.index
@@ -404,6 +416,7 @@ private fun PlaylistSummary(
                                 selected - entry.index
                             }
                         },
+                        onChooseFormat = { formatEntry = entry },
                     )
                 }
             }
@@ -416,7 +429,13 @@ private fun PlaylistSummary(
 
             Button(
                 onClick = {
-                    enqueuePlaylist(playlist, selectedEntries, kind, downloadsDirectory)
+                    enqueuePlaylist(
+                        playlist = playlist,
+                        entries = selectedEntries,
+                        kind = kind,
+                        downloadsDirectory = downloadsDirectory,
+                        overrides = overrides,
+                    )
                     onDownloadStarted()
                 },
                 enabled = selectedEntries.isNotEmpty(),
@@ -425,13 +444,34 @@ private fun PlaylistSummary(
             }
         }
     }
+
+    val pending = formatEntry
+    if (pending != null) {
+        FormatPickerDialog(
+            entry = pending,
+            engine = engine,
+            defaultKind = kind,
+            current = overrides[pending.index],
+            onDismiss = { formatEntry = null },
+            onClear = {
+                overrides = overrides - pending.index
+                formatEntry = null
+            },
+            onSelect = { selection ->
+                overrides = overrides + (pending.index to selection)
+                formatEntry = null
+            },
+        )
+    }
 }
 
 @Composable
 private fun PlaylistEntryRow(
     entry: PlaylistEntry,
     checked: Boolean,
+    override: PlaylistEntrySelection?,
     onCheckedChange: (Boolean) -> Unit,
+    onChooseFormat: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -456,8 +496,185 @@ private fun PlaylistEntryRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            TextButton(onClick = onChooseFormat) {
+                val strings = LocalStrings.current
+                val label = override?.let {
+                    val kindLabel = if (it.kind == MediaKind.AUDIO) {
+                        strings.kindAudio
+                    } else {
+                        strings.kindVideo
+                    }
+                    "${strings.entryFormatAction}: $kindLabel"
+                } ?: strings.entryFormatAction
+                Text(label)
+            }
         }
     }
+}
+
+
+private sealed interface FormatDialogState {
+    data object Loading : FormatDialogState
+    data class Ready(val media: MediaInfo) : FormatDialogState
+    data class Error(val failure: DownloadFailure) : FormatDialogState
+}
+
+@Composable
+fun FormatPickerDialog(
+    entry: PlaylistEntry,
+    engine: DownloadEngine,
+    defaultKind: MediaKind,
+    current: PlaylistEntrySelection?,
+    onDismiss: () -> Unit,
+    onClear: () -> Unit,
+    onSelect: (PlaylistEntrySelection) -> Unit,
+) {
+    val strings = LocalStrings.current
+    val inspectMedia = remember(engine) { InspectMediaUseCase(engine) }
+    var state by remember(entry.url) {
+        mutableStateOf<FormatDialogState>(FormatDialogState.Loading)
+    }
+    var selectedKind by remember(entry.url) {
+        mutableStateOf(current?.kind ?: defaultKind)
+    }
+    var selectedFormatId by remember(entry.url) {
+        mutableStateOf(current?.formatId)
+    }
+
+    LaunchedEffect(entry.url) {
+        state = when (val result = inspectMedia(entry.url)) {
+            is EngineResult.Success -> {
+                val inspection = result.value
+                if (inspection is Inspection.Single) {
+                    FormatDialogState.Ready(inspection.media)
+                } else {
+                    FormatDialogState.Error(
+                        DownloadFailure.ProcessingFailed("playlist entry returned a playlist"),
+                    )
+                }
+            }
+
+            is EngineResult.Failure -> FormatDialogState.Error(result.failure)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                entry.title,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        text = {
+            when (val currentState = state) {
+                FormatDialogState.Loading -> {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CircularProgressIndicator(Modifier.size(20.dp))
+                        Text(strings.entryFormatLoading)
+                    }
+                }
+
+                is FormatDialogState.Error -> {
+                    Text(
+                        strings.entryFormatError,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
+                is FormatDialogState.Ready -> {
+                    val formats = currentState.media.formats.filter { it.kind == selectedKind }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = selectedKind == MediaKind.VIDEO,
+                                onClick = {
+                                    selectedKind = MediaKind.VIDEO
+                                    selectedFormatId = null
+                                },
+                                label = { Text(strings.kindVideo) },
+                            )
+                            FilterChip(
+                                selected = selectedKind == MediaKind.AUDIO,
+                                onClick = {
+                                    selectedKind = MediaKind.AUDIO
+                                    selectedFormatId = null
+                                },
+                                label = { Text(strings.kindAudio) },
+                            )
+                        }
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp),
+                        ) {
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { selectedFormatId = null },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = selectedFormatId == null,
+                                        onClick = { selectedFormatId = null },
+                                    )
+                                    Text(strings.entryFormatBest)
+                                }
+                            }
+                            items(formats, key = { it.id }) { format ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            selectedKind = format.kind
+                                            selectedFormatId = format.id
+                                        },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = selectedFormatId == format.id,
+                                        onClick = {
+                                            selectedKind = format.kind
+                                            selectedFormatId = format.id
+                                        },
+                                    )
+                                    Text(
+                                        formatLabel(format),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                            }
+                        }
+                        if (formats.isEmpty()) {
+                            Text(
+                                strings.resultNoFormats,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSelect(PlaylistEntrySelection(selectedKind, selectedFormatId))
+                },
+                enabled = state is FormatDialogState.Ready,
+            ) {
+                Text(strings.entryFormatApply)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onClear) {
+                Text(strings.entryFormatUseDefault)
+            }
+        },
+    )
 }
 
 private fun defaultFormatId(formats: List<MediaFormat>, kind: MediaKind): String? = when (kind) {

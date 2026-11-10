@@ -209,8 +209,9 @@ secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
 
 - Paste or share a URL, inspect metadata/formats, choose video or audio, download
   with progress, cancel/retry, and manage a persistent local Library.
-- Inspect playlists and channels, select items, and download them into a numbered
-  playlist folder; provider icons identify common networks with a generic fallback.
+- Inspect playlists and channels, select items, choose formats per entry, and
+  download them into a numbered playlist folder; provider icons identify common
+  networks with a generic fallback.
 - Priority-aware queue (high/normal/low), pause/resume with partial files preserved,
   automatic retries with backoff, speed limits, download windows, and bulk resume
   of interrupted downloads.

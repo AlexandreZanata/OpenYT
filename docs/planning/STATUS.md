@@ -396,6 +396,15 @@ Validation:
 
 - Version bumped to 1.7.0 (Android versionCode 16).
 
+## Phase 21 completed (per-entry playlist formats)
+
+- Playlist entries can open a format dialog that inspects only that entry on demand.
+- The dialog lists video/audio formats, "best available" and "use default"; the
+  selection is stored as an override for that entry.
+- `EnqueuePlaylistUseCase` accepts per-entry `PlaylistEntrySelection` overrides and
+  falls back to the playlist-wide video/audio choice.
+- Core planner test and Compose dialog UI test cover the new path.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

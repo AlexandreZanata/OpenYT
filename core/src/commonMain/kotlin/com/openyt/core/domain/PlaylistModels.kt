@@ -23,3 +23,8 @@ data class PlaylistEntry(
     val durationSeconds: Long? = null,
     val thumbnailUrl: String? = null,
 )
+
+data class PlaylistEntrySelection(
+    val kind: MediaKind,
+    val formatId: String? = null,
+)
