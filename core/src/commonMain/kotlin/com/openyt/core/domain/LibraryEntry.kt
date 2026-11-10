@@ -9,4 +9,5 @@ data class LibraryEntry(
     val createdAtEpochMillis: Long = 0,
     val thumbnailUrl: String? = null,
     val source: String? = null,
+    val tags: List<String> = emptyList(),
 )

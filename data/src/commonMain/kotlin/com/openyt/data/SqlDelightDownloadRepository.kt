@@ -123,6 +123,9 @@ class SqlDelightDownloadRepository(
     }
 
     override suspend fun loadLibrary(): List<LibraryEntry> = withContext(Dispatchers.Default) {
+        val tags = queries.selectAllLibraryTags()
+            .executeAsList()
+            .groupBy({ it.entry_id }, { it.tag })
         queries.selectAllLibrary().executeAsList().map { row ->
             LibraryEntry(
                 id = row.id,
@@ -133,30 +136,48 @@ class SqlDelightDownloadRepository(
                 createdAtEpochMillis = row.created_at,
                 thumbnailUrl = row.thumbnail_url,
                 source = row.source,
+                tags = tags[row.id].orEmpty(),
             )
         }
     }
 
     override suspend fun insertLibraryEntry(entry: LibraryEntry) = withContext(Dispatchers.Default) {
-        queries.insertLibraryEntry(
-            id = entry.id,
-            title = entry.title,
-            kind = entry.kind.name,
-            file_path = entry.filePath,
-            size_bytes = entry.sizeBytes,
-            thumbnail_url = entry.thumbnailUrl,
-            source = entry.source,
-        )
+        database.transaction {
+            queries.insertLibraryEntry(
+                id = entry.id,
+                title = entry.title,
+                kind = entry.kind.name,
+                file_path = entry.filePath,
+                size_bytes = entry.sizeBytes,
+                thumbnail_url = entry.thumbnailUrl,
+                source = entry.source,
+            )
+            queries.deleteLibraryTagsForEntry(entry.id)
+            entry.tags.forEach { tag -> queries.insertLibraryTag(entry.id, tag) }
+        }
         Unit
     }
 
     override suspend fun deleteLibraryEntry(id: String) = withContext(Dispatchers.Default) {
         database.transaction {
+            queries.deleteLibraryTagsForEntry(id)
             queries.deleteCollectionEntriesForEntry(entry_id = id)
             queries.deleteLibraryEntry(id)
         }
         Unit
     }
+
+    override suspend fun addLibraryTag(entryId: String, tag: String) =
+        withContext(Dispatchers.Default) {
+            queries.insertLibraryTag(entryId, tag)
+            Unit
+        }
+
+    override suspend fun removeLibraryTag(entryId: String, tag: String) =
+        withContext(Dispatchers.Default) {
+            queries.deleteLibraryTag(entryId, tag)
+            Unit
+        }
 
     private fun toTask(row: Download_task): DownloadTask = DownloadTask(
         id = row.id,

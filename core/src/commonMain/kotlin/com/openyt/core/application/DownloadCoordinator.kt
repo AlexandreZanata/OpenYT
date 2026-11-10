@@ -264,6 +264,24 @@ class DownloadCoordinator(
         finished.forEach { id -> persist { repository?.deleteTask(id) } }
     }
 
+    fun addLibraryTag(id: String, tag: String) {
+        val normalized = normalizeTag(tag) ?: return
+        val entry = _library.value.firstOrNull { it.id == id } ?: return
+        if (entry.tags.any { it.equals(normalized, ignoreCase = true) }) return
+        val updated = entry.copy(tags = entry.tags + normalized)
+        _library.update { entries -> entries.map { if (it.id == id) updated else it } }
+        persist { repository?.addLibraryTag(id, normalized) }
+    }
+
+    fun removeLibraryTag(id: String, tag: String) {
+        val entry = _library.value.firstOrNull { it.id == id } ?: return
+        val updated = entry.copy(
+            tags = entry.tags.filterNot { it.equals(tag, ignoreCase = true) },
+        )
+        _library.update { entries -> entries.map { if (it.id == id) updated else it } }
+        persist { repository?.removeLibraryTag(id, tag) }
+    }
+
     /** Removes the library record only; the file remains on disk. */
     fun removeFromLibrary(id: String) {
         _library.update { entries -> entries.filterNot { it.id == id } }
@@ -418,6 +436,12 @@ class DownloadCoordinator(
                 else -> false
             }
 
+    private fun normalizeTag(value: String): String? =
+        value.trim()
+            .filterNot { it.isISOControl() }
+            .take(MAX_TAG_LENGTH)
+            .takeIf { it.isNotBlank() }
+
     private fun nextTaskId(): String = "$TASK_ID_PREFIX${++nextId}"
 
     private fun persist(operation: suspend () -> Unit) {
@@ -459,6 +483,7 @@ class DownloadCoordinator(
         const val PROGRESS_BUCKET = 10
         const val TASK_ID_PREFIX = "download-"
         const val DEFAULT_MAX_AUTOMATIC_RETRIES = 3
+        const val MAX_TAG_LENGTH = 40
 
         fun defaultRetryDelayMillis(attempt: Int): Long =
             (2_000L shl (attempt - 1)).coerceAtMost(30_000L)

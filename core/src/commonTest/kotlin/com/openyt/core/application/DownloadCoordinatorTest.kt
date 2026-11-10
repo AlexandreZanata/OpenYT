@@ -625,6 +625,10 @@ class DownloadCoordinatorTest {
             library.removeAll { it.id == id }
         }
 
+        override suspend fun addLibraryTag(entryId: String, tag: String) = Unit
+
+        override suspend fun removeLibraryTag(entryId: String, tag: String) = Unit
+
         override suspend fun loadCollections(): List<Collection> = emptyList()
 
         override suspend fun insertCollection(collection: Collection) = Unit

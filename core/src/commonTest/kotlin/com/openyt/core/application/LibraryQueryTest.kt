@@ -23,6 +23,37 @@ class LibraryQueryTest {
     }
 
     @Test
+    fun filtersByTagsAndSource() {
+        val entries = listOf(
+            LibraryEntry(
+                id = "1",
+                title = "Alpha",
+                kind = MediaKind.AUDIO,
+                filePath = "/a.m4a",
+                tags = listOf("music", "favorite"),
+            ),
+            LibraryEntry(
+                id = "2",
+                title = "Beta",
+                kind = MediaKind.VIDEO,
+                filePath = "/b.mp4",
+                source = "vimeo",
+            ),
+        )
+
+        assertEquals(
+            listOf("1"),
+            LibraryQuery.apply(entries, emptySet(), LibraryFilter(query = "MUSIC"))
+                .map { it.entry.id },
+        )
+        assertEquals(
+            listOf("2"),
+            LibraryQuery.apply(entries, emptySet(), LibraryFilter(query = "vimeo"))
+                .map { it.entry.id },
+        )
+    }
+
+    @Test
     fun filtersByKindAvailabilityAndDuplicates() {
         val entries = listOf(
             entry("1", "Video A", "/a.mp4", MediaKind.VIDEO, 100),

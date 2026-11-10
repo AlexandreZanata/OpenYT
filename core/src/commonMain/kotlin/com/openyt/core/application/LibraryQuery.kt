@@ -37,7 +37,9 @@ object LibraryQuery {
                 val fileName = entry.filePath.substringAfterLast('/').substringAfterLast('\\')
                 val matchesQuery = query.isEmpty() ||
                     entry.title.lowercase().contains(query) ||
-                    fileName.lowercase().contains(query)
+                    fileName.lowercase().contains(query) ||
+                    entry.source?.lowercase()?.contains(query) == true ||
+                    entry.tags.any { it.lowercase().contains(query) }
                 val matchesKind = filter.kind == null || entry.kind == filter.kind
                 val matchesMissing = !filter.missingOnly || entry.id in missingIds
                 val matchesDuplicates = !filter.duplicatesOnly || entry.id in duplicates
