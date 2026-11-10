@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -25,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,22 +37,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.EnqueuePlaylistUseCase
 import com.openyt.core.application.InspectMediaUseCase
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.EngineResult
+import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaFormat
 import com.openyt.core.domain.MediaInfo
 import com.openyt.core.domain.MediaKind
+import com.openyt.core.domain.PlaylistEntry
+import com.openyt.core.domain.PlaylistInfo
 import com.openyt.ui.components.BrandMark
 import com.openyt.ui.components.MediaThumbnail
+import com.openyt.ui.components.ProviderIcon
 import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.util.failureMessage
 import com.openyt.ui.util.formatDuration
@@ -58,7 +68,7 @@ import kotlinx.coroutines.launch
 private sealed interface HomeState {
     data object Idle : HomeState
     data object Loading : HomeState
-    data class Ready(val media: MediaInfo, val sourceUrl: String) : HomeState
+    data class Ready(val inspection: Inspection, val sourceUrl: String) : HomeState
     data class Error(val failure: DownloadFailure) : HomeState
 }
 
@@ -158,13 +168,22 @@ fun HomeScreen(
                 style = MaterialTheme.typography.bodyMedium,
             )
 
-            is HomeState.Ready -> MediaSummary(
-                media = current.media,
-                sourceUrl = current.sourceUrl,
-                coordinator = coordinator,
-                downloadsDirectory = downloadsDirectory,
-                onDownloadStarted = onDownloadStarted,
-            )
+            is HomeState.Ready -> when (val inspection = current.inspection) {
+                is Inspection.Single -> MediaSummary(
+                    media = inspection.media,
+                    sourceUrl = current.sourceUrl,
+                    coordinator = coordinator,
+                    downloadsDirectory = downloadsDirectory,
+                    onDownloadStarted = onDownloadStarted,
+                )
+
+                is Inspection.Playlist -> PlaylistSummary(
+                    playlist = inspection.playlist,
+                    coordinator = coordinator,
+                    downloadsDirectory = downloadsDirectory,
+                    onDownloadStarted = onDownloadStarted,
+                )
+            }
         }
     }
 }
@@ -195,12 +214,19 @@ private fun MediaSummary(
                 url = media.thumbnailUrl,
                 modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
             )
-            Text(
-                media.title,
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ProviderIcon(media.source, Modifier.size(24.dp))
+                Text(
+                    media.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             val meta = listOfNotNull(
                 media.author,
                 formatDuration(media.durationSeconds) ?: strings.resultDurationUnknown,
@@ -288,6 +314,147 @@ private fun MediaSummary(
                 enabled = formats.isNotEmpty(),
             ) {
                 Text(strings.downloadButton)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaylistSummary(
+    playlist: PlaylistInfo,
+    coordinator: DownloadCoordinator,
+    downloadsDirectory: String,
+    onDownloadStarted: () -> Unit,
+) {
+    val strings = LocalStrings.current
+    val enqueuePlaylist = remember(coordinator) { EnqueuePlaylistUseCase(coordinator) }
+    var kind by remember(playlist) { mutableStateOf(MediaKind.VIDEO) }
+    var selected by remember(playlist) {
+        mutableStateOf(playlist.entries.map { it.index }.toSet())
+    }
+    val selectedEntries = playlist.entries.filter { it.index in selected }
+
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            MediaThumbnail(
+                url = playlist.thumbnailUrl,
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ProviderIcon(playlist.source, Modifier.size(24.dp))
+                Text(
+                    playlist.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            val meta = listOfNotNull(
+                playlist.author,
+                "${playlist.entries.size} ${strings.playlistItems}",
+            ).joinToString(" · ")
+            Text(
+                meta,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            HorizontalDivider()
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = kind == MediaKind.VIDEO,
+                    onClick = { kind = MediaKind.VIDEO },
+                    label = { Text(strings.kindVideo) },
+                )
+                FilterChip(
+                    selected = kind == MediaKind.AUDIO,
+                    onClick = { kind = MediaKind.AUDIO },
+                    label = { Text(strings.kindAudio) },
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    onClick = { selected = playlist.entries.map { it.index }.toSet() },
+                ) {
+                    Text(strings.selectAll)
+                }
+                TextButton(onClick = { selected = emptySet() }) {
+                    Text(strings.clearSelection)
+                }
+            }
+
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                items(playlist.entries, key = { it.index }) { entry ->
+                    PlaylistEntryRow(
+                        entry = entry,
+                        checked = entry.index in selected,
+                        onCheckedChange = { checked ->
+                            selected = if (checked) {
+                                selected + entry.index
+                            } else {
+                                selected - entry.index
+                            }
+                        },
+                    )
+                }
+            }
+
+            Text(
+                strings.playlistHint,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Button(
+                onClick = {
+                    enqueuePlaylist(playlist, selectedEntries, kind, downloadsDirectory)
+                    onDownloadStarted()
+                },
+                enabled = selectedEntries.isNotEmpty(),
+            ) {
+                Text("${strings.downloadSelected} (${selectedEntries.size})")
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaylistEntryRow(
+    entry: PlaylistEntry,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        Column(Modifier.weight(1f)) {
+            Text(
+                entry.title,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            val meta = listOfNotNull(
+                entry.author,
+                entry.durationSeconds?.let(::formatDuration),
+            ).joinToString(" · ")
+            if (meta.isNotBlank()) {
+                Text(
+                    meta,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

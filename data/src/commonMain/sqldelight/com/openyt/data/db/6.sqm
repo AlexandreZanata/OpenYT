@@ -1,0 +1,8 @@
+ALTER TABLE library_entry ADD COLUMN source TEXT;
+
+UPDATE library_entry
+SET source = (
+    SELECT download_task.source FROM download_task
+    WHERE download_task.id = library_entry.id
+)
+WHERE source IS NULL;

@@ -7,7 +7,7 @@ import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.EngineCapabilities
 import com.openyt.core.domain.EngineResult
-import com.openyt.core.domain.MediaInfo
+import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaKind
 import com.openyt.engine.ytdlp.YtDlpErrorMapper
 import com.openyt.engine.ytdlp.YtDlpJsonParser
@@ -41,7 +41,7 @@ class AndroidYtDlpEngine(
     @Volatile
     private var initialized = false
 
-    override suspend fun inspect(url: String): EngineResult<MediaInfo> {
+    override suspend fun inspect(url: String): EngineResult<Inspection> {
         val initFailure = initialize()
         if (initFailure != null) return EngineResult.Failure(initFailure)
 
@@ -49,7 +49,7 @@ class AndroidYtDlpEngine(
             try {
                 val request = YoutubeDLRequest(url).apply {
                     addOption("--dump-single-json")
-                    addOption("--no-playlist")
+                    addOption("--flat-playlist")
                     addOption("--skip-download")
                 }
                 val response = YoutubeDL.getInstance().execute(request)

@@ -2,7 +2,7 @@ package com.openyt.engine.ytdlp
 
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.EngineResult
-import com.openyt.core.domain.MediaInfo
+import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -14,7 +14,7 @@ class YtDlpJsonParserTest {
     fun parsesVideoAndAudioFormats() {
         val result = YtDlpJsonParser.parseInspection(SAMPLE_JSON)
 
-        val media = assertIs<EngineResult.Success<MediaInfo>>(result).value
+        val media = assertIs<Inspection.Single>(assertIs<EngineResult.Success<Inspection>>(result).value).media
         assertEquals("abc123", media.sourceId)
         assertEquals("youtube", media.source)
         assertEquals("Example clip", media.title)
@@ -35,18 +35,34 @@ class YtDlpJsonParserTest {
             """{"id":"x","title":"T","formats":[{"format_id":"0","ext":"ogv","vcodec":null,"acodec":null,"width":533,"height":300}]}""",
         )
 
-        val media = assertIs<EngineResult.Success<MediaInfo>>(result).value
+        val media = assertIs<Inspection.Single>(assertIs<EngineResult.Success<Inspection>>(result).value).media
         assertEquals(1, media.formats.size)
         assertEquals(MediaKind.VIDEO, media.formats[0].kind)
         assertEquals(533, media.formats[0].width)
     }
 
     @Test
-    fun rejectsPlaylistDocuments() {
-        val result = YtDlpJsonParser.parseInspection("""{"_type":"playlist","id":"p","title":"List"}""")
+    fun parsesPlaylistDocuments() {
+        val result = YtDlpJsonParser.parseInspection(PLAYLIST_JSON)
+
+        val playlist = assertIs<Inspection.Playlist>(
+            assertIs<EngineResult.Success<Inspection>>(result).value,
+        ).playlist
+        assertEquals("p", playlist.sourceId)
+        assertEquals("youtube", playlist.source)
+        assertEquals("My playlist", playlist.title)
+        assertEquals(2, playlist.entries.size)
+        assertEquals(1, playlist.entries[0].index)
+        assertEquals("https://www.youtube.com/watch?v=one", playlist.entries[0].url)
+        assertEquals(2, playlist.entries[1].index)
+    }
+
+    @Test
+    fun rejectsPlaylistWithoutDownloadableEntries() {
+        val result = YtDlpJsonParser.parseInspection("""{"_type":"playlist","id":"p","title":"List","entries":[]}""")
 
         val failure = assertIs<EngineResult.Failure>(result).failure
-        assertIs<DownloadFailure.UnsupportedSource>(failure)
+        assertIs<DownloadFailure.ProcessingFailed>(failure)
     }
 
     @Test
@@ -71,13 +87,38 @@ class YtDlpJsonParserTest {
             """{"id":"x","title":"T","formats":[]}""",
         )
 
-        val media = assertIs<EngineResult.Success<MediaInfo>>(result).value
+        val media = assertIs<Inspection.Single>(assertIs<EngineResult.Success<Inspection>>(result).value).media
         assertNull(media.author)
         assertNull(media.durationSeconds)
         assertEquals("unknown", media.source)
     }
 
     private companion object {
+        val PLAYLIST_JSON = """
+            {
+              "_type": "playlist",
+              "id": "p",
+              "title": "My playlist",
+              "extractor": "youtube",
+              "webpage_url": "https://www.youtube.com/playlist?list=p",
+              "entries": [
+                {
+                  "id": "one",
+                  "title": "First",
+                  "url": "https://www.youtube.com/watch?v=one",
+                  "duration": 60,
+                  "thumbnails": [{"url": "https://img/one.jpg"}]
+                },
+                {
+                  "id": "two",
+                  "title": "Second",
+                  "webpage_url": "https://www.youtube.com/watch?v=two",
+                  "duration": 90
+                }
+              ]
+            }
+        """.trimIndent()
+
         val SAMPLE_JSON = """
             {
               "id": "abc123",

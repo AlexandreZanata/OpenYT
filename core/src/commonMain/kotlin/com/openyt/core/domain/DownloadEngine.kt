@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
  * Progress percentages are reported in the 0..100 range.
  */
 interface DownloadEngine {
-    suspend fun inspect(url: String): EngineResult<MediaInfo>
+    suspend fun inspect(url: String): EngineResult<Inspection>
 
     fun download(request: DownloadRequest, downloadId: String): Flow<DownloadEvent>
 

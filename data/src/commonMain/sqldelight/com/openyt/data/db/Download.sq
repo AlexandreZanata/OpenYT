@@ -30,7 +30,8 @@ CREATE TABLE library_entry (
     file_path TEXT NOT NULL,
     size_bytes INTEGER,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
-    thumbnail_url TEXT
+    thumbnail_url TEXT,
+    source TEXT
 );
 
 CREATE TABLE collection (
@@ -101,8 +102,8 @@ selectAllLibrary:
 SELECT * FROM library_entry ORDER BY created_at DESC, id ASC;
 
 insertLibraryEntry:
-INSERT OR REPLACE INTO library_entry(id, title, kind, file_path, size_bytes, thumbnail_url)
-VALUES (:id, :title, :kind, :file_path, :size_bytes, :thumbnail_url);
+INSERT OR REPLACE INTO library_entry(id, title, kind, file_path, size_bytes, thumbnail_url, source)
+VALUES (:id, :title, :kind, :file_path, :size_bytes, :thumbnail_url, :source);
 
 deleteLibraryEntry:
 DELETE FROM library_entry WHERE id = :id;

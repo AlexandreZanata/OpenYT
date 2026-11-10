@@ -327,6 +327,21 @@ Validation:
   downloads successfully with the bundled tools (network integration test).
 - Version bumped to 1.3.1 (Android versionCode 11).
 
+## Phase 16 completed (playlists and provider icons)
+
+- Inspection now returns either a single media item or a playlist/channel with
+  selectable entries. Playlist parsing is covered by unit tests and a real-network
+  desktop integration test.
+- Selected entries are enqueued as individual download tasks into a folder named
+  after the playlist, with numbered file names; unsafe folder characters are
+  sanitized and path traversal is rejected.
+- Video and audio modes apply to every selected entry.
+- Added provider SVGs from Simple Icons for YouTube, Instagram, TikTok, X,
+  Facebook, SoundCloud, Vimeo, Twitch, Reddit, Pinterest, Dailymotion, Bandcamp,
+  Threads, Telegram, Bilibili, and Rumble, with a generic icon fallback.
+- Extraction remains delegated to yt-dlp, so site coverage follows its extractors.
+  Image and subtitle downloads are still not implemented.
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
@@ -339,6 +354,8 @@ Validation:
 - Download folder on Android is still app-specific; SAF selection and storage usage
   are pending.
 - No pause support (engine only supports cancellation).
+- Playlist items download with the best available quality; per-entry format selection
+  is not implemented. Folder organization uses the playlist title only.
 - Media playback and subtitle download are not implemented.
 - SAF destination copies completed files to the chosen tree; the app keeps its local
   copy instead of moving the only file.

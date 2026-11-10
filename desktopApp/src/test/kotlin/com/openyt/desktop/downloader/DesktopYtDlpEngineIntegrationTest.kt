@@ -3,6 +3,7 @@ package com.openyt.desktop.downloader
 import com.openyt.core.domain.DownloadEvent
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.EngineResult
+import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaKind
 import java.io.File
 import java.util.Collections
@@ -44,15 +45,26 @@ class DesktopYtDlpEngineIntegrationTest {
         val result = withTimeout(180_000) { engine.inspect(source) }
 
         assertTrue(result is EngineResult.Success, "expected success but got $result")
-        val media = (result as EngineResult.Success).value
+        val media = ((result as EngineResult.Success).value as Inspection.Single).media
         assertEquals("Big Buck Bunny", media.title)
         assertTrue(media.formats.isNotEmpty(), "expected at least one format")
     }
 
     @Test
+    fun inspectsPlaylistEntries(): Unit = runBlocking {
+        val result = withTimeout(180_000) { engine.inspect("https://www.youtube.com/@jawed") }
+
+        assertTrue(result is EngineResult.Success, "expected success but got $result")
+        val inspection = (result as EngineResult.Success).value
+        val playlist = (inspection as Inspection.Playlist).playlist
+        assertTrue(playlist.entries.isNotEmpty(), "expected playlist entries")
+        assertTrue(playlist.entries.first().url.startsWith("https://"))
+    }
+
+    @Test
     fun downloadsWithProgressAndProducesValidFile(): Unit = runBlocking {
         val inspection = withTimeout(180_000) { engine.inspect(source) }
-        val media = (inspection as EngineResult.Success).value
+        val media = ((inspection as EngineResult.Success).value as Inspection.Single).media
         val format = media.formats.minByOrNull { it.sizeBytes ?: Long.MAX_VALUE }
         assertTrue(format != null, "no formats available")
 
@@ -81,7 +93,7 @@ class DesktopYtDlpEngineIntegrationTest {
     @Test
     fun cancelsActiveDownload(): Unit = runBlocking {
         val inspection = withTimeout(180_000) { engine.inspect(source) }
-        val media = (inspection as EngineResult.Success).value
+        val media = ((inspection as EngineResult.Success).value as Inspection.Single).media
         val format = media.formats.maxByOrNull { it.sizeBytes ?: 0L }
         assertTrue(format != null, "no formats available")
 

@@ -6,6 +6,7 @@ import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.EngineCapabilities
 import com.openyt.core.domain.EngineResult
+import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaFormat
 import com.openyt.core.domain.MediaInfo
 import com.openyt.core.domain.MediaKind
@@ -13,7 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
 class FakeDownloadEngine(
-    var inspection: EngineResult<MediaInfo> = EngineResult.Success(SAMPLE_MEDIA),
+    var inspection: EngineResult<Inspection> = EngineResult.Success(Inspection.Single(SAMPLE_MEDIA)),
     var capabilities: EngineCapabilities = EngineCapabilities(
         engineName = "fake",
         engineVersion = "0.0.0",
@@ -26,7 +27,7 @@ class FakeDownloadEngine(
     var canceledIds: MutableList<String> = mutableListOf()
         private set
 
-    override suspend fun inspect(url: String): EngineResult<MediaInfo> {
+    override suspend fun inspect(url: String): EngineResult<Inspection> {
         inspectCalls++
         return inspection
     }

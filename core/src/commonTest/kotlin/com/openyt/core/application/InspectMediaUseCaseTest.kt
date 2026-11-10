@@ -2,7 +2,7 @@ package com.openyt.core.application
 
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.EngineResult
-import com.openyt.core.domain.MediaInfo
+import com.openyt.core.domain.Inspection
 import com.openyt.core.testing.FakeDownloadEngine
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -30,7 +30,8 @@ class InspectMediaUseCaseTest {
 
         val result = useCase("https://example.com/watch?v=1")
 
-        val media = assertIs<EngineResult.Success<MediaInfo>>(result).value
+        val inspection = assertIs<EngineResult.Success<Inspection>>(result).value
+        val media = assertIs<Inspection.Single>(inspection).media
         assertEquals("Sample media", media.title)
         assertEquals(1, engine.inspectCalls)
     }
