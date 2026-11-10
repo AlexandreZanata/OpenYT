@@ -3,6 +3,7 @@ package com.openyt.data
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.LibraryEntry
+import com.openyt.core.domain.OrganizationPreset
 import com.openyt.core.domain.MediaKind
 import com.openyt.data.db.OpenYtDatabase
 import java.io.File
@@ -34,6 +35,8 @@ class DatabaseMigrationTest {
             assertEquals(null, settings.speedLimitBytesPerSecond)
             assertEquals(null, settings.downloadWindowStartMinutes)
             assertEquals(null, settings.downloadWindowEndMinutes)
+            assertEquals(OrganizationPreset.PLAYLIST, settings.organizationPreset)
+            assertEquals(null, settings.fileOrganizationTemplate)
         } finally {
             file.delete()
         }

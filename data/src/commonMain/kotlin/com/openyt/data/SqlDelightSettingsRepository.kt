@@ -3,6 +3,7 @@ package com.openyt.data
 import com.openyt.core.application.SettingsRepository
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.AppSettings
+import com.openyt.core.domain.OrganizationPreset
 import com.openyt.core.domain.ThemeMode
 import com.openyt.data.db.OpenYtDatabase
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +29,8 @@ class SqlDelightSettingsRepository(
             speedLimitBytesPerSecond = row?.speed_limit_bytes_per_second,
             downloadWindowStartMinutes = row?.download_window_start_minutes?.toInt(),
             downloadWindowEndMinutes = row?.download_window_end_minutes?.toInt(),
+            organizationPreset = parsePreset(row?.organization_preset),
+            fileOrganizationTemplate = row?.file_organization_template,
         )
     }
 
@@ -41,6 +44,8 @@ class SqlDelightSettingsRepository(
             speed_limit_bytes_per_second = settings.speedLimitBytesPerSecond,
             download_window_start_minutes = settings.downloadWindowStartMinutes?.toLong(),
             download_window_end_minutes = settings.downloadWindowEndMinutes?.toLong(),
+            organization_preset = settings.organizationPreset.name,
+            file_organization_template = settings.fileOrganizationTemplate,
         )
         Unit
     }
@@ -50,4 +55,8 @@ class SqlDelightSettingsRepository(
 
     private fun parseLanguage(value: String?): AppLanguage =
         runCatching { AppLanguage.valueOf(value.orEmpty()) }.getOrDefault(AppLanguage.PT_BR)
+
+    private fun parsePreset(value: String?): OrganizationPreset =
+        runCatching { OrganizationPreset.valueOf(value.orEmpty()) }
+            .getOrDefault(OrganizationPreset.PLAYLIST)
 }

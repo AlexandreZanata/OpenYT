@@ -166,7 +166,23 @@ print(tasks[0]["filePath"])
     [[ -f "$file" && -s "$file" ]] || { fail "missing playlist file: $file"; return 1; }
     [[ "$file" == *"/jawed - Videos/01 - "* ]] \
         || { fail "unexpected playlist layout: $file"; return 1; }
-    pass "playlist layout $(basename "$file")"
+
+    local channel="$WORK/playlist-channel"
+    mkdir -p "$channel"
+    output="$("$APP" --cli playlist \
+        --url "https://www.youtube.com/@jawed" \
+        --kind video --limit 1 --preset channel --dir "$channel" --json)" \
+        || { fail "channel preset command failed"; return 1; }
+    file="$(echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+assert data.get("ok") is True, data
+print(data["tasks"][0]["filePath"])
+')" || { fail "channel preset payload invalid"; return 1; }
+    [[ -f "$file" && -s "$file" ]] || { fail "missing channel preset file: $file"; return 1; }
+    [[ "$file" == *"/jawed/01 - "* ]] \
+        || { fail "unexpected channel preset layout: $file"; return 1; }
+    pass "playlist layout $(basename "$file") and channel preset"
 }
 
 scenario_pause() {
@@ -248,7 +264,7 @@ scenario_gui() {
 import sqlite3, sys
 connection = sqlite3.connect(sys.argv[1])
 version = connection.execute("PRAGMA user_version").fetchone()[0]
-assert version == 9, f"user_version={version}"
+assert version == 10, f"user_version={version}"
 PY
     kill -- -"$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true

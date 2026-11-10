@@ -29,6 +29,14 @@ data class DownloadWindow(
     }
 }
 
+enum class OrganizationPreset {
+    PLAYLIST,
+    PLAYLIST_CHANNEL,
+    PLAYLIST_YEAR,
+    CHANNEL,
+    YEAR,
+}
+
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val language: AppLanguage = AppLanguage.PT_BR,
@@ -38,6 +46,8 @@ data class AppSettings(
     val speedLimitBytesPerSecond: Long? = null,
     val downloadWindowStartMinutes: Int? = null,
     val downloadWindowEndMinutes: Int? = null,
+    val organizationPreset: OrganizationPreset = OrganizationPreset.PLAYLIST,
+    val fileOrganizationTemplate: String? = null,
 ) {
     companion object {
         const val MIN_CONCURRENT = 1

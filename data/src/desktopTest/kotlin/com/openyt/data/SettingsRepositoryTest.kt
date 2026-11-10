@@ -3,6 +3,7 @@ package com.openyt.data
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.AppSettings
+import com.openyt.core.domain.OrganizationPreset
 import com.openyt.core.domain.ThemeMode
 import com.openyt.data.db.OpenYtDatabase
 import java.io.File
@@ -33,6 +34,8 @@ class SettingsRepositoryTest {
             speedLimitBytesPerSecond = 5_000_000L,
             downloadWindowStartMinutes = 22 * 60,
             downloadWindowEndMinutes = 6 * 60,
+            organizationPreset = OrganizationPreset.CHANNEL,
+            fileOrganizationTemplate = "%(title).100B.%(ext)s",
         )
         repository.save(settings)
 

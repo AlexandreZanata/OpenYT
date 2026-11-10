@@ -63,6 +63,7 @@ import com.openyt.core.application.UpdateState
 import com.openyt.core.application.UrlOpener
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.DownloadWindow
+import com.openyt.core.domain.OrganizationPreset
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.ThemeMode
 import com.openyt.ui.components.BrandMark
@@ -151,6 +152,8 @@ fun OpenYtApp(
                     urlOpener = urlOpener,
                     safDestinationPicker = safDestinationPicker,
                     downloadsDirectory = effectiveDownloadsDirectory,
+                    organizationPreset = settings.organizationPreset,
+                    fileNameTemplate = settings.fileOrganizationTemplate,
                     fileAvailability = fileAvailability,
                     initialSharedUrl = initialSharedUrl,
                     onSharedUrlConsumed = onSharedUrlConsumed,
@@ -183,6 +186,8 @@ private fun AppShell(
     urlOpener: UrlOpener,
     safDestinationPicker: SafDestinationPicker? = null,
     downloadsDirectory: String,
+    organizationPreset: OrganizationPreset,
+    fileNameTemplate: String?,
     fileAvailability: FileAvailability,
     initialSharedUrl: String?,
     onSharedUrlConsumed: () -> Unit,
@@ -250,6 +255,8 @@ private fun AppShell(
                         coordinator = coordinator,
                         downloadsDirectory = downloadsDirectory,
                         onDownloadStarted = { selected = 1 },
+                        organizationPreset = organizationPreset,
+                        fileNameTemplate = fileNameTemplate,
                         initialSharedUrl = initialSharedUrl,
                         onSharedUrlConsumed = onSharedUrlConsumed,
                         showBrand = !wide,

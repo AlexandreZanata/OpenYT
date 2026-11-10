@@ -18,6 +18,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,6 +39,7 @@ import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.LibraryController
+import com.openyt.core.application.OrganizationPlanner
 import com.openyt.core.application.PlatformDiagnostics
 import com.openyt.core.application.SafDestinationPicker
 import com.openyt.core.application.SettingsController
@@ -47,6 +49,7 @@ import com.openyt.core.application.UpdateState
 import com.openyt.core.application.UrlOpener
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.AppSettings
+import com.openyt.core.domain.OrganizationPreset
 import com.openyt.core.domain.DownloadWindow
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.EngineCapabilities
@@ -78,6 +81,11 @@ fun SettingsScreen(
     var capabilities by remember { mutableStateOf<EngineCapabilities?>(null) }
     var diagnostics by remember { mutableStateOf<PlatformDiagnostics?>(null) }
     var copied by remember { mutableStateOf<Boolean?>(null) }
+    var fileNameTemplate by remember(settings.fileOrganizationTemplate) {
+        mutableStateOf(settings.fileOrganizationTemplate.orEmpty())
+    }
+    val invalidTemplate = fileNameTemplate.isNotBlank() &&
+        !OrganizationPlanner.isValidTemplate(fileNameTemplate)
     val updateState by updateController.state.collectAsState()
     var installingUpdate by remember { mutableStateOf(false) }
     var installMessage by remember { mutableStateOf<String?>(null) }
@@ -232,6 +240,57 @@ fun SettingsScreen(
                         label = { Text(strings.windowEvening) },
                     )
                 }
+            }
+        }
+
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(strings.organizationLabel, style = MaterialTheme.typography.labelLarge)
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(
+                        OrganizationPreset.PLAYLIST to strings.orgPlaylist,
+                        OrganizationPreset.PLAYLIST_CHANNEL to strings.orgPlaylistChannel,
+                        OrganizationPreset.PLAYLIST_YEAR to strings.orgPlaylistYear,
+                        OrganizationPreset.CHANNEL to strings.orgChannel,
+                        OrganizationPreset.YEAR to strings.orgYear,
+                    ).forEach { (preset, label) ->
+                        FilterChip(
+                            selected = settings.organizationPreset == preset,
+                            onClick = { settingsController.setOrganizationPreset(preset) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+
+                HorizontalDivider()
+
+                Text(strings.fileNameTemplateLabel, style = MaterialTheme.typography.labelLarge)
+                OutlinedTextField(
+                    value = fileNameTemplate,
+                    onValueChange = { value ->
+                        fileNameTemplate = value
+                        if (value.isBlank() || OrganizationPlanner.isValidTemplate(value)) {
+                            settingsController.setFileOrganizationTemplate(
+                                value.trim().ifBlank { null },
+                            )
+                        }
+                    },
+                    singleLine = true,
+                    isError = invalidTemplate,
+                    supportingText = {
+                        Text(
+                            if (invalidTemplate) {
+                                strings.fileNameTemplateInvalid
+                            } else {
+                                strings.fileNameTemplateHint
+                            },
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
 

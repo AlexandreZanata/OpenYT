@@ -3,6 +3,7 @@ package com.openyt.desktop.cli
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.EnqueuePlaylistUseCase
 import com.openyt.core.application.InspectMediaUseCase
+import com.openyt.core.application.OrganizationPlanner
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.DownloadRequest
@@ -13,6 +14,7 @@ import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaFormat
 import com.openyt.core.domain.MediaInfo
 import com.openyt.core.domain.MediaKind
+import com.openyt.core.domain.OrganizationPreset
 import com.openyt.core.domain.PlaylistEntry
 import com.openyt.core.domain.PlaylistInfo
 import com.openyt.data.SqlDelightDownloadRepository
@@ -99,6 +101,7 @@ object DesktopCli {
         val url = args.required("url")
         val kind = parseKind(args.value("kind") ?: "video")
         val priority = parsePriority(args.value("priority"))
+        val preset = parsePreset(args.value("preset"))
         val engine = DesktopYtDlpEngine()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         return try {
@@ -118,8 +121,10 @@ object DesktopCli {
                     kind = kind,
                     formatId = args.value("format-id"),
                     destinationDirectory = args.value("dir") ?: defaultDownloadsDirectory(),
-                    fileNameTemplate = args.value("template")
-                        ?: "%(title).150B [%(id)s].%(ext)s",
+                    fileNameTemplate = OrganizationPlanner.singleTemplate(
+                        preset,
+                        args.value("template"),
+                    ),
                 ),
                 priority = priority,
             )
@@ -136,6 +141,7 @@ object DesktopCli {
         val url = args.required("url")
         val kind = parseKind(args.value("kind") ?: "video")
         val priority = parsePriority(args.value("priority"))
+        val preset = parsePreset(args.value("preset"))
         val engine = DesktopYtDlpEngine()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         return try {
@@ -161,6 +167,8 @@ object DesktopCli {
                 kind = kind,
                 downloadsDirectory = args.value("dir") ?: defaultDownloadsDirectory(),
                 priority = priority,
+                preset = preset,
+                customFileNameTemplate = args.value("template"),
             )
             val tasks = awaitTasks(coordinator, ids, args.timeoutMillis())
             emitPlaylist(playlist, tasks, args.flag("json"))
@@ -413,6 +421,17 @@ object DesktopCli {
         else -> throw CliException("--priority must be high, normal, or low")
     }
 
+    private fun parsePreset(value: String?): OrganizationPreset = when (value?.lowercase()) {
+        null, "playlist" -> OrganizationPreset.PLAYLIST
+        "playlist-channel" -> OrganizationPreset.PLAYLIST_CHANNEL
+        "playlist-year" -> OrganizationPreset.PLAYLIST_YEAR
+        "channel" -> OrganizationPreset.CHANNEL
+        "year" -> OrganizationPreset.YEAR
+        else -> throw CliException(
+            "--preset must be playlist, playlist-channel, playlist-year, channel, or year",
+        )
+    }
+
     private fun selectEntries(
         entries: List<PlaylistEntry>,
         indexes: String?,
@@ -436,11 +455,13 @@ object DesktopCli {
               main --cli inspect  --url <url> [--json]
               main --cli download --url <url> [--kind video|audio] [--format-id <id>]
                                   [--priority high|normal|low] [--dir <path>]
-                                  [--template <t>] [--limit-bytes-per-second <n>]
+                                  [--template <t>] [--preset <name>]
+                                  [--limit-bytes-per-second <n>]
                                   [--timeout-ms <n>] [--json]
               main --cli playlist --url <url> [--kind video|audio] [--indexes 1,2]
                                   [--limit <n>] [--priority high|normal|low]
-                                  [--dir <path>] [--limit-bytes-per-second <n>]
+                                  [--dir <path>] [--preset <name>]
+                                  [--limit-bytes-per-second <n>]
                                   [--timeout-ms <n>] [--json]
               main --cli library  --list [--json]
               main --cli version

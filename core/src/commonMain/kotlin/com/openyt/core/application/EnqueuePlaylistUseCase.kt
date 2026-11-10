@@ -4,6 +4,7 @@ import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.MediaInfo
 import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.MediaKind
+import com.openyt.core.domain.OrganizationPreset
 import com.openyt.core.domain.PlaylistEntry
 import com.openyt.core.domain.PlaylistEntrySelection
 import com.openyt.core.domain.PlaylistInfo
@@ -22,9 +23,13 @@ class EnqueuePlaylistUseCase(
         downloadsDirectory: String,
         priority: DownloadPriority = DownloadPriority.NORMAL,
         overrides: Map<Int, PlaylistEntrySelection> = emptyMap(),
+        preset: OrganizationPreset = OrganizationPreset.PLAYLIST,
+        customFileNameTemplate: String? = null,
     ): List<String> {
         if (entries.isEmpty()) return emptyList()
-        val directory = downloadsDirectory.trimEnd('/', '\\') + "/" + safeSegment(playlist.title)
+        val organization = OrganizationPlanner.playlist(playlist, preset, customFileNameTemplate)
+        val directory = downloadsDirectory.trimEnd('/', '\\') +
+            organization.folderSegments.joinToString("") { "/$it" }
         val width = maxOf(2, entries.maxOf { it.index }.toString().length)
         return entries.map { entry ->
             val prefix = entry.index.toString().padStart(width, '0')
@@ -44,32 +49,11 @@ class EnqueuePlaylistUseCase(
                     kind = selection?.kind ?: kind,
                     formatId = selection?.formatId,
                     destinationDirectory = directory,
-                    fileNameTemplate = "$prefix - %(title).150B [%(id)s].%(ext)s",
+                    fileNameTemplate = organization.templatePrefix +
+                        "$prefix - " + organization.fileTemplate,
                 ),
                 priority = priority,
             )
         }
-    }
-
-    private fun safeSegment(value: String): String {
-        val cleaned = buildString {
-            value.trim().forEach { character ->
-                append(
-                    if (character in ILLEGAL || character.isISOControl()) '_' else character,
-                )
-            }
-        }.trim().trimEnd('.', ' ')
-        val name = cleaned.ifBlank { "Playlist" }.take(MAX_SEGMENT_LENGTH)
-        return if (name.lowercase() in RESERVED_NAMES) "_$name" else name
-    }
-
-    private companion object {
-        const val MAX_SEGMENT_LENGTH = 100
-        const val ILLEGAL = "/\\:*?\"<>|"
-        val RESERVED_NAMES = setOf(
-            "con", "prn", "aux", "nul",
-            "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9",
-            "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9",
-        )
     }
 }

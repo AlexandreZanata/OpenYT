@@ -1,0 +1,2 @@
+ALTER TABLE app_settings ADD COLUMN organization_preset TEXT NOT NULL DEFAULT 'PLAYLIST';
+ALTER TABLE app_settings ADD COLUMN file_organization_template TEXT;
