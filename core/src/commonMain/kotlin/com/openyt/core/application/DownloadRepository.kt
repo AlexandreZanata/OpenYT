@@ -29,6 +29,8 @@ interface DownloadRepository {
 
     suspend fun deleteLibraryEntry(id: String)
 
+    suspend fun updateLibraryMetadata(id: String, title: String, author: String?)
+
     suspend fun addLibraryTag(entryId: String, tag: String)
 
     suspend fun removeLibraryTag(entryId: String, tag: String)

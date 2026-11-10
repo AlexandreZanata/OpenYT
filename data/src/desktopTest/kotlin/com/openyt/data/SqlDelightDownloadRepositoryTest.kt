@@ -75,6 +75,32 @@ class SqlDelightDownloadRepositoryTest {
     }
 
     @Test
+    fun updatesMetadataWithoutRenamingOrLosingTags() = runBlocking {
+        val database = fileDatabase()
+        val repository = SqlDelightDownloadRepository(database)
+        repository.insertLibraryEntry(
+            LibraryEntry(
+                id = "metadata-entry",
+                title = "Old title",
+                kind = MediaKind.AUDIO,
+                filePath = "/tmp/keep-name.m4a",
+                author = "Old author",
+                tags = listOf("music"),
+            ),
+        )
+        val before = repository.loadLibrary().single()
+
+        repository.updateLibraryMetadata("metadata-entry", "New title", "New author")
+        val after = repository.loadLibrary().single()
+
+        assertEquals("New title", after.title)
+        assertEquals("New author", after.author)
+        assertEquals(before.filePath, after.filePath)
+        assertEquals(before.createdAtEpochMillis, after.createdAtEpochMillis)
+        assertEquals(before.tags, after.tags)
+    }
+
+    @Test
     fun persistsLibraryAuthor() = runBlocking {
         val database = fileDatabase()
         val repository = SqlDelightDownloadRepository(database)

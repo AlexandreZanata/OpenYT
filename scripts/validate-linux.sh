@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
         --no-build) BUILD=0; shift ;;
         --offline) OFFLINE=1; shift ;;
         -h|--help)
-            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|cookies|library|gui]"
+            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|metadata|cookies|library|gui]"
             echo "          [--deb path] [--no-build] [--offline]"
             exit 0
             ;;
@@ -248,6 +248,24 @@ assert data.get("configured") is False, data
     pass "cookies encrypted at rest, checked and cleared"
 }
 
+scenario_metadata() {
+    local resources="$PREFIX/opt/openyt/lib/app/resources"
+    local tools="$WORK/tools"
+    mkdir -p "$tools"
+    local tool
+    for tool in ffmpeg ffprobe; do
+        cp "$resources/$tool" "$tools/$tool" || { fail "missing $tool"; return 1; }
+        chmod +x "$tools/$tool"
+    done
+    (cd "$ROOT" && \
+        OPENYT_RUN_MEDIA_TESTS=1 \
+        OPENYT_FFMPEG="$tools/ffmpeg" \
+        OPENYT_FFPROBE="$tools/ffprobe" \
+        ./gradlew :desktopApp:test \
+            --tests '*DesktopMediaTaggerTest' \
+            --rerun-tasks --no-daemon --console=plain)
+}
+
 scenario_library() {
     local output
     output="$("$APP" --cli library --list --json)" \
@@ -414,6 +432,7 @@ case "$SCENARIO" in
         run "download" scenario_download
         run "playlist" scenario_playlist
         run "pause" scenario_pause
+        run "metadata" scenario_metadata
         run "cookies" scenario_cookies
     run "library" scenario_library
         run "gui" scenario_gui
@@ -424,6 +443,7 @@ case "$SCENARIO" in
     download) run_after_prepare "download" scenario_download ;;
     playlist) run_after_prepare "playlist" scenario_playlist ;;
     pause) run_after_prepare "pause" scenario_pause ;;
+    metadata) run_after_prepare "metadata" scenario_metadata ;;
     cookies) run_after_prepare "cookies" scenario_cookies ;;
     library) run_after_prepare "library" scenario_library ;;
     gui) run_after_prepare "gui" scenario_gui ;;

@@ -207,6 +207,12 @@ class SqlDelightDownloadRepository(
         Unit
     }
 
+    override suspend fun updateLibraryMetadata(id: String, title: String, author: String?) =
+        withContext(Dispatchers.Default) {
+            queries.updateLibraryMetadata(title, author, id)
+            Unit
+        }
+
     override suspend fun addLibraryTag(entryId: String, tag: String) =
         withContext(Dispatchers.Default) {
             queries.insertLibraryTag(entryId, tag)

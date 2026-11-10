@@ -131,6 +131,7 @@ class LibraryControllerTest {
         override suspend fun loadLibrary(): List<LibraryEntry> = emptyList()
         override suspend fun insertLibraryEntry(entry: LibraryEntry) = Unit
         override suspend fun deleteLibraryEntry(id: String) = Unit
+        override suspend fun updateLibraryMetadata(id: String, title: String, author: String?) = Unit
         override suspend fun addLibraryTag(entryId: String, tag: String) = Unit
         override suspend fun removeLibraryTag(entryId: String, tag: String) = Unit
         override suspend fun loadCollections(): List<Collection> = collections.toList()
