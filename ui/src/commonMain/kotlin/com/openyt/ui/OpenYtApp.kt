@@ -33,6 +33,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,13 +57,15 @@ import com.openyt.core.application.MediaImporter
 import com.openyt.core.application.MediaProbe
 import com.openyt.core.application.SafDestinationPicker
 import com.openyt.core.application.SettingsController
-import com.openyt.core.application.UpdateChecker
+import com.openyt.core.application.UpdateController
 import com.openyt.core.application.UpdateInstaller
+import com.openyt.core.application.UpdateState
 import com.openyt.core.application.UrlOpener
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.ThemeMode
 import com.openyt.ui.components.BrandMark
+import com.openyt.ui.components.UpdateBanner
 import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.i18n.EnStrings
 import com.openyt.ui.i18n.LocalStrings
@@ -71,6 +75,7 @@ import com.openyt.ui.screens.HomeScreen
 import com.openyt.ui.screens.LibraryScreen
 import com.openyt.ui.screens.SettingsScreen
 import com.openyt.ui.theme.OpenYtTheme
+import kotlinx.coroutines.launch
 
 @Composable
 fun OpenYtApp(
@@ -82,7 +87,7 @@ fun OpenYtApp(
     mediaActions: MediaActions,
     mediaImporter: MediaImporter? = null,
     diagnosticsProvider: DiagnosticsProvider,
-    updateChecker: UpdateChecker,
+    updateController: UpdateController,
     updateInstaller: UpdateInstaller,
     urlOpener: UrlOpener,
     safDestinationPicker: SafDestinationPicker? = null,
@@ -98,6 +103,9 @@ fun OpenYtApp(
 
     LaunchedEffect(settings.maxConcurrentDownloads) {
         coordinator.setMaxConcurrentDownloads(settings.maxConcurrentDownloads)
+    }
+    LaunchedEffect(Unit) {
+        updateController.checkIfNeeded()
     }
 
     CompositionLocalProvider(LocalStrings provides strings) {
@@ -121,7 +129,7 @@ fun OpenYtApp(
                     mediaActions = mediaActions,
                     mediaImporter = mediaImporter,
                     diagnosticsProvider = diagnosticsProvider,
-                    updateChecker = updateChecker,
+                    updateController = updateController,
                     updateInstaller = updateInstaller,
                     urlOpener = urlOpener,
                     safDestinationPicker = safDestinationPicker,
@@ -153,7 +161,7 @@ private fun AppShell(
     mediaActions: MediaActions,
     mediaImporter: MediaImporter? = null,
     diagnosticsProvider: DiagnosticsProvider,
-    updateChecker: UpdateChecker,
+    updateController: UpdateController,
     updateInstaller: UpdateInstaller,
     urlOpener: UrlOpener,
     safDestinationPicker: SafDestinationPicker? = null,
@@ -171,6 +179,10 @@ private fun AppShell(
         ShellTab(Icons.Default.Settings, strings.tabSettings),
     )
     var selected by rememberSaveable { mutableStateOf(0) }
+    val updateState by updateController.state.collectAsState()
+    var dismissedUpdateVersion by remember { mutableStateOf<String?>(null) }
+    var installingUpdate by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(initialSharedUrl) {
         if (!initialSharedUrl.isNullOrBlank()) selected = 0
@@ -196,7 +208,25 @@ private fun AppShell(
     ) {
         val wide = maxWidth >= 720.dp
         val content: @Composable (PaddingValues) -> Unit = { padding ->
-            Box(Modifier.fillMaxSize().padding(padding)) {
+            Column(Modifier.fillMaxSize().padding(padding)) {
+                val availableUpdate = (updateState as? UpdateState.Available)?.update
+                if (availableUpdate != null && dismissedUpdateVersion != availableUpdate.version) {
+                    UpdateBanner(
+                        update = availableUpdate,
+                        installing = installingUpdate,
+                        onInstall = {
+                            scope.launch {
+                                installingUpdate = true
+                                updateInstaller.install(availableUpdate)
+                                installingUpdate = false
+                            }
+                        },
+                        onOpenRelease = { urlOpener.open(availableUpdate.releaseUrl) },
+                        onDismiss = { dismissedUpdateVersion = availableUpdate.version },
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    )
+                }
+                Box(Modifier.fillMaxSize().weight(1f)) {
                 when (selected) {
                     0 -> HomeScreen(
                         engine = engine,
@@ -217,12 +247,13 @@ private fun AppShell(
                         coordinator = coordinator,
                         libraryController = libraryController,
                         diagnosticsProvider = diagnosticsProvider,
-                        updateChecker = updateChecker,
+                        updateController = updateController,
                         updateInstaller = updateInstaller,
                         urlOpener = urlOpener,
                         safDestinationPicker = safDestinationPicker,
                         folderPicker = folderPicker,
                     )
+                }
                 }
             }
         }
