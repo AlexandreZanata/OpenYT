@@ -11,6 +11,8 @@ import com.openyt.core.application.LibraryArchiveService
 import com.openyt.core.application.LibraryImportPolicy
 import com.openyt.core.application.LibraryQuery
 import com.openyt.core.application.OrganizationPlanner
+import com.openyt.core.application.PlayableMedia
+import com.openyt.core.application.PlaybackQueue
 import com.openyt.core.application.StorageAnalyzer
 import com.openyt.core.application.toLibraryFilter
 import com.openyt.core.domain.DownloadFailure
@@ -205,7 +207,33 @@ object DesktopCli {
     }
 
     private fun playback(args: CliArgs): Int {
-        if (!args.flag("check")) throw CliException("playback requires --check")
+        if (args.flag("queue-check")) {
+            val items = listOf(
+                PlayableMedia("/a.mp4", "A", MediaKind.VIDEO),
+                PlayableMedia("/b.mp4", "B", MediaKind.VIDEO),
+                PlayableMedia("/c.mp4", "C", MediaKind.VIDEO),
+            )
+            var queue = PlaybackQueue.of(items, 0)
+            val forward = mutableListOf(queue.current?.title.orEmpty())
+            while (queue.hasNext) {
+                queue = queue.next()
+                forward += queue.current?.title.orEmpty()
+            }
+            val backward = mutableListOf<String>()
+            while (queue.hasPrevious) {
+                queue = queue.previous()
+                backward += queue.current?.title.orEmpty()
+            }
+            val payload = buildJsonObject {
+                put("ok", true)
+                put("command", "playback")
+                put("forward", buildJsonArray { forward.forEach { add(JsonPrimitive(it)) } })
+                put("backward", buildJsonArray { backward.forEach { add(JsonPrimitive(it)) } })
+            }
+            println(json.encodeToString(JsonElement.serializer(), payload))
+            return 0
+        }
+        if (!args.flag("check")) throw CliException("playback requires --check or --queue-check")
         val launcher = DesktopPlaybackLauncher()
         val payload = buildJsonObject {
             put("ok", true)
@@ -836,6 +864,7 @@ object DesktopCli {
               main --cli library  --bulk-move <directory> --ids <id,id> [--json]
               main --cli cookies  [--import <path>] [--check] [--clear] [--json]
               main --cli playback --check [--json]
+              main --cli playback --queue-check [--json]
               main --cli version
             """.trimIndent(),
         )

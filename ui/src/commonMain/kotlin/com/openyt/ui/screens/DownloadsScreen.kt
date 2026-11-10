@@ -20,6 +20,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,6 +43,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.MediaActions
+import com.openyt.core.application.PlayableMedia
+import com.openyt.core.application.PlaybackLauncher
 import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.DownloadStatus
 import com.openyt.ui.components.DownloadProgressBar
@@ -58,6 +63,7 @@ import com.openyt.ui.util.statusLabel
 fun DownloadsScreen(
     coordinator: DownloadCoordinator,
     mediaActions: MediaActions,
+    playbackLauncher: PlaybackLauncher? = null,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
@@ -68,6 +74,10 @@ fun DownloadsScreen(
         var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
         val selectableIds = tasks.filter { it.status.isFinished }.map { it.id }.toSet()
         val activeSelection = selected.intersect(selectableIds)
+        val launcher = playbackLauncher?.takeIf { it.canPlay }
+        val playableTasks = tasks.filter {
+            it.status == DownloadStatus.COMPLETED && !it.filePath.isNullOrBlank()
+        }
 
         Column(
             modifier = Modifier.fillMaxSize().padding(20.dp),
@@ -119,6 +129,31 @@ fun DownloadsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(tasks, key = { it.id }) { task ->
+                        val playAction: (() -> Unit)? = if (
+                            launcher != null &&
+                            task.status == DownloadStatus.COMPLETED &&
+                            !task.filePath.isNullOrBlank()
+                        ) {
+                            val index = playableTasks.indexOfFirst { it.id == task.id }
+                            if (index >= 0) {
+                                {
+                                    launcher.play(
+                                        items = playableTasks.map { playable ->
+                                            PlayableMedia(
+                                                path = playable.filePath.orEmpty(),
+                                                title = playable.media.title,
+                                                kind = playable.request.kind,
+                                            )
+                                        },
+                                        startIndex = index,
+                                    )
+                                }
+                            } else {
+                                null
+                            }
+                        } else {
+                            null
+                        }
                         DownloadTaskCard(
                             task = task,
                             wide = wide,
@@ -133,6 +168,7 @@ fun DownloadsScreen(
                             onRetry = { coordinator.retry(task.id) },
                             onDismiss = { coordinator.dismiss(task.id) },
                             onPriorityChange = { coordinator.setPriority(task.id, it) },
+                            onPlay = playAction,
                             mediaActions = mediaActions,
                         )
                     }
@@ -155,6 +191,7 @@ private fun DownloadTaskCard(
     onRetry: () -> Unit,
     onDismiss: () -> Unit,
     onPriorityChange: (DownloadPriority) -> Unit,
+    onPlay: (() -> Unit)?,
     mediaActions: MediaActions,
 ) {
     val strings = LocalStrings.current
@@ -261,6 +298,12 @@ private fun DownloadTaskCard(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                if (onPlay != null) {
+                    TextButton(onClick = onPlay) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = strings.playAction)
+                        Text(strings.playAction)
+                    }
+                }
                 when {
                     task.status.isActive -> {
                         PriorityMenu(

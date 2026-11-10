@@ -548,6 +548,17 @@ Validation:
 
 - Version bumped to 3.0.0 (Android versionCode 29).
 
+## Phase 34 completed (playback queue)
+
+- Pure `PlaybackQueue` model (next/previous/select, bounded) covered by unit tests.
+- Desktop VLCJ uses a media-list player with previous/play-pause/next/stop controls
+  and a window title that follows the queue.
+- Completed downloads expose Play, so the queue can be started from Downloads as
+  well as the Library; Android keeps background audio via MediaSessionService.
+- CLI `playback --queue-check`; Linux validation asserts forward/backward order.
+
+- Version bumped to 3.1.0 (Android versionCode 30).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
