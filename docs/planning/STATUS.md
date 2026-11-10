@@ -500,6 +500,8 @@ Validation:
 - Linux validation creates a fixture folder, imports twice, asserts counts and
   compares file hashes before/after.
 
+- Version bumped to 2.6.0 (Android versionCode 25).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
