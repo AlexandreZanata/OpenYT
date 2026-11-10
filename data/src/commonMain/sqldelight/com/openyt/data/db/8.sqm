@@ -1,0 +1,3 @@
+ALTER TABLE app_settings ADD COLUMN speed_limit_bytes_per_second INTEGER;
+ALTER TABLE app_settings ADD COLUMN download_window_start_minutes INTEGER;
+ALTER TABLE app_settings ADD COLUMN download_window_end_minutes INTEGER;

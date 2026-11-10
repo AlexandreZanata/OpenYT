@@ -37,6 +37,7 @@ data class DownloadRequest(
     val formatId: String? = null,
     val destinationDirectory: String,
     val fileNameTemplate: String = "%(title).150B [%(id)s].%(ext)s",
+    val limitBytesPerSecond: Long? = null,
 )
 
 sealed interface DownloadEvent {

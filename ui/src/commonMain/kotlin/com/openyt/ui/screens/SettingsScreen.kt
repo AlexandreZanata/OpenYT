@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -46,6 +47,7 @@ import com.openyt.core.application.UpdateState
 import com.openyt.core.application.UrlOpener
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.AppSettings
+import com.openyt.core.domain.DownloadWindow
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.EngineCapabilities
 import com.openyt.core.domain.ThemeMode
@@ -172,6 +174,63 @@ fun SettingsScreen(
                             Icon(Icons.Default.Add, contentDescription = strings.increaseConcurrency)
                         }
                     }
+                }
+            }
+        }
+
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(strings.speedLimitLabel, style = MaterialTheme.typography.labelLarge)
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = settings.speedLimitBytesPerSecond == null,
+                        onClick = { settingsController.setSpeedLimit(null) },
+                        label = { Text(strings.speedUnlimited) },
+                    )
+                    FilterChip(
+                        selected = settings.speedLimitBytesPerSecond == 1_000_000L,
+                        onClick = { settingsController.setSpeedLimit(1_000_000L) },
+                        label = { Text(strings.speedOneMb) },
+                    )
+                    FilterChip(
+                        selected = settings.speedLimitBytesPerSecond == 5_000_000L,
+                        onClick = { settingsController.setSpeedLimit(5_000_000L) },
+                        label = { Text(strings.speedFiveMb) },
+                    )
+                    FilterChip(
+                        selected = settings.speedLimitBytesPerSecond == 10_000_000L,
+                        onClick = { settingsController.setSpeedLimit(10_000_000L) },
+                        label = { Text(strings.speedTenMb) },
+                    )
+                }
+
+                HorizontalDivider()
+
+                Text(strings.downloadWindowLabel, style = MaterialTheme.typography.labelLarge)
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = settings.downloadWindowStartMinutes == null,
+                        onClick = { settingsController.setDownloadWindow(null, null) },
+                        label = { Text(strings.windowDisabled) },
+                    )
+                    FilterChip(
+                        selected = settings.downloadWindowStartMinutes == 0 &&
+                            settings.downloadWindowEndMinutes == 6 * 60,
+                        onClick = { settingsController.setDownloadWindow(0, 6 * 60) },
+                        label = { Text(strings.windowNight) },
+                    )
+                    FilterChip(
+                        selected = settings.downloadWindowStartMinutes == 22 * 60 &&
+                            settings.downloadWindowEndMinutes == 6 * 60,
+                        onClick = { settingsController.setDownloadWindow(22 * 60, 6 * 60) },
+                        label = { Text(strings.windowEvening) },
+                    )
                 }
             }
         }

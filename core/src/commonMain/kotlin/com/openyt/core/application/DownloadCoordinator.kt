@@ -3,6 +3,7 @@ package com.openyt.core.application
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.DownloadEvent
 import com.openyt.core.domain.DownloadPriority
+import com.openyt.core.domain.DownloadWindow
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.DownloadStatus
@@ -11,6 +12,7 @@ import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +38,7 @@ class DownloadCoordinator(
     private val completedHandler: CompletedDownloadHandler? = null,
     private val maxAutomaticRetries: Int = DEFAULT_MAX_AUTOMATIC_RETRIES,
     private val retryDelayMillis: (Int) -> Long = ::defaultRetryDelayMillis,
+    private val timeOfDayMinutes: () -> Int = { 0 },
 ) {
     init {
         require(initialMaxConcurrentDownloads > 0) { "initialMaxConcurrentDownloads must be positive" }
@@ -56,6 +59,9 @@ class DownloadCoordinator(
     private val scheduleSignal = Channel<Unit>(Channel.CONFLATED)
     private val backoffTasks = MutableStateFlow<Set<String>>(emptySet())
     private val pausingTasks = MutableStateFlow<Set<String>>(emptySet())
+    private val speedLimitBytesPerSecond = MutableStateFlow<Long?>(null)
+    private val downloadWindow = MutableStateFlow<DownloadWindow?>(null)
+    private var windowWakeupJob: Job? = null
 
     private var nextId = 0
     private var restored = false
@@ -96,6 +102,17 @@ class DownloadCoordinator(
 
     fun setMaxConcurrentDownloads(value: Int) {
         concurrencyLimit.value = value.coerceIn(1, MAX_CONCURRENT)
+        requestSchedule()
+    }
+
+    fun setSpeedLimit(bytesPerSecond: Long?) {
+        speedLimitBytesPerSecond.value = bytesPerSecond?.takeIf { it > 0 }
+    }
+
+    fun setDownloadWindow(window: DownloadWindow?) {
+        downloadWindow.value = window
+        windowWakeupJob?.cancel()
+        windowWakeupJob = null
         requestSchedule()
     }
 
@@ -267,11 +284,30 @@ class DownloadCoordinator(
     private fun dispatch() {
         while (activeDownloads.value < concurrencyLimit.value) {
             val next = nextEligibleQueuedTask() ?: return
+            val window = downloadWindow.value
+            if (window != null && !window.allows(timeOfDayMinutes())) {
+                scheduleWindowWakeup(window)
+                return
+            }
             val started = next.copy(status = DownloadStatus.DOWNLOADING)
             _tasks.update { tasks -> tasks.map { if (it.id == started.id) started else it } }
             persist { repository?.updateTask(started) }
             activeDownloads.update { it + 1 }
             startTask(started)
+        }
+    }
+
+    private fun scheduleWindowWakeup(window: DownloadWindow) {
+        if (windowWakeupJob?.isActive == true) return
+        val now = timeOfDayMinutes()
+        if (window.allows(now)) return
+        val minutesUntilStart =
+            ((window.startMinutes - now) % DownloadWindow.MINUTES_PER_DAY +
+                DownloadWindow.MINUTES_PER_DAY) % DownloadWindow.MINUTES_PER_DAY
+        val delayMinutes = minutesUntilStart.takeIf { it > 0 } ?: DownloadWindow.MINUTES_PER_DAY
+        windowWakeupJob = scope.launch {
+            delay(delayMinutes * 60_000L)
+            requestSchedule()
         }
     }
 
@@ -287,7 +323,10 @@ class DownloadCoordinator(
     private fun startTask(task: DownloadTask) {
         scope.launch {
             try {
-                engine.download(task.request, task.id).collect { event ->
+                val request = task.request.copy(
+                    limitBytesPerSecond = speedLimitBytesPerSecond.value,
+                )
+                engine.download(request, task.id).collect { event ->
                     applyEvent(task.id, event)
                 }
             } catch (e: CancellationException) {

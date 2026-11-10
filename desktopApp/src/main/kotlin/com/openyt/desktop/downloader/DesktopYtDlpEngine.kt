@@ -118,6 +118,10 @@ class DesktopYtDlpEngine(
 
                     MediaKind.SUBTITLE -> Unit
                 }
+                request.limitBytesPerSecond?.let {
+                    add("--limit-rate")
+                    add(it.toString())
+                }
                 locator.findFfmpeg()?.let {
                     add("--ffmpeg-location")
                     add(it)

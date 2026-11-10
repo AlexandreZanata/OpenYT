@@ -212,7 +212,8 @@ secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
 - Inspect playlists and channels, select items, and download them into a numbered
   playlist folder; provider icons identify common networks with a generic fallback.
 - Priority-aware queue (high/normal/low), pause/resume with partial files preserved,
-  automatic retries with backoff, and bulk resume of interrupted downloads.
+  automatic retries with backoff, speed limits, download windows, and bulk resume
+  of interrupted downloads.
 - Queue and Library survive app restarts; interrupted downloads can be retried.
 - Removing a Library entry never deletes the downloaded file.
 - Library search, kind/availability/duplicate filters, title sorting, missing-file

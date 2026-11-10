@@ -128,6 +128,21 @@ print(data["task"]["filePath"])
 ')" || { fail "download payload invalid"; return 1; }
     [[ -f "$file" && -s "$file" ]] || { fail "missing downloaded file: $file"; return 1; }
     pass "downloaded $(basename "$file")"
+
+    local limited="$WORK/downloads-limited"
+    mkdir -p "$limited"
+    output="$("$APP" --cli download \
+        --url "https://www.youtube.com/watch?v=jNQXAC9IVRw" \
+        --kind video --limit-bytes-per-second 200000 --dir "$limited" --json)" \
+        || { fail "limited download command failed"; return 1; }
+    file="$(echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+assert data.get("ok") is True, data
+print(data["task"]["filePath"])
+')" || { fail "limited download payload invalid"; return 1; }
+    [[ -f "$file" && -s "$file" ]] || { fail "missing limited file: $file"; return 1; }
+    pass "downloaded $(basename "$file") with speed limit"
 }
 
 scenario_playlist() {
@@ -233,7 +248,7 @@ scenario_gui() {
 import sqlite3, sys
 connection = sqlite3.connect(sys.argv[1])
 version = connection.execute("PRAGMA user_version").fetchone()[0]
-assert version == 8, f"user_version={version}"
+assert version == 9, f"user_version={version}"
 PY
     kill -- -"$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true

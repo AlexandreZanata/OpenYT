@@ -99,6 +99,9 @@ class AndroidYtDlpEngine(
                         addOption("-o", request.fileNameTemplate)
                         addOption("--print", "after_move:filepath")
                         addOption("--progress-template", PROGRESS_TEMPLATE)
+                        request.limitBytesPerSecond?.let {
+                            addOption("--limit-rate", it.toString())
+                        }
                         when (request.kind) {
                             MediaKind.AUDIO -> {
                                 addOption("-f", request.formatId ?: "bestaudio/best")

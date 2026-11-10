@@ -54,15 +54,24 @@ CREATE TABLE app_settings (
     language TEXT NOT NULL DEFAULT 'PT_BR',
     max_concurrent INTEGER NOT NULL DEFAULT 2,
     downloads_directory TEXT,
-    storage_tree_uri TEXT
+    storage_tree_uri TEXT,
+    speed_limit_bytes_per_second INTEGER,
+    download_window_start_minutes INTEGER,
+    download_window_end_minutes INTEGER
 );
 
 selectSettings:
 SELECT * FROM app_settings WHERE id = 1;
 
 upsertSettings:
-INSERT OR REPLACE INTO app_settings(id, theme_mode, language, max_concurrent, downloads_directory, storage_tree_uri)
-VALUES (1, :theme_mode, :language, :max_concurrent, :downloads_directory, :storage_tree_uri);
+INSERT OR REPLACE INTO app_settings(
+    id, theme_mode, language, max_concurrent, downloads_directory, storage_tree_uri,
+    speed_limit_bytes_per_second, download_window_start_minutes, download_window_end_minutes
+)
+VALUES (
+    1, :theme_mode, :language, :max_concurrent, :downloads_directory, :storage_tree_uri,
+    :speed_limit_bytes_per_second, :download_window_start_minutes, :download_window_end_minutes
+);
 
 selectAllTasks:
 SELECT * FROM download_task ORDER BY seq ASC;
