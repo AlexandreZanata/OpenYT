@@ -2,9 +2,12 @@ package com.openyt.engine.ytdlp
 
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.EngineResult
+import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaFormat
 import com.openyt.core.domain.MediaInfo
 import com.openyt.core.domain.MediaKind
+import com.openyt.core.domain.PlaylistEntry
+import com.openyt.core.domain.PlaylistInfo
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -22,16 +25,20 @@ import kotlinx.serialization.json.longOrNull
 object YtDlpJsonParser {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
-    fun parseInspection(raw: String): EngineResult<MediaInfo> {
+    fun parseInspection(raw: String): EngineResult<Inspection> {
         val root = runCatching { json.parseToJsonElement(raw) }.getOrNull()
             ?: return EngineResult.Failure(DownloadFailure.ProcessingFailed("unreadable metadata"))
         val obj = root as? JsonObject
             ?: return EngineResult.Failure(DownloadFailure.ProcessingFailed("unexpected metadata shape"))
 
-        if (obj.string("_type") == "playlist") {
-            return EngineResult.Failure(DownloadFailure.UnsupportedSource)
+        return if (obj.string("_type") == "playlist" || obj.string("_type") == "multi_video") {
+            parsePlaylist(obj)
+        } else {
+            parseSingle(obj)
         }
+    }
 
+    private fun parseSingle(obj: JsonObject): EngineResult<Inspection> {
         val id = obj.string("id")
         val title = obj.string("title") ?: obj.string("fulltitle")
         if (id.isNullOrBlank() || title.isNullOrBlank()) {
@@ -46,19 +53,74 @@ object YtDlpJsonParser {
             .distinctBy { it.id }
 
         return EngineResult.Success(
-            MediaInfo(
-                sourceId = id,
-                source = (obj.string("extractor") ?: obj.string("extractor_key") ?: "unknown").lowercase(),
-                title = title,
-                author = obj.string("uploader") ?: obj.string("channel") ?: obj.string("creator"),
-                durationSeconds = obj.long("duration"),
-                thumbnailUrl = obj.string("thumbnail"),
-                webpageUrl = webpageUrl,
-                formats = formats,
-                isLive = obj.boolean("is_live") == true,
+            Inspection.Single(
+                MediaInfo(
+                    sourceId = id,
+                    source = extractor(obj),
+                    title = title,
+                    author = obj.string("uploader") ?: obj.string("channel") ?: obj.string("creator"),
+                    durationSeconds = obj.long("duration"),
+                    thumbnailUrl = obj.string("thumbnail") ?: firstThumbnail(obj),
+                    webpageUrl = webpageUrl,
+                    formats = formats,
+                    isLive = obj.boolean("is_live") == true,
+                ),
             ),
         )
     }
+
+    private fun parsePlaylist(obj: JsonObject): EngineResult<Inspection> {
+        val entries = (obj["entries"] as? JsonArray)
+            ?.mapNotNull { it as? JsonObject }
+            ?.mapIndexedNotNull { index, entry ->
+                val url = entry.string("webpage_url")
+                    ?: entry.string("url")
+                    ?: entry.string("original_url")
+                    ?: return@mapIndexedNotNull null
+                PlaylistEntry(
+                    index = index + 1,
+                    title = entry.string("title") ?: url,
+                    url = url,
+                    author = entry.string("uploader")
+                        ?: entry.string("channel")
+                        ?: entry.string("creator"),
+                    durationSeconds = entry.long("duration"),
+                    thumbnailUrl = entry.string("thumbnail") ?: firstThumbnail(entry),
+                )
+            }
+            .orEmpty()
+        if (entries.isEmpty()) {
+            return EngineResult.Failure(
+                DownloadFailure.ProcessingFailed("playlist has no downloadable entries"),
+            )
+        }
+
+        val title = obj.string("title") ?: obj.string("fulltitle") ?: "Playlist"
+        return EngineResult.Success(
+            Inspection.Playlist(
+                PlaylistInfo(
+                    sourceId = obj.string("id") ?: title,
+                    source = extractor(obj),
+                    title = title,
+                    author = obj.string("uploader") ?: obj.string("channel") ?: obj.string("creator"),
+                    thumbnailUrl = obj.string("thumbnail")
+                        ?: firstThumbnail(obj)
+                        ?: entries.firstNotNullOfOrNull { it.thumbnailUrl },
+                    webpageUrl = obj.string("webpage_url") ?: obj.string("original_url").orEmpty(),
+                    entries = entries,
+                ),
+            ),
+        )
+    }
+
+    private fun extractor(obj: JsonObject): String =
+        (obj.string("extractor") ?: obj.string("extractor_key") ?: "unknown").lowercase()
+
+    private fun firstThumbnail(obj: JsonObject): String? =
+        (obj["thumbnails"] as? JsonArray)
+            ?.mapNotNull { it as? JsonObject }
+            ?.mapNotNull { it.string("url") }
+            ?.lastOrNull()
 
     private fun format(obj: JsonObject): MediaFormat? {
         val formatId = obj.string("format_id") ?: return null

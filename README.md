@@ -36,8 +36,8 @@ The Android build bundles yt-dlp and FFmpeg, so no extra setup is required.
 
 ```bash
 # Debian/Ubuntu (amd64)
-wget https://github.com/AlexandreZanata/OpenYT/releases/latest/download/openyt_1.3.1_amd64.deb
-sudo apt install ./openyt_1.3.1_amd64.deb
+wget https://github.com/AlexandreZanata/OpenYT/releases/latest/download/openyt_1.4.0_amd64.deb
+sudo apt install ./openyt_1.4.0_amd64.deb
 ```
 
 The release bundles yt-dlp, FFmpeg, FFprobe, and Deno. No extra setup is required.
@@ -45,7 +45,7 @@ Other distributions can install the package with their own `.deb` tooling.
 
 ### Windows
 
-1. Download `OpenYT-1.3.1.msi`, run it, and confirm the SmartScreen prompt
+1. Download `OpenYT-1.4.0.msi`, run it, and confirm the SmartScreen prompt
    (More info → Run anyway) because the installer is unsigned.
 2. Open OpenYT. yt-dlp, FFmpeg, FFprobe, and Deno are bundled.
 
@@ -53,7 +53,7 @@ The Windows package is built in CI but not yet validated on a real device.
 
 ### macOS
 
-1. Download `OpenYT-1.3.1.dmg`, open it, and drag OpenYT to Applications.
+1. Download `OpenYT-1.4.0.dmg`, open it, and drag OpenYT to Applications.
 2. The app is unsigned, so right-click → Open (or remove the quarantine flag):
 
 ```bash
@@ -80,10 +80,31 @@ Only download content you are authorized to obtain.
 2. Select **Inspect**, switch to **Audio**, and pick a format such as M4A or Opus.
 3. Select **Download**.
 
+### Playlists
+
+1. Paste a playlist, channel, or album URL and select **Inspect**.
+2. Choose **Video** or **Audio**, select the items (all are selected by default),
+   and select **Download selected**.
+3. Each item becomes its own queued download. Files are saved inside a folder named
+   after the playlist, numbered in the original order (for example
+   `My playlist/01 - First video [id].mp4`).
+
 ### Photos and images
 
 Photo/image download is not supported yet. OpenYT downloads video and audio;
 thumbnails are displayed in the app but are not saved as separate files.
+
+## Supported sources and formats
+
+OpenYT delegates extraction to yt-dlp, so any site supported by the installed
+yt-dlp build can be inspected, including YouTube, Instagram, TikTok, X, Facebook,
+SoundCloud, Vimeo, Twitch, Reddit, Pinterest, Dailymotion, Bandcamp, Threads,
+Telegram, Bilibili, and Rumble. Branded icons identify these providers; other
+sites use a generic icon. Site support depends on the bundled yt-dlp version and
+on the source's terms and restrictions.
+
+Playlists and channels use the same generic path. The app supports the video and
+audio formats exposed by yt-dlp; image and subtitle downloads are not implemented.
 
 ## Stack
 
@@ -148,7 +169,7 @@ Install the debug APK on a connected device:
 
 ## Releases
 
-Latest: [v1.3.1](https://github.com/AlexandreZanata/OpenYT/releases/tag/v1.3.1)
+Latest: [v1.4.0](https://github.com/AlexandreZanata/OpenYT/releases/tag/v1.4.0)
 (Android APK, Linux deb, Windows MSI, macOS DMG, checksums).
 
 Every push to `main` builds and publishes Android, Linux, Windows, and macOS
@@ -160,6 +181,8 @@ secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
 
 - Paste or share a URL, inspect metadata/formats, choose video or audio, download
   with progress, cancel/retry, and manage a persistent local Library.
+- Inspect playlists and channels, select items, and download them into a numbered
+  playlist folder; provider icons identify common networks with a generic fallback.
 - Queue and Library survive app restarts; interrupted downloads can be retried.
 - Removing a Library entry never deletes the downloaded file.
 - Library search, kind/availability/duplicate filters, title sorting, missing-file

@@ -17,6 +17,7 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.materialIconsExtended)
+            implementation(compose.components.resources)
             implementation(compose.ui)
             implementation(libs.coil.compose)
             implementation(libs.kotlinx.coroutines.core)
@@ -31,6 +32,10 @@ kotlin {
             implementation(kotlin("test"))
         }
     }
+}
+
+compose.resources {
+    packageOfResClass = "com.openyt.ui.resources"
 }
 
 android {

@@ -127,6 +127,7 @@ class SqlDelightDownloadRepository(
                 sizeBytes = row.size_bytes,
                 createdAtEpochMillis = row.created_at,
                 thumbnailUrl = row.thumbnail_url,
+                source = row.source,
             )
         }
     }
@@ -139,6 +140,7 @@ class SqlDelightDownloadRepository(
             file_path = entry.filePath,
             size_bytes = entry.sizeBytes,
             thumbnail_url = entry.thumbnailUrl,
+            source = entry.source,
         )
         Unit
     }

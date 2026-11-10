@@ -8,4 +8,5 @@ data class LibraryEntry(
     val sizeBytes: Long? = null,
     val createdAtEpochMillis: Long = 0,
     val thumbnailUrl: String? = null,
+    val source: String? = null,
 )

@@ -6,7 +6,7 @@ import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.EngineCapabilities
 import com.openyt.core.domain.EngineResult
-import com.openyt.core.domain.MediaInfo
+import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaKind
 import com.openyt.engine.ytdlp.YtDlpErrorMapper
 import com.openyt.engine.ytdlp.YtDlpJsonParser
@@ -36,7 +36,7 @@ class DesktopYtDlpEngine(
     private val processes = ConcurrentHashMap<String, Process>()
     private val canceled = ConcurrentHashMap.newKeySet<String>()
 
-    override suspend fun inspect(url: String): EngineResult<MediaInfo> = withContext(Dispatchers.IO) {
+    override suspend fun inspect(url: String): EngineResult<Inspection> = withContext(Dispatchers.IO) {
         val binary = locator.findYtDlp()
             ?: return@withContext EngineResult.Failure(DownloadFailure.DependencyMissing("yt-dlp"))
 
@@ -44,7 +44,7 @@ class DesktopYtDlpEngine(
             add(binary)
             add("--dump-single-json")
             add("--no-warnings")
-            add("--no-playlist")
+            add("--flat-playlist")
             add("--skip-download")
             locator.findJsRuntimeArgument()?.let {
                 add("--js-runtimes")

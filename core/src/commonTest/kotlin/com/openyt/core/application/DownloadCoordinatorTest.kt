@@ -9,6 +9,7 @@ import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.EngineCapabilities
 import com.openyt.core.domain.EngineResult
+import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaInfo
 import com.openyt.core.testing.FakeDownloadEngine
@@ -360,7 +361,7 @@ class DownloadCoordinatorTest {
     )
 
     private class ImmediateEngine(private val events: List<DownloadEvent>) : DownloadEngine {
-        override suspend fun inspect(url: String): EngineResult<MediaInfo> =
+        override suspend fun inspect(url: String): EngineResult<Inspection> =
             EngineResult.Failure(DownloadFailure.UnsupportedSource)
 
         override fun download(request: DownloadRequest, downloadId: String): Flow<DownloadEvent> =
@@ -424,7 +425,7 @@ class DownloadCoordinatorTest {
     private class GatedEngine : DownloadEngine {
         private val gates = mutableMapOf<String, CompletableDeferred<Unit>>()
 
-        override suspend fun inspect(url: String): EngineResult<MediaInfo> =
+        override suspend fun inspect(url: String): EngineResult<Inspection> =
             EngineResult.Failure(DownloadFailure.UnsupportedSource)
 
         override fun download(request: DownloadRequest, downloadId: String): Flow<DownloadEvent> = flow {
@@ -450,7 +451,7 @@ class DownloadCoordinatorTest {
         var cancelCalls: Int = 0
             private set
 
-        override suspend fun inspect(url: String): EngineResult<MediaInfo> =
+        override suspend fun inspect(url: String): EngineResult<Inspection> =
             EngineResult.Failure(DownloadFailure.UnsupportedSource)
 
         override fun download(request: DownloadRequest, downloadId: String): Flow<DownloadEvent> = flow {

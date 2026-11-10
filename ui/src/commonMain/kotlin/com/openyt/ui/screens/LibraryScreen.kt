@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -55,6 +56,7 @@ import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.MediaTechnicalInfo
 import com.openyt.core.domain.ShareableMedia
 import com.openyt.ui.components.MediaThumbnail
+import com.openyt.ui.components.ProviderIcon
 import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.util.formatBytes
@@ -497,12 +499,19 @@ private fun LibraryCard(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text(
-                        entry.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        ProviderIcon(entry.source, Modifier.size(18.dp))
+                        Text(
+                            entry.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                     val name = entry.filePath.substringAfterLast('/').substringAfterLast('\\')
                     Text(
                         name,

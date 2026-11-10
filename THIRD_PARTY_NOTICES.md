@@ -16,9 +16,14 @@ in `gradle/libs.versions.toml` and documented in the relevant ADRs.
 | SQLDelight | 2.4.1 | Apache-2.0 | Local SQLite schema, queries, and drivers |
 | Coil | 3.4.0 | Apache-2.0 | Compose image loading for thumbnails |
 | OkHttp | via Coil | Apache-2.0 | Desktop/Android HTTP image loading |
+| Simple Icons | CC0-1.0 | Provider logo SVGs |
 
 Because the Android build links the GPL-3.0 `youtubedl-android` library, OpenYT as a
 whole is distributed under GPL-3.0. Preserve upstream notices when packaging.
+
+Provider logos come from [Simple Icons](https://simpleicons.org) (CC0-1.0). Brand
+names and logos are trademarks of their respective owners and are used only to
+identify the source of the requested media.
 
 Desktop packages embed yt-dlp, FFmpeg/FFprobe (static builds from
 `eugeneware/ffmpeg-static`), and Deno at build time. The Gradle packaging task

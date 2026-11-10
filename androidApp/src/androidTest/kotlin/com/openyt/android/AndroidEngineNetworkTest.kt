@@ -6,6 +6,7 @@ import com.openyt.android.downloader.AndroidYtDlpEngine
 import com.openyt.core.domain.DownloadEvent
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.EngineResult
+import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaKind
 import java.io.File
 import java.util.Collections
@@ -45,7 +46,7 @@ class AndroidEngineNetworkTest {
         }
 
         assertTrue("expected success but got $result", result is EngineResult.Success)
-        val media = (result as EngineResult.Success).value
+        val media = ((result as EngineResult.Success).value as Inspection.Single).media
         assertEquals("Big Buck Bunny", media.title)
         assertTrue("expected at least one format", media.formats.isNotEmpty())
     }
@@ -59,7 +60,7 @@ class AndroidEngineNetworkTest {
         }
 
         assertTrue("expected success but got $result", result is EngineResult.Success)
-        val media = (result as EngineResult.Success).value
+        val media = ((result as EngineResult.Success).value as Inspection.Single).media
         assertEquals("Me at the zoo", media.title)
         assertTrue("expected at least one format", media.formats.isNotEmpty())
     }
@@ -131,7 +132,7 @@ class AndroidEngineNetworkTest {
             engine.inspect("https://archive.org/details/BigBuckBunny_124")
         }
         assertTrue("inspection failed: $inspection", inspection is EngineResult.Success)
-        val media = (inspection as EngineResult.Success).value
+        val media = ((inspection as EngineResult.Success).value as Inspection.Single).media
         val format = media.formats.maxByOrNull { it.sizeBytes ?: 0L }
         assertTrue("no formats to download", format != null)
 
