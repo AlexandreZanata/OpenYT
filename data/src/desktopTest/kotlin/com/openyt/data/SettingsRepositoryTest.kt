@@ -24,10 +24,24 @@ class SettingsRepositoryTest {
         val database = inMemoryDatabase()
         val repository = SqlDelightSettingsRepository(database)
 
-        repository.save(AppSettings(ThemeMode.DARK, AppLanguage.EN, 4, "/home/user/Videos"))
+        repository.save(
+            AppSettings(
+                ThemeMode.DARK,
+                AppLanguage.EN,
+                4,
+                "/home/user/Videos",
+                "content://tree/openyt",
+            ),
+        )
 
         assertEquals(
-            AppSettings(ThemeMode.DARK, AppLanguage.EN, 4, "/home/user/Videos"),
+            AppSettings(
+                ThemeMode.DARK,
+                AppLanguage.EN,
+                4,
+                "/home/user/Videos",
+                "content://tree/openyt",
+            ),
             repository.load(),
         )
     }

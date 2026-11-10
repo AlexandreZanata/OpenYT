@@ -18,11 +18,12 @@ class UpdateCheckerTest {
 
     @Test
     fun parsesGitHubLatestReleaseAndRejectsOlderVersions() {
-        val body = """{"tag_name":"v1.2.0","html_url":"https://github.com/o/r/releases/tag/v1.2.0"}"""
+        val body = """{"tag_name":"v1.2.0","html_url":"https://github.com/o/r/releases/tag/v1.2.0","assets":[{"browser_download_url":"https://github.com/o/r/releases/download/v1.2.0/app.apk"}]}"""
 
         val update = GitHubReleaseParser.parse(body, "1.1.0")
         assertEquals("1.2.0", update?.version)
         assertEquals("https://github.com/o/r/releases/tag/v1.2.0", update?.releaseUrl)
+        assertEquals("app.apk", update?.assets?.single()?.name)
         assertNull(GitHubReleaseParser.parse(body, "1.2.0"))
         assertNull(GitHubReleaseParser.parse("{}", "1.0.0"))
     }

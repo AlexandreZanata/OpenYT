@@ -33,6 +33,7 @@ class DownloadCoordinator(
     private val scope: CoroutineScope,
     private val repository: DownloadRepository? = null,
     initialMaxConcurrentDownloads: Int = DEFAULT_MAX_CONCURRENT,
+    private val completedHandler: CompletedDownloadHandler? = null,
 ) {
     init {
         require(initialMaxConcurrentDownloads > 0) { "initialMaxConcurrentDownloads must be positive" }
@@ -222,6 +223,9 @@ class DownloadCoordinator(
         }
 
         if (event is DownloadEvent.Completed) {
+            scope.launch {
+                runCatching { completedHandler?.onCompleted(updated) }
+            }
             val entry = LibraryEntry(
                 id = updated.id,
                 title = updated.media.title,

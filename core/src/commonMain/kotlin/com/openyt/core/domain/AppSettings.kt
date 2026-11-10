@@ -16,6 +16,7 @@ data class AppSettings(
     val language: AppLanguage = AppLanguage.PT_BR,
     val maxConcurrentDownloads: Int = DEFAULT_CONCURRENT,
     val downloadsDirectory: String? = null,
+    val storageTreeUri: String? = null,
 ) {
     companion object {
         const val MIN_CONCURRENT = 1
