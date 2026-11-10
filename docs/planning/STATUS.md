@@ -464,6 +464,8 @@ Validation:
 - CLI `library --search <query>` returns the ranked results; Linux validation seeds
   mixed entries, asserts an author match and an empty result.
 
+- Version bumped to 2.3.0 (Android versionCode 22).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.
