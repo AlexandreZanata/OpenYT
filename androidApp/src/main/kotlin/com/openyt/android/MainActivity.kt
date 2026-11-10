@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import com.openyt.core.application.FileAvailability
 import com.openyt.android.diagnostics.AndroidUrlOpener
 import com.openyt.android.importer.AndroidMediaImporter
+import com.openyt.android.saf.AndroidSafDestinationPicker
 import com.openyt.android.share.AndroidMediaActions
 import com.openyt.core.application.ShareTextParser
 import com.openyt.ui.OpenYtApp
@@ -34,6 +35,7 @@ class MainActivity : ComponentActivity() {
         val mediaActions = AndroidMediaActions(this)
         val mediaImporter = AndroidMediaImporter(this, container.downloadsDirectory)
         val urlOpener = AndroidUrlOpener(this)
+        val safDestinationPicker = AndroidSafDestinationPicker(this)
         setContent {
             val pendingSharedUrl by sharedUrl.collectAsState()
             OpenYtApp(
@@ -46,7 +48,9 @@ class MainActivity : ComponentActivity() {
                 mediaImporter = mediaImporter,
                 diagnosticsProvider = container.diagnosticsProvider,
                 updateChecker = container.updateChecker,
+                updateInstaller = container.updateInstaller,
                 urlOpener = urlOpener,
+                safDestinationPicker = safDestinationPicker,
                 downloadsDirectory = container.downloadsDirectory,
                 fileAvailability = FileAvailability { java.io.File(it).isFile },
                 initialSharedUrl = pendingSharedUrl,

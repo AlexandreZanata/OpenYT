@@ -53,8 +53,10 @@ import com.openyt.core.application.LibraryController
 import com.openyt.core.application.MediaActions
 import com.openyt.core.application.MediaImporter
 import com.openyt.core.application.MediaProbe
+import com.openyt.core.application.SafDestinationPicker
 import com.openyt.core.application.SettingsController
 import com.openyt.core.application.UpdateChecker
+import com.openyt.core.application.UpdateInstaller
 import com.openyt.core.application.UrlOpener
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.DownloadEngine
@@ -81,7 +83,9 @@ fun OpenYtApp(
     mediaImporter: MediaImporter? = null,
     diagnosticsProvider: DiagnosticsProvider,
     updateChecker: UpdateChecker,
+    updateInstaller: UpdateInstaller,
     urlOpener: UrlOpener,
+    safDestinationPicker: SafDestinationPicker? = null,
     downloadsDirectory: String,
     fileAvailability: FileAvailability,
     initialSharedUrl: String? = null,
@@ -118,7 +122,9 @@ fun OpenYtApp(
                     mediaImporter = mediaImporter,
                     diagnosticsProvider = diagnosticsProvider,
                     updateChecker = updateChecker,
+                    updateInstaller = updateInstaller,
                     urlOpener = urlOpener,
+                    safDestinationPicker = safDestinationPicker,
                     downloadsDirectory = effectiveDownloadsDirectory,
                     fileAvailability = fileAvailability,
                     initialSharedUrl = initialSharedUrl,
@@ -148,7 +154,9 @@ private fun AppShell(
     mediaImporter: MediaImporter? = null,
     diagnosticsProvider: DiagnosticsProvider,
     updateChecker: UpdateChecker,
+    updateInstaller: UpdateInstaller,
     urlOpener: UrlOpener,
+    safDestinationPicker: SafDestinationPicker? = null,
     downloadsDirectory: String,
     fileAvailability: FileAvailability,
     initialSharedUrl: String?,
@@ -210,7 +218,9 @@ private fun AppShell(
                         libraryController = libraryController,
                         diagnosticsProvider = diagnosticsProvider,
                         updateChecker = updateChecker,
+                        updateInstaller = updateInstaller,
                         urlOpener = urlOpener,
+                        safDestinationPicker = safDestinationPicker,
                         folderPicker = folderPicker,
                     )
                 }
