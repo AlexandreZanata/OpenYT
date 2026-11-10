@@ -490,6 +490,18 @@ Validation:
 
 - Version bumped to 2.5.0 (Android versionCode 24).
 
+## Phase 29 completed (watch folder import)
+
+- Folder scanner (desktop/JVM) finds supported video/audio files without copying,
+  moving or deleting anything.
+- Folder import is idempotent by file path; repeated scans skip existing entries.
+- Library UI adds "Import folder" with a path field and result counts; CLI adds
+  `library --scan <directory>`.
+- Linux validation creates a fixture folder, imports twice, asserts counts and
+  compares file hashes before/after.
+
+- Version bumped to 2.6.0 (Android versionCode 25).
+
 ## Known limitations
 
 - No automatic retry/backoff; retry is manual.

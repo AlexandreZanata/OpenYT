@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
                 nowEpochMillis = { System.currentTimeMillis() },
                 mediaTagger = container.mediaTagger,
                 libraryArchiveService = container.libraryArchiveService,
+                folderImportService = container.folderImportService,
                 initialSharedUrl = pendingSharedUrl,
                 onSharedUrlConsumed = { sharedUrl.value = null },
             )

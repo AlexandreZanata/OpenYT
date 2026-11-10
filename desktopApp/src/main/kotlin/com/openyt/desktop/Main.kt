@@ -17,12 +17,14 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
+import com.openyt.core.application.FolderImportService
 import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.LibraryArchiveService
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.SettingsController
 import com.openyt.core.application.UpdateController
 import com.openyt.data.EncryptedCookieRepository
+import com.openyt.data.FileFolderScanner
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.SqlDelightSettingsRepository
 import com.openyt.data.createOpenYtDatabase
@@ -84,6 +86,9 @@ private fun launchApp() = application {
     }
     val libraryController = remember(repository) { LibraryController(repository, scope) }
     val libraryArchiveService = remember(repository) { LibraryArchiveService(repository) }
+    val folderImportService = remember(repository) {
+        FolderImportService(FileFolderScanner(), repository)
+    }
     val mediaProbe = remember { DesktopMediaProbe() }
     val mediaTagger = remember { DesktopMediaTagger() }
     val mediaActions = remember { DesktopMediaActions() }
@@ -178,6 +183,7 @@ private fun launchApp() = application {
             nowEpochMillis = { System.currentTimeMillis() },
             mediaTagger = mediaTagger,
             libraryArchiveService = libraryArchiveService,
+            folderImportService = folderImportService,
         )
     }
 }

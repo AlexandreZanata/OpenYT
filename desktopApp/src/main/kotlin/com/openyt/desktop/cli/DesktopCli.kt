@@ -2,6 +2,7 @@ package com.openyt.desktop.cli
 
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.EnqueuePlaylistUseCase
+import com.openyt.core.application.FolderImportService
 import com.openyt.core.application.InspectMediaUseCase
 import com.openyt.core.application.LibraryArchiveCodec
 import com.openyt.core.application.LibraryArchiveService
@@ -24,6 +25,7 @@ import com.openyt.core.domain.SmartCollection
 import com.openyt.core.domain.PlaylistEntry
 import com.openyt.core.domain.PlaylistInfo
 import com.openyt.data.EncryptedCookieRepository
+import com.openyt.data.FileFolderScanner
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.createOpenYtDatabase
 import com.openyt.data.defaultDatabasePath
@@ -236,6 +238,7 @@ object DesktopCli {
         val search = args.value("search")
         val exportPath = args.value("export")
         val importPath = args.value("import")
+        val scanPath = args.value("scan")
         if (
             !args.flag("list") &&
             addTag == null &&
@@ -245,7 +248,8 @@ object DesktopCli {
             smartId == null &&
             search == null &&
             exportPath == null &&
-            importPath == null
+            importPath == null &&
+            scanPath == null
         ) {
             throw CliException(
                 "library requires --list, --add-tag, --remove-tag, --create-smart, " +
@@ -261,6 +265,10 @@ object DesktopCli {
             repository.removeLibraryTag(args.required("entry"), removeTag)
         }
         val archiveService = LibraryArchiveService(repository)
+        var scanResult: com.openyt.core.application.FolderImportResult? = null
+        if (scanPath != null) {
+            scanResult = FolderImportService(FileFolderScanner(), repository).import(scanPath)
+        }
         var exportedPath: String? = null
         var importResult: com.openyt.core.application.LibraryImportResult? = null
         if (exportPath != null) {
@@ -325,6 +333,15 @@ object DesktopCli {
                     put("createdSmartCollection", it.id)
                 }
                 exportedPath?.let { put("exportPath", it) }
+                scanResult?.let { result ->
+                    put(
+                        "scanResult",
+                        buildJsonObject {
+                            put("added", result.added)
+                            put("skipped", result.skipped)
+                        },
+                    )
+                }
                 importResult?.let { result ->
                     put(
                         "importResult",
@@ -674,6 +691,7 @@ object DesktopCli {
               main --cli library  --search <query> [--json]
               main --cli library  --export <path> [--json]
               main --cli library  --import <path> [--policy merge|replace] [--json]
+              main --cli library  --scan <directory> [--json]
               main --cli cookies  [--import <path>] [--check] [--clear] [--json]
               main --cli version
             """.trimIndent(),

@@ -55,6 +55,7 @@ import com.openyt.core.application.LibraryArchiveCodec
 import com.openyt.core.application.LibraryArchiveService
 import com.openyt.core.application.LibraryImportPolicy
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.FolderImportService
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.LibraryFilter
@@ -88,10 +89,12 @@ fun LibraryScreen(
     mediaProbe: MediaProbe,
     mediaActions: MediaActions,
     mediaImporter: MediaImporter?,
+    downloadsDirectory: String,
     modifier: Modifier = Modifier,
     nowEpochMillis: () -> Long = { 0L },
     mediaTagger: MediaTagger? = null,
     archiveService: LibraryArchiveService? = null,
+    folderImportService: FolderImportService? = null,
 ) {
     val strings = LocalStrings.current
     val entries by coordinator.library.collectAsState()
@@ -131,6 +134,10 @@ fun LibraryScreen(
     var importPolicy by remember { mutableStateOf(LibraryImportPolicy.MERGE) }
     var importMessage by remember { mutableStateOf<String?>(null) }
     var importing by remember { mutableStateOf(false) }
+    var showWatchImport by remember { mutableStateOf(false) }
+    var watchPath by remember { mutableStateOf(downloadsDirectory) }
+    var watchMessage by remember { mutableStateOf<String?>(null) }
+    var watching by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val archiveScope = rememberCoroutineScope()
 
@@ -203,6 +210,17 @@ fun LibraryScreen(
                         },
                     ) {
                         Text(strings.importLibrary)
+                    }
+                }
+                if (folderImportService != null) {
+                    TextButton(
+                        onClick = {
+                            watchPath = downloadsDirectory
+                            watchMessage = null
+                            showWatchImport = true
+                        },
+                    ) {
+                        Text(strings.watchFolderImport)
                     }
                 }
                 if (mediaImporter?.canImport == true) {
@@ -737,6 +755,65 @@ fun LibraryScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showImport = false }) {
+                    Text(strings.closeAction)
+                }
+            },
+        )
+    }
+
+    if (showWatchImport) {
+        AlertDialog(
+            onDismissRequest = { showWatchImport = false },
+            title = { Text(strings.watchFolderImport) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        strings.watchFolderHint,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = watchPath,
+                        onValueChange = {
+                            watchPath = it
+                            watchMessage = null
+                        },
+                        label = { Text(strings.watchFolderPath) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    watchMessage?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = watchPath.isNotBlank() && !watching,
+                    onClick = {
+                        watching = true
+                        archiveScope.launch {
+                            val result = folderImportService?.import(watchPath)
+                            coordinator.reloadLibrary()
+                            watchMessage = if (result != null) {
+                                "${strings.importedEntries}: ${result.added} · " +
+                                    "${strings.skippedEntries}: ${result.skipped}"
+                            } else {
+                                strings.importInvalid
+                            }
+                            watching = false
+                        }
+                    },
+                ) {
+                    Text(strings.importAction)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWatchImport = false }) {
                     Text(strings.closeAction)
                 }
             },
