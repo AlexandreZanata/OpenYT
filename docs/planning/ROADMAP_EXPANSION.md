@@ -1,6 +1,6 @@
 # OpenYT Expansion Roadmap
 
-Status: Phase 0 (validation foundation) implemented. Program A1 (priority), A2 (pause/resume), A3 (retry/recovery), A4 (bandwidth/window), A5 (per-entry playlist formats), A6 (organization presets/templates) and A8 (integrity) implemented. A7 remains; Programs B–G are planning only.
+Status: Phase 0 (validation foundation) implemented. Program A (pipeline) is complete: A1–A8 implemented. Programs B–G are planning only.
 
 This roadmap covers the seven expansion areas requested after v1.4.1. It is
 organised into programs (A–G), each split into microphases (A1, A2, …). Every

@@ -102,6 +102,9 @@ class AndroidYtDlpEngine(
                         request.limitBytesPerSecond?.let {
                             addOption("--limit-rate", it.toString())
                         }
+                        request.cookiesFilePath?.let {
+                            addOption("--cookies", it)
+                        }
                         when (request.kind) {
                             MediaKind.AUDIO -> {
                                 addOption("-f", request.formatId ?: "bestaudio/best")

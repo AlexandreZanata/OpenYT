@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.openyt.core.application.CookieRepository
 import com.openyt.core.application.DiagnosticsFormatter
 import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadCoordinator
@@ -70,6 +72,7 @@ fun SettingsScreen(
     urlOpener: UrlOpener,
     safDestinationPicker: SafDestinationPicker? = null,
     folderPicker: FolderPicker? = null,
+    cookieRepository: CookieRepository? = null,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
@@ -86,6 +89,9 @@ fun SettingsScreen(
     }
     val invalidTemplate = fileNameTemplate.isNotBlank() &&
         !OrganizationPlanner.isValidTemplate(fileNameTemplate)
+    var cookieText by remember { mutableStateOf("") }
+    var hasCookies by remember { mutableStateOf(false) }
+    var cookieMessage by remember { mutableStateOf<String?>(null) }
     val updateState by updateController.state.collectAsState()
     var installingUpdate by remember { mutableStateOf(false) }
     var installMessage by remember { mutableStateOf<String?>(null) }
@@ -95,6 +101,9 @@ fun SettingsScreen(
     }
     LaunchedEffect(diagnosticsProvider) {
         diagnostics = diagnosticsProvider.snapshot()
+    }
+    LaunchedEffect(cookieRepository) {
+        hasCookies = cookieRepository?.isConfigured() == true
     }
 
     Column(
@@ -291,6 +300,71 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+        }
+
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(strings.cookiesLabel, style = MaterialTheme.typography.labelLarge)
+                Text(
+                    if (hasCookies) strings.cookiesConfigured else strings.cookiesNotConfigured,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    strings.cookiesWarning,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = cookieText,
+                    onValueChange = {
+                        cookieText = it
+                        cookieMessage = null
+                    },
+                    label = { Text(strings.cookiesPasteLabel) },
+                    minLines = 4,
+                    maxLines = 8,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                runCatching {
+                                    cookieRepository?.importCookies(cookieText)
+                                }.onSuccess {
+                                    hasCookies = cookieRepository?.isConfigured() == true
+                                    cookieText = ""
+                                    cookieMessage = strings.cookiesSaved
+                                }.onFailure {
+                                    cookieMessage = strings.cookiesWarning
+                                }
+                            }
+                        },
+                        enabled = cookieRepository != null && cookieText.isNotBlank(),
+                    ) {
+                        Text(strings.cookiesSave)
+                    }
+                    TextButton(
+                        onClick = {
+                            scope.launch {
+                                cookieRepository?.clear()
+                                hasCookies = false
+                                cookieMessage = strings.cookiesCleared
+                            }
+                        },
+                        enabled = cookieRepository != null && hasCookies,
+                    ) {
+                        Text(strings.cookiesClear)
+                    }
+                }
+                cookieMessage?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
         }
 

@@ -19,6 +19,7 @@ import com.openyt.core.application.UpdateController
 import com.openyt.core.application.UpdateInstaller
 import com.openyt.core.application.SettingsRepository
 import com.openyt.core.domain.DownloadEngine
+import com.openyt.data.EncryptedCookieRepository
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.SqlDelightSettingsRepository
 import com.openyt.data.createOpenYtDatabase
@@ -74,12 +75,15 @@ class AppContainer(context: Context) {
 
     val settingsController: SettingsController = SettingsController(settingsRepository, appScope)
 
+    val cookieRepository = EncryptedCookieRepository(File(appContext.filesDir, "cookies"))
+
     private val safExporter = AndroidSafExporter(appContext)
 
     val coordinator: DownloadCoordinator = DownloadCoordinator(
         engine = engine,
         scope = appScope,
         repository = repository,
+        cookieRepository = cookieRepository,
         timeOfDayMinutes = {
             val now = Calendar.getInstance()
             now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)

@@ -39,6 +39,7 @@ class DownloadCoordinator(
     private val maxAutomaticRetries: Int = DEFAULT_MAX_AUTOMATIC_RETRIES,
     private val retryDelayMillis: (Int) -> Long = ::defaultRetryDelayMillis,
     private val timeOfDayMinutes: () -> Int = { 0 },
+    private val cookieRepository: CookieRepository? = null,
 ) {
     init {
         require(initialMaxConcurrentDownloads > 0) { "initialMaxConcurrentDownloads must be positive" }
@@ -322,9 +323,14 @@ class DownloadCoordinator(
 
     private fun startTask(task: DownloadTask) {
         scope.launch {
+            var cookiesPath: String? = null
             try {
+                if (task.request.cookiesFilePath == null) {
+                    cookiesPath = runCatching { cookieRepository?.createTemporaryFile() }.getOrNull()
+                }
                 val request = task.request.copy(
                     limitBytesPerSecond = speedLimitBytesPerSecond.value,
+                    cookiesFilePath = task.request.cookiesFilePath ?: cookiesPath,
                 )
                 engine.download(request, task.id).collect { event ->
                     applyEvent(task.id, event)
@@ -334,6 +340,9 @@ class DownloadCoordinator(
             } catch (e: Exception) {
                 applyEvent(task.id, DownloadEvent.Failed(DownloadFailure.Unexpected(null)))
             } finally {
+                cookiesPath?.let { path ->
+                    runCatching { cookieRepository?.deleteTemporaryFile(path) }
+                }
                 activeDownloads.update { (it - 1).coerceAtLeast(0) }
                 requestSchedule()
             }

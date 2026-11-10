@@ -10,6 +10,11 @@ kotlin {
     jvmToolchain(17)
 
     sourceSets {
+        val jvmSharedMain = maybeCreate("jvmSharedMain")
+        jvmSharedMain.dependsOn(commonMain.get())
+        getByName("androidMain").dependsOn(jvmSharedMain)
+        getByName("desktopMain").dependsOn(jvmSharedMain)
+
         commonMain.dependencies {
             api(project(":core"))
             implementation(libs.sqldelight.runtime)

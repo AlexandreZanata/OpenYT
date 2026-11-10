@@ -47,6 +47,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
+import com.openyt.core.application.CookieRepository
 import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
@@ -98,6 +99,7 @@ fun OpenYtApp(
     initialSharedUrl: String? = null,
     onSharedUrlConsumed: () -> Unit = {},
     folderPicker: FolderPicker? = null,
+    cookieRepository: CookieRepository? = null,
 ) {
     val settings by settingsController.settings.collectAsState()
     val strings = stringsFor(settings.language)
@@ -158,6 +160,7 @@ fun OpenYtApp(
                     initialSharedUrl = initialSharedUrl,
                     onSharedUrlConsumed = onSharedUrlConsumed,
                     folderPicker = folderPicker,
+                    cookieRepository = cookieRepository,
                 )
             }
         }
@@ -192,6 +195,7 @@ private fun AppShell(
     initialSharedUrl: String?,
     onSharedUrlConsumed: () -> Unit,
     folderPicker: FolderPicker?,
+    cookieRepository: CookieRepository?,
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -276,6 +280,7 @@ private fun AppShell(
                         urlOpener = urlOpener,
                         safDestinationPicker = safDestinationPicker,
                         folderPicker = folderPicker,
+                        cookieRepository = cookieRepository,
                     )
                 }
                 }

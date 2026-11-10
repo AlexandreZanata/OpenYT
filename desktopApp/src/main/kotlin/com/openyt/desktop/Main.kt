@@ -21,6 +21,7 @@ import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.SettingsController
 import com.openyt.core.application.UpdateController
+import com.openyt.data.EncryptedCookieRepository
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.SqlDelightSettingsRepository
 import com.openyt.data.createOpenYtDatabase
@@ -64,11 +65,15 @@ private fun launchApp() = application {
     val settingsController = remember(database) {
         SettingsController(database?.let(::SqlDelightSettingsRepository), scope)
     }
+    val cookieRepository = remember {
+        EncryptedCookieRepository(File(defaultDatabasePath()).parentFile.resolve("cookies"))
+    }
     val coordinator = remember(engine) {
         DownloadCoordinator(
             engine = engine,
             scope = scope,
             repository = repository,
+            cookieRepository = cookieRepository,
             timeOfDayMinutes = {
                 val now = LocalTime.now()
                 now.hour * 60 + now.minute
@@ -165,6 +170,7 @@ private fun launchApp() = application {
             initialSharedUrl = sharedUrl,
             onSharedUrlConsumed = { sharedUrl = null },
             folderPicker = folderPicker,
+            cookieRepository = cookieRepository,
         )
     }
 }
