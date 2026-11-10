@@ -3,6 +3,7 @@ package com.openyt.core.application
 import com.openyt.core.domain.Collection
 import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.LibraryEntry
+import com.openyt.core.domain.SmartCollection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -12,6 +13,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -31,6 +33,33 @@ class LibraryControllerTest {
         assertNull(blank)
         assertEquals(1, controller.collections.value.size)
         assertEquals(1, repository.collections.size)
+    }
+
+    @Test
+    fun createsSmartCollectionsAndRestoresThem() = runTest {
+        val repository = FakeRepository()
+        val controller = LibraryController(repository, coordinatorScope())
+
+        val smart = controller.createSmartCollection(
+            name = "Music",
+            query = "",
+            tag = "music",
+            minSizeBytes = 100,
+            createdWithinDays = 30,
+        )
+        advanceUntilIdle()
+
+        assertNotNull(smart)
+        assertEquals(1, controller.smartCollections.value.size)
+
+        val restored = LibraryController(repository, coordinatorScope())
+        restored.restore()
+        advanceUntilIdle()
+        assertEquals(controller.smartCollections.value, restored.smartCollections.value)
+
+        restored.deleteSmartCollection(smart.id)
+        advanceUntilIdle()
+        assertTrue(restored.smartCollections.value.isEmpty())
     }
 
     @Test
@@ -92,6 +121,7 @@ class LibraryControllerTest {
     private class FakeRepository(
         val collections: MutableList<Collection> = mutableListOf(),
         val membership: MutableMap<String, MutableSet<String>> = mutableMapOf(),
+        val smartCollections: MutableList<SmartCollection> = mutableListOf(),
     ) : DownloadRepository {
         override suspend fun loadTasks(): List<DownloadTask> = emptyList()
         override suspend fun insertTask(task: DownloadTask) = Unit
@@ -124,6 +154,18 @@ class LibraryControllerTest {
 
         override suspend fun removeEntryFromCollection(collectionId: String, entryId: String) {
             membership[collectionId]?.remove(entryId)
+        }
+
+        override suspend fun loadSmartCollections(): List<SmartCollection> =
+            smartCollections.toList()
+
+        override suspend fun insertSmartCollection(collection: SmartCollection) {
+            smartCollections.removeAll { it.id == collection.id }
+            smartCollections += collection
+        }
+
+        override suspend fun deleteSmartCollection(id: String) {
+            smartCollections.removeAll { it.id == id }
         }
     }
 }

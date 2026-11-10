@@ -171,6 +171,7 @@ private fun launchApp() = application {
             onSharedUrlConsumed = { sharedUrl = null },
             folderPicker = folderPicker,
             cookieRepository = cookieRepository,
+            nowEpochMillis = { System.currentTimeMillis() },
         )
     }
 }

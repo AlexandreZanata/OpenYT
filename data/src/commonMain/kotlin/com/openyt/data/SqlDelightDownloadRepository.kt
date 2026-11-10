@@ -9,6 +9,7 @@ import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.LibraryEntry
+import com.openyt.core.domain.SmartCollection
 import com.openyt.core.domain.MediaInfo
 import com.openyt.core.domain.MediaKind
 import com.openyt.data.db.Download_task
@@ -114,6 +115,43 @@ class SqlDelightDownloadRepository(
     override suspend fun removeEntryFromCollection(collectionId: String, entryId: String) =
         withContext(Dispatchers.Default) {
             queries.deleteCollectionEntry(collection_id = collectionId, entry_id = entryId)
+            Unit
+        }
+
+    override suspend fun loadSmartCollections(): List<SmartCollection> =
+        withContext(Dispatchers.Default) {
+            queries.selectAllSmartCollections().executeAsList().map { row ->
+                SmartCollection(
+                    id = row.id,
+                    name = row.name,
+                    query = row.query,
+                    kind = row.kind?.let(::parseKind),
+                    tag = row.tag,
+                    minSizeBytes = row.min_size_bytes,
+                    maxSizeBytes = row.max_size_bytes,
+                    createdWithinDays = row.created_within_days?.toInt(),
+                )
+            }
+        }
+
+    override suspend fun insertSmartCollection(collection: SmartCollection) =
+        withContext(Dispatchers.Default) {
+            queries.insertSmartCollection(
+                collection.id,
+                collection.name,
+                collection.query,
+                collection.kind?.name,
+                collection.tag,
+                collection.minSizeBytes,
+                collection.maxSizeBytes,
+                collection.createdWithinDays?.toLong(),
+            )
+            Unit
+        }
+
+    override suspend fun deleteSmartCollection(id: String) =
+        withContext(Dispatchers.Default) {
+            queries.deleteSmartCollection(id)
             Unit
         }
 

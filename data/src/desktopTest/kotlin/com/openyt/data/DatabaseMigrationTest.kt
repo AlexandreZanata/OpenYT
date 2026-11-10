@@ -4,6 +4,7 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.OrganizationPreset
+import com.openyt.core.domain.SmartCollection
 import com.openyt.core.domain.MediaKind
 import com.openyt.data.db.OpenYtDatabase
 import java.io.File
@@ -40,6 +41,9 @@ class DatabaseMigrationTest {
 
             repository.addLibraryTag("download-1", "migrated")
             assertEquals(listOf("migrated"), repository.loadLibrary().single().tags)
+
+            repository.insertSmartCollection(SmartCollection("smart-1", "Test"))
+            assertEquals(1, repository.loadSmartCollections().size)
         } finally {
             file.delete()
         }

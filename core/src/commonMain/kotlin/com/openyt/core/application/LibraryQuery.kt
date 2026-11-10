@@ -2,16 +2,37 @@ package com.openyt.core.application
 
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaKind
+import com.openyt.core.domain.SmartCollection
 
 data class LibraryFilter(
     val query: String = "",
     val kind: MediaKind? = null,
     val missingOnly: Boolean = false,
     val duplicatesOnly: Boolean = false,
+    val tag: String? = null,
+    val minSizeBytes: Long? = null,
+    val maxSizeBytes: Long? = null,
+    val createdWithinDays: Int? = null,
 ) {
     val isDefault: Boolean
-        get() = query.isBlank() && kind == null && !missingOnly && !duplicatesOnly
+        get() = query.isBlank() &&
+            kind == null &&
+            !missingOnly &&
+            !duplicatesOnly &&
+            tag.isNullOrBlank() &&
+            minSizeBytes == null &&
+            maxSizeBytes == null &&
+            createdWithinDays == null
 }
+
+fun SmartCollection.toLibraryFilter(): LibraryFilter = LibraryFilter(
+    query = query,
+    kind = kind,
+    tag = tag,
+    minSizeBytes = minSizeBytes,
+    maxSizeBytes = maxSizeBytes,
+    createdWithinDays = createdWithinDays,
+)
 
 data class LibraryItem(
     val entry: LibraryEntry,
@@ -28,6 +49,7 @@ object LibraryQuery {
         entries: List<LibraryEntry>,
         missingIds: Set<String>,
         filter: LibraryFilter,
+        nowEpochMillis: Long = 0L,
     ): List<LibraryItem> {
         val duplicates = duplicateIds(entries)
         val query = filter.query.trim().lowercase()
@@ -43,8 +65,26 @@ object LibraryQuery {
                 val matchesKind = filter.kind == null || entry.kind == filter.kind
                 val matchesMissing = !filter.missingOnly || entry.id in missingIds
                 val matchesDuplicates = !filter.duplicatesOnly || entry.id in duplicates
+                val matchesTag = filter.tag.isNullOrBlank() ||
+                    entry.tags.any { it.equals(filter.tag, ignoreCase = true) }
+                val size = entry.sizeBytes
+                val matchesSize =
+                    (filter.minSizeBytes == null || (size != null && size >= filter.minSizeBytes)) &&
+                        (filter.maxSizeBytes == null || (size != null && size <= filter.maxSizeBytes))
+                val matchesCreated = filter.createdWithinDays?.let { days ->
+                    val created = entry.createdAtEpochMillis
+                    nowEpochMillis > 0 &&
+                        created > 0 &&
+                        nowEpochMillis - created <= days * MILLIS_PER_DAY
+                } ?: true
 
-                matchesQuery && matchesKind && matchesMissing && matchesDuplicates
+                matchesQuery &&
+                    matchesKind &&
+                    matchesMissing &&
+                    matchesDuplicates &&
+                    matchesTag &&
+                    matchesSize &&
+                    matchesCreated
             }
             .map { entry ->
                 LibraryItem(
@@ -104,4 +144,6 @@ object LibraryQuery {
         )
         return ids
     }
+
+    private const val MILLIS_PER_DAY = 86_400_000L
 }

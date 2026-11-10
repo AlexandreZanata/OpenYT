@@ -1,6 +1,8 @@
 package com.openyt.core.application
 
 import com.openyt.core.domain.Collection
+import com.openyt.core.domain.MediaKind
+import com.openyt.core.domain.SmartCollection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,8 +26,12 @@ class LibraryController(
     private val _membership = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
     val membership: StateFlow<Map<String, Set<String>>> = _membership.asStateFlow()
 
+    private val _smartCollections = MutableStateFlow<List<SmartCollection>>(emptyList())
+    val smartCollections: StateFlow<List<SmartCollection>> = _smartCollections.asStateFlow()
+
     private val writes = Channel<suspend () -> Unit>(Channel.UNLIMITED)
     private var nextId = 0
+    private var nextSmartId = 0
 
     init {
         scope.launch {
@@ -44,6 +50,11 @@ class LibraryController(
             nextId = loaded
                 .mapNotNull { it.id.removePrefix(ID_PREFIX).toIntOrNull() }
                 .maxOrNull() ?: 0
+            val smart = repo.loadSmartCollections()
+            _smartCollections.value = smart
+            nextSmartId = smart
+                .mapNotNull { it.id.removePrefix(SMART_ID_PREFIX).toIntOrNull() }
+                .maxOrNull() ?: 0
         }
     }
 
@@ -58,6 +69,40 @@ class LibraryController(
         _collections.update { it + collection }
         persist { repository?.insertCollection(collection) }
         return collection.id
+    }
+
+    fun createSmartCollection(
+        name: String,
+        query: String = "",
+        kind: MediaKind? = null,
+        tag: String? = null,
+        minSizeBytes: Long? = null,
+        maxSizeBytes: Long? = null,
+        createdWithinDays: Int? = null,
+    ): SmartCollection? {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return null
+        _smartCollections.value.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
+            ?.let { return it }
+
+        val collection = SmartCollection(
+            id = "$SMART_ID_PREFIX${++nextSmartId}",
+            name = trimmed,
+            query = query.trim(),
+            kind = kind,
+            tag = tag?.trim()?.takeIf { it.isNotBlank() },
+            minSizeBytes = minSizeBytes?.takeIf { it >= 0 },
+            maxSizeBytes = maxSizeBytes?.takeIf { it >= 0 },
+            createdWithinDays = createdWithinDays?.takeIf { it > 0 },
+        )
+        _smartCollections.update { it + collection }
+        persist { repository?.insertSmartCollection(collection) }
+        return collection
+    }
+
+    fun deleteSmartCollection(id: String) {
+        _smartCollections.update { list -> list.filterNot { it.id == id } }
+        persist { repository?.deleteSmartCollection(id) }
     }
 
     fun deleteCollection(id: String) {
@@ -88,5 +133,6 @@ class LibraryController(
 
     private companion object {
         const val ID_PREFIX = "collection-"
+        const val SMART_ID_PREFIX = "smart-collection-"
     }
 }

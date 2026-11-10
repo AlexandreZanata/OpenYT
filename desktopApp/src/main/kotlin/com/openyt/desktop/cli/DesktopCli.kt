@@ -3,7 +3,9 @@ package com.openyt.desktop.cli
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.EnqueuePlaylistUseCase
 import com.openyt.core.application.InspectMediaUseCase
+import com.openyt.core.application.LibraryQuery
 import com.openyt.core.application.OrganizationPlanner
+import com.openyt.core.application.toLibraryFilter
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.DownloadRequest
@@ -15,6 +17,7 @@ import com.openyt.core.domain.MediaFormat
 import com.openyt.core.domain.MediaInfo
 import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.OrganizationPreset
+import com.openyt.core.domain.SmartCollection
 import com.openyt.core.domain.PlaylistEntry
 import com.openyt.core.domain.PlaylistInfo
 import com.openyt.data.EncryptedCookieRepository
@@ -224,8 +227,20 @@ object DesktopCli {
     private suspend fun library(args: CliArgs): Int {
         val addTag = args.value("add-tag")
         val removeTag = args.value("remove-tag")
-        if (!args.flag("list") && addTag == null && removeTag == null) {
-            throw CliException("library requires --list, --add-tag, or --remove-tag")
+        val createSmart = args.value("create-smart")
+        val deleteSmart = args.value("delete-smart")
+        val smartId = args.value("smart")
+        if (
+            !args.flag("list") &&
+            addTag == null &&
+            removeTag == null &&
+            createSmart == null &&
+            deleteSmart == null &&
+            smartId == null
+        ) {
+            throw CliException(
+                "library requires --list, --add-tag, --remove-tag, --create-smart, --delete-smart, or --smart",
+            )
         }
         val database = createOpenYtDatabase(defaultDatabasePath())
         val repository = SqlDelightDownloadRepository(database)
@@ -235,11 +250,61 @@ object DesktopCli {
         if (removeTag != null) {
             repository.removeLibraryTag(args.required("entry"), removeTag)
         }
-        val entries = repository.loadLibrary()
+        var createdSmart: SmartCollection? = null
+        if (createSmart != null) {
+            createdSmart = SmartCollection(
+                id = "smart-${System.currentTimeMillis()}",
+                name = createSmart,
+                query = args.value("query") ?: "",
+                kind = args.value("kind")?.let(::parseKind),
+                tag = args.value("tag"),
+                minSizeBytes = args.value("min-size-bytes")?.toLongOrNull(),
+                maxSizeBytes = args.value("max-size-bytes")?.toLongOrNull(),
+                createdWithinDays = args.value("created-within-days")?.toIntOrNull(),
+            )
+            repository.insertSmartCollection(createdSmart)
+        }
+        if (deleteSmart != null) {
+            repository.deleteSmartCollection(deleteSmart)
+        }
+        val smartCollections = repository.loadSmartCollections()
+        var entries = repository.loadLibrary()
+        if (smartId != null) {
+            val smart = smartCollections.firstOrNull { it.id == smartId }
+                ?: throw CliException("smart collection not found: $smartId")
+            entries = LibraryQuery.apply(
+                entries = entries,
+                missingIds = emptySet(),
+                filter = smart.toLibraryFilter(),
+                nowEpochMillis = System.currentTimeMillis(),
+            ).map { it.entry }
+        }
         if (args.flag("json")) {
             val payload = buildJsonObject {
                 put("ok", true)
                 put("command", "library")
+                createdSmart?.let {
+                    put("createdSmartCollection", it.id)
+                }
+                put(
+                    "smartCollections",
+                    buildJsonArray {
+                        smartCollections.forEach { smart ->
+                            add(
+                                buildJsonObject {
+                                    put("id", smart.id)
+                                    put("name", smart.name)
+                                    put("query", smart.query)
+                                    putNullable("kind", smart.kind?.name)
+                                    putNullable("tag", smart.tag)
+                                    putNullable("minSizeBytes", smart.minSizeBytes)
+                                    putNullable("maxSizeBytes", smart.maxSizeBytes)
+                                    putNullable("createdWithinDays", smart.createdWithinDays)
+                                },
+                            )
+                        }
+                    },
+                )
                 put(
                     "entries",
                     buildJsonArray {
@@ -524,6 +589,11 @@ object DesktopCli {
                                   [--timeout-ms <n>] [--json]
               main --cli library  --list [--json]
               main --cli library  --entry <id> --add-tag <tag>|--remove-tag <tag> [--json]
+              main --cli library  --create-smart <name> [--query ..] [--kind video|audio]
+                                  [--tag ..] [--min-size-bytes ..] [--max-size-bytes ..]
+                                  [--created-within-days ..] [--json]
+              main --cli library  --delete-smart <id> [--json]
+              main --cli library  --smart <id> [--json]
               main --cli cookies  [--import <path>] [--check] [--clear] [--json]
               main --cli version
             """.trimIndent(),

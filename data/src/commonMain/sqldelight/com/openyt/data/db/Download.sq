@@ -131,6 +131,28 @@ CREATE TABLE library_tag (
     PRIMARY KEY (entry_id, tag)
 );
 
+CREATE TABLE smart_collection (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    query TEXT NOT NULL DEFAULT '',
+    kind TEXT,
+    tag TEXT,
+    min_size_bytes INTEGER,
+    max_size_bytes INTEGER,
+    created_within_days INTEGER
+);
+
+selectAllSmartCollections:
+SELECT * FROM smart_collection ORDER BY name ASC;
+
+insertSmartCollection:
+INSERT OR REPLACE INTO smart_collection(
+    id, name, query, kind, tag, min_size_bytes, max_size_bytes, created_within_days
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteSmartCollection:
+DELETE FROM smart_collection WHERE id = ?;
+
 selectAllLibraryTags:
 SELECT entry_id, tag FROM library_tag ORDER BY tag ASC;
 

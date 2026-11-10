@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
                 downloadsDirectory = container.downloadsDirectory,
                 fileAvailability = FileAvailability { java.io.File(it).isFile },
                 cookieRepository = container.cookieRepository,
+                nowEpochMillis = { System.currentTimeMillis() },
                 initialSharedUrl = pendingSharedUrl,
                 onSharedUrlConsumed = { sharedUrl.value = null },
             )

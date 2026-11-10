@@ -10,6 +10,7 @@ import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaInfo
 import com.openyt.core.domain.MediaKind
+import com.openyt.core.domain.SmartCollection
 import com.openyt.data.db.OpenYtDatabase
 import java.io.File
 import kotlinx.coroutines.runBlocking
@@ -71,6 +72,28 @@ class SqlDelightDownloadRepositoryTest {
         } finally {
             file.delete()
         }
+    }
+
+    @Test
+    fun persistsSmartCollections() = runBlocking {
+        val database = fileDatabase()
+        val repository = SqlDelightDownloadRepository(database)
+        val smart = SmartCollection(
+            id = "smart-1",
+            name = "Music",
+            query = "live",
+            kind = MediaKind.AUDIO,
+            tag = "music",
+            minSizeBytes = 100,
+            maxSizeBytes = 10_000,
+            createdWithinDays = 30,
+        )
+
+        repository.insertSmartCollection(smart)
+        assertEquals(listOf(smart), repository.loadSmartCollections())
+
+        repository.deleteSmartCollection("smart-1")
+        assertTrue(repository.loadSmartCollections().isEmpty())
     }
 
     @Test

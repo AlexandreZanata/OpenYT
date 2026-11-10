@@ -51,6 +51,39 @@ class LibraryQueryTest {
             LibraryQuery.apply(entries, emptySet(), LibraryFilter(query = "vimeo"))
                 .map { it.entry.id },
         )
+        assertEquals(
+            listOf("1"),
+            LibraryQuery.apply(entries, emptySet(), LibraryFilter(tag = "favorite"))
+                .map { it.entry.id },
+        )
+    }
+
+    @Test
+    fun filtersBySizeAndCreationAge() {
+        val now = 10_000_000_000L
+        val entries = listOf(
+            entry("small", "Small", "/small.mp4", size = 100, createdAt = now - 1_000),
+            entry("large", "Large", "/large.mp4", size = 5_000, createdAt = now - 10L * 86_400_000L),
+        )
+
+        assertEquals(
+            listOf("large"),
+            LibraryQuery.apply(
+                entries,
+                emptySet(),
+                LibraryFilter(minSizeBytes = 1_000),
+                nowEpochMillis = now,
+            ).map { it.entry.id },
+        )
+        assertEquals(
+            listOf("small"),
+            LibraryQuery.apply(
+                entries,
+                emptySet(),
+                LibraryFilter(createdWithinDays = 7),
+                nowEpochMillis = now,
+            ).map { it.entry.id },
+        )
     }
 
     @Test
@@ -132,11 +165,13 @@ class LibraryQueryTest {
         path: String,
         kind: MediaKind = MediaKind.VIDEO,
         size: Long? = 1,
+        createdAt: Long = 0,
     ) = LibraryEntry(
         id = id,
         title = title,
         kind = kind,
         filePath = path,
         sizeBytes = size,
+        createdAtEpochMillis = createdAt,
     )
 }

@@ -15,6 +15,7 @@ import com.openyt.core.domain.EngineResult
 import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaInfo
+import com.openyt.core.domain.SmartCollection
 import com.openyt.core.testing.FakeDownloadEngine
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -640,6 +641,9 @@ class DownloadCoordinatorTest {
         override suspend fun addEntryToCollection(collectionId: String, entryId: String) = Unit
 
         override suspend fun removeEntryFromCollection(collectionId: String, entryId: String) = Unit
+        override suspend fun loadSmartCollections(): List<SmartCollection> = emptyList()
+        override suspend fun insertSmartCollection(collection: SmartCollection) = Unit
+        override suspend fun deleteSmartCollection(id: String) = Unit
     }
 
     private class GatedEngine : DownloadEngine {

@@ -100,6 +100,7 @@ fun OpenYtApp(
     onSharedUrlConsumed: () -> Unit = {},
     folderPicker: FolderPicker? = null,
     cookieRepository: CookieRepository? = null,
+    nowEpochMillis: () -> Long = { 0L },
 ) {
     val settings by settingsController.settings.collectAsState()
     val strings = stringsFor(settings.language)
@@ -161,6 +162,7 @@ fun OpenYtApp(
                     onSharedUrlConsumed = onSharedUrlConsumed,
                     folderPicker = folderPicker,
                     cookieRepository = cookieRepository,
+                    nowEpochMillis = nowEpochMillis,
                 )
             }
         }
@@ -196,6 +198,7 @@ private fun AppShell(
     onSharedUrlConsumed: () -> Unit,
     folderPicker: FolderPicker?,
     cookieRepository: CookieRepository?,
+    nowEpochMillis: () -> Long,
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -267,7 +270,15 @@ private fun AppShell(
                     )
 
                     1 -> DownloadsScreen(coordinator, mediaActions)
-                    2 -> LibraryScreen(coordinator, fileAvailability, libraryController, mediaProbe, mediaActions, mediaImporter)
+                    2 -> LibraryScreen(
+                        coordinator,
+                        fileAvailability,
+                        libraryController,
+                        mediaProbe,
+                        mediaActions,
+                        mediaImporter,
+                        nowEpochMillis = nowEpochMillis,
+                    )
                     else -> SettingsScreen(
                         engine = engine,
                         downloadsDirectory = downloadsDirectory,
