@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
         --no-build) BUILD=0; shift ;;
         --offline) OFFLINE=1; shift ;;
         -h|--help)
-            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|metadata|cookies|library|gui]"
+            echo "usage: $0 [--scenario all|tests|tools|inspect|download|playlist|pause|metadata|cookies|library|archive|gui]"
             echo "          [--deb path] [--no-build] [--offline]"
             exit 0
             ;;
@@ -371,6 +371,86 @@ assert data["entries"] == [], data
     pass "library tags, smart collection and metadata search"
 }
 
+scenario_archive() {
+    local db="$XDG_DATA_HOME/OpenYT/openyt.db"
+    "$APP" --cli library --list --json >/dev/null 2>&1 || true
+
+    python3 - "$db" <<'PY' || { fail "seeding archive data failed"; return 1; }
+import sqlite3, sys
+connection = sqlite3.connect(sys.argv[1])
+connection.execute("DELETE FROM library_entry")
+connection.execute("DELETE FROM library_tag")
+connection.execute("DELETE FROM collection_entry")
+connection.execute("DELETE FROM collection")
+connection.execute("DELETE FROM smart_collection")
+connection.execute(
+    """
+    INSERT INTO library_entry(
+        id, title, author, kind, file_path, size_bytes, created_at, thumbnail_url, source
+    ) VALUES ('archive-1', 'Archive one', 'Artist', 'AUDIO', '/tmp/archive-1.m4a', 10, 0, NULL, 'soundcloud')
+    """
+)
+connection.execute(
+    """
+    INSERT INTO library_entry(
+        id, title, author, kind, file_path, size_bytes, created_at, thumbnail_url, source
+    ) VALUES ('archive-2', 'Archive two', NULL, 'VIDEO', '/tmp/archive-2.mp4', 20, 0, NULL, 'vimeo')
+    """
+)
+connection.execute("INSERT INTO library_tag(entry_id, tag) VALUES ('archive-1', 'music')")
+connection.execute("INSERT INTO collection(id, name) VALUES ('collection-archive', 'Archive collection')")
+connection.execute("INSERT INTO collection_entry(collection_id, entry_id) VALUES ('collection-archive', 'archive-1')")
+connection.execute(
+    """
+    INSERT INTO smart_collection(id, name, query, tag)
+    VALUES ('smart-archive', 'Archive smart', '', 'music')
+    """
+)
+connection.commit()
+PY
+
+    local archive="$WORK/library.json"
+    output="$("$APP" --cli library --export "$archive" --json)" \
+        || { fail "exporting library failed"; return 1; }
+    [[ -s "$archive" ]] || { fail "exported archive is empty"; return 1; }
+
+    python3 - "$db" <<'PY' || { fail "wiping library failed"; return 1; }
+import sqlite3, sys
+connection = sqlite3.connect(sys.argv[1])
+connection.execute("DELETE FROM library_entry")
+connection.execute("DELETE FROM library_tag")
+connection.execute("DELETE FROM collection_entry")
+connection.execute("DELETE FROM collection")
+connection.execute("DELETE FROM smart_collection")
+connection.commit()
+PY
+
+    output="$("$APP" --cli library --import "$archive" --policy replace --json)" \
+        || { fail "importing library failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+result = data["importResult"]
+assert result["entriesImported"] == 2, result
+assert result["collectionsImported"] == 1, result
+assert result["smartCollectionsImported"] == 1, result
+' || { fail "import result invalid"; return 1; }
+
+    output="$("$APP" --cli library --list --json)" \
+        || { fail "listing imported library failed"; return 1; }
+    echo "$output" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+entries = {entry["id"]: entry for entry in data["entries"]}
+assert set(entries) == {"archive-1", "archive-2"}, entries
+assert entries["archive-1"]["tags"] == ["music"], entries["archive-1"]
+assert len(data["smartCollections"]) == 1, data["smartCollections"]
+assert len(data["collections"]) == 1, data["collections"]
+assert data["membership"]["collection-archive"] == ["archive-1"], data["membership"]
+' || { fail "imported library content invalid"; return 1; }
+    pass "library archive exported, wiped and imported"
+}
+
 scenario_gui() {
     if [[ -z "${DISPLAY:-}" ]]; then skip "gui (no DISPLAY)"; return 0; fi
     command -v xwininfo >/dev/null 2>&1 || { skip "gui (no xwininfo)"; return 0; }
@@ -434,7 +514,8 @@ case "$SCENARIO" in
         run "pause" scenario_pause
         run "metadata" scenario_metadata
         run "cookies" scenario_cookies
-    run "library" scenario_library
+        run "library" scenario_library
+        run "archive" scenario_archive
         run "gui" scenario_gui
         ;;
     tests) scenario_tests ;;
@@ -446,6 +527,7 @@ case "$SCENARIO" in
     metadata) run_after_prepare "metadata" scenario_metadata ;;
     cookies) run_after_prepare "cookies" scenario_cookies ;;
     library) run_after_prepare "library" scenario_library ;;
+    archive) run_after_prepare "archive" scenario_archive ;;
     gui) run_after_prepare "gui" scenario_gui ;;
     *) echo "unknown scenario: $SCENARIO" >&2; exit 2 ;;
 esac

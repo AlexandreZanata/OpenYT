@@ -3,6 +3,9 @@ package com.openyt.desktop.cli
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.EnqueuePlaylistUseCase
 import com.openyt.core.application.InspectMediaUseCase
+import com.openyt.core.application.LibraryArchiveCodec
+import com.openyt.core.application.LibraryArchiveService
+import com.openyt.core.application.LibraryImportPolicy
 import com.openyt.core.application.LibraryQuery
 import com.openyt.core.application.OrganizationPlanner
 import com.openyt.core.application.toLibraryFilter
@@ -231,6 +234,8 @@ object DesktopCli {
         val deleteSmart = args.value("delete-smart")
         val smartId = args.value("smart")
         val search = args.value("search")
+        val exportPath = args.value("export")
+        val importPath = args.value("import")
         if (
             !args.flag("list") &&
             addTag == null &&
@@ -238,7 +243,9 @@ object DesktopCli {
             createSmart == null &&
             deleteSmart == null &&
             smartId == null &&
-            search == null
+            search == null &&
+            exportPath == null &&
+            importPath == null
         ) {
             throw CliException(
                 "library requires --list, --add-tag, --remove-tag, --create-smart, " +
@@ -252,6 +259,24 @@ object DesktopCli {
         }
         if (removeTag != null) {
             repository.removeLibraryTag(args.required("entry"), removeTag)
+        }
+        val archiveService = LibraryArchiveService(repository)
+        var exportedPath: String? = null
+        var importResult: com.openyt.core.application.LibraryImportResult? = null
+        if (exportPath != null) {
+            val archive = archiveService.export()
+            File(exportPath).writeText(LibraryArchiveCodec.encode(archive))
+            exportedPath = File(exportPath).absolutePath
+        }
+        if (importPath != null) {
+            val archive = LibraryArchiveCodec.decode(File(importPath).readText())
+                .getOrElse { throw CliException("invalid library archive: ${it.message}") }
+            val policy = when (args.value("policy")?.lowercase()) {
+                null, "merge" -> LibraryImportPolicy.MERGE
+                "replace" -> LibraryImportPolicy.REPLACE
+                else -> throw CliException("--policy must be merge or replace")
+            }
+            importResult = archiveService.import(archive, policy)
         }
         var createdSmart: SmartCollection? = null
         if (createSmart != null) {
@@ -271,6 +296,8 @@ object DesktopCli {
             repository.deleteSmartCollection(deleteSmart)
         }
         val smartCollections = repository.loadSmartCollections()
+        val collections = repository.loadCollections()
+        val membership = repository.loadCollectionMembership()
         var entries = repository.loadLibrary()
         if (smartId != null) {
             val smart = smartCollections.firstOrNull { it.id == smartId }
@@ -297,6 +324,19 @@ object DesktopCli {
                 createdSmart?.let {
                     put("createdSmartCollection", it.id)
                 }
+                exportedPath?.let { put("exportPath", it) }
+                importResult?.let { result ->
+                    put(
+                        "importResult",
+                        buildJsonObject {
+                            put("entriesImported", result.entriesImported)
+                            put("entriesUpdated", result.entriesUpdated)
+                            put("entriesSkipped", result.entriesSkipped)
+                            put("collectionsImported", result.collectionsImported)
+                            put("smartCollectionsImported", result.smartCollectionsImported)
+                        },
+                    )
+                }
                 put(
                     "smartCollections",
                     buildJsonArray {
@@ -311,6 +351,32 @@ object DesktopCli {
                                     putNullable("minSizeBytes", smart.minSizeBytes)
                                     putNullable("maxSizeBytes", smart.maxSizeBytes)
                                     putNullable("createdWithinDays", smart.createdWithinDays)
+                                },
+                            )
+                        }
+                    },
+                )
+                put(
+                    "collections",
+                    buildJsonArray {
+                        collections.forEach { collection ->
+                            add(
+                                buildJsonObject {
+                                    put("id", collection.id)
+                                    put("name", collection.name)
+                                },
+                            )
+                        }
+                    },
+                )
+                put(
+                    "membership",
+                    buildJsonObject {
+                        membership.forEach { (collectionId, entryIds) ->
+                            put(
+                                collectionId,
+                                buildJsonArray {
+                                    entryIds.forEach { entryId -> add(JsonPrimitive(entryId)) }
                                 },
                             )
                         }
@@ -606,6 +672,8 @@ object DesktopCli {
               main --cli library  --delete-smart <id> [--json]
               main --cli library  --smart <id> [--json]
               main --cli library  --search <query> [--json]
+              main --cli library  --export <path> [--json]
+              main --cli library  --import <path> [--policy merge|replace] [--json]
               main --cli cookies  [--import <path>] [--check] [--clear] [--json]
               main --cli version
             """.trimIndent(),

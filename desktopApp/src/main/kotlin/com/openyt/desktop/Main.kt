@@ -18,6 +18,7 @@ import androidx.compose.ui.window.rememberWindowState
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderPicker
+import com.openyt.core.application.LibraryArchiveService
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.SettingsController
 import com.openyt.core.application.UpdateController
@@ -82,6 +83,7 @@ private fun launchApp() = application {
         )
     }
     val libraryController = remember(repository) { LibraryController(repository, scope) }
+    val libraryArchiveService = remember(repository) { LibraryArchiveService(repository) }
     val mediaProbe = remember { DesktopMediaProbe() }
     val mediaTagger = remember { DesktopMediaTagger() }
     val mediaActions = remember { DesktopMediaActions() }
@@ -175,6 +177,7 @@ private fun launchApp() = application {
             cookieRepository = cookieRepository,
             nowEpochMillis = { System.currentTimeMillis() },
             mediaTagger = mediaTagger,
+            libraryArchiveService = libraryArchiveService,
         )
     }
 }

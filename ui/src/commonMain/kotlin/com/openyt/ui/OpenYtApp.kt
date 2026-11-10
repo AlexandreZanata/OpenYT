@@ -52,6 +52,7 @@ import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderPicker
+import com.openyt.core.application.LibraryArchiveService
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.MediaActions
 import com.openyt.core.application.MediaImporter
@@ -103,6 +104,7 @@ fun OpenYtApp(
     cookieRepository: CookieRepository? = null,
     nowEpochMillis: () -> Long = { 0L },
     mediaTagger: MediaTagger? = null,
+    libraryArchiveService: LibraryArchiveService? = null,
 ) {
     val settings by settingsController.settings.collectAsState()
     val strings = stringsFor(settings.language)
@@ -166,6 +168,7 @@ fun OpenYtApp(
                     cookieRepository = cookieRepository,
                     nowEpochMillis = nowEpochMillis,
                     mediaTagger = mediaTagger,
+                    libraryArchiveService = libraryArchiveService,
                 )
             }
         }
@@ -203,6 +206,7 @@ private fun AppShell(
     cookieRepository: CookieRepository?,
     nowEpochMillis: () -> Long,
     mediaTagger: MediaTagger?,
+    libraryArchiveService: LibraryArchiveService?,
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -283,6 +287,7 @@ private fun AppShell(
                         mediaImporter,
                         nowEpochMillis = nowEpochMillis,
                         mediaTagger = mediaTagger,
+                        archiveService = libraryArchiveService,
                     )
                     else -> SettingsScreen(
                         engine = engine,
