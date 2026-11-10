@@ -230,16 +230,19 @@ object DesktopCli {
         val createSmart = args.value("create-smart")
         val deleteSmart = args.value("delete-smart")
         val smartId = args.value("smart")
+        val search = args.value("search")
         if (
             !args.flag("list") &&
             addTag == null &&
             removeTag == null &&
             createSmart == null &&
             deleteSmart == null &&
-            smartId == null
+            smartId == null &&
+            search == null
         ) {
             throw CliException(
-                "library requires --list, --add-tag, --remove-tag, --create-smart, --delete-smart, or --smart",
+                "library requires --list, --add-tag, --remove-tag, --create-smart, " +
+                    "--delete-smart, --smart, or --search",
             )
         }
         val database = createOpenYtDatabase(defaultDatabasePath())
@@ -276,6 +279,14 @@ object DesktopCli {
                 entries = entries,
                 missingIds = emptySet(),
                 filter = smart.toLibraryFilter(),
+                nowEpochMillis = System.currentTimeMillis(),
+            ).map { it.entry }
+        }
+        if (search != null) {
+            entries = LibraryQuery.apply(
+                entries = entries,
+                missingIds = emptySet(),
+                filter = com.openyt.core.application.LibraryFilter(query = search),
                 nowEpochMillis = System.currentTimeMillis(),
             ).map { it.entry }
         }
@@ -594,6 +605,7 @@ object DesktopCli {
                                   [--created-within-days ..] [--json]
               main --cli library  --delete-smart <id> [--json]
               main --cli library  --smart <id> [--json]
+              main --cli library  --search <query> [--json]
               main --cli cookies  [--import <path>] [--check] [--clear] [--json]
               main --cli version
             """.trimIndent(),

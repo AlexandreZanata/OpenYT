@@ -59,6 +59,39 @@ class LibraryQueryTest {
     }
 
     @Test
+    fun ranksTitleMatchesAboveAuthorTagAndFileMatches() {
+        val entries = listOf(
+            entry("file", "Other file", "/videos/music.mp4"),
+            entry("tag", "Third", "/videos/third.mp4", tags = listOf("music")),
+            entry("author", "Second", "/videos/second.mp4", author = "music"),
+            entry("title", "Music", "/videos/title.mp4"),
+        )
+
+        val result = LibraryQuery.apply(entries, emptySet(), LibraryFilter(query = "music"))
+            .map { it.entry.id }
+
+        assertEquals(listOf("title", "author", "tag", "file"), result)
+    }
+
+    @Test
+    fun searchesByAuthorAndReturnsEmptyResults() {
+        val entries = listOf(
+            entry("1", "Clip", "/videos/clip.mp4", author = "Jawed Karim"),
+            entry("2", "Other", "/videos/other.mp4", author = "Someone"),
+        )
+
+        assertEquals(
+            listOf("1"),
+            LibraryQuery.apply(entries, emptySet(), LibraryFilter(query = "jawed"))
+                .map { it.entry.id },
+        )
+        assertTrue(
+            LibraryQuery.apply(entries, emptySet(), LibraryFilter(query = "missing"))
+                .isEmpty(),
+        )
+    }
+
+    @Test
     fun filtersBySizeAndCreationAge() {
         val now = 10_000_000_000L
         val entries = listOf(
@@ -166,12 +199,16 @@ class LibraryQueryTest {
         kind: MediaKind = MediaKind.VIDEO,
         size: Long? = 1,
         createdAt: Long = 0,
+        tags: List<String> = emptyList(),
+        author: String? = null,
     ) = LibraryEntry(
         id = id,
         title = title,
+        author = author,
         kind = kind,
         filePath = path,
         sizeBytes = size,
         createdAtEpochMillis = createdAt,
+        tags = tags,
     )
 }

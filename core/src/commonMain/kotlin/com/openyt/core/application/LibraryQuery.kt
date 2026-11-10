@@ -54,11 +54,12 @@ object LibraryQuery {
         val duplicates = duplicateIds(entries)
         val query = filter.query.trim().lowercase()
 
-        return entries.asSequence()
+        val items = entries.asSequence()
             .filter { entry ->
                 val fileName = entry.filePath.substringAfterLast('/').substringAfterLast('\\')
                 val matchesQuery = query.isEmpty() ||
                     entry.title.lowercase().contains(query) ||
+                    entry.author?.lowercase()?.contains(query) == true ||
                     fileName.lowercase().contains(query) ||
                     entry.source?.lowercase()?.contains(query) == true ||
                     entry.tags.any { it.lowercase().contains(query) }
@@ -94,6 +95,44 @@ object LibraryQuery {
                 )
             }
             .toList()
+
+        if (query.isEmpty()) return items
+        return items.sortedWith(
+            compareByDescending<LibraryItem> { score(it.entry, query) }
+                .thenByDescending { it.entry.createdAtEpochMillis },
+        )
+    }
+
+    /**
+     * Higher score means a more direct match. Title beats author, tag, source
+     * and file name; the relative ordering is stable for equal scores.
+     */
+    private fun score(entry: LibraryEntry, query: String): Int {
+        val title = entry.title.lowercase()
+        val author = entry.author?.lowercase()
+        val source = entry.source?.lowercase()
+        val fileName = entry.filePath
+            .substringAfterLast('/')
+            .substringAfterLast('\\')
+            .lowercase()
+
+        var score = 0
+        when {
+            title == query -> score += 100
+            title.startsWith(query) -> score += 80
+            title.contains(query) -> score += 60
+        }
+        when {
+            author == query -> score += 70
+            author?.contains(query) == true -> score += 50
+        }
+        when {
+            entry.tags.any { it.equals(query, ignoreCase = true) } -> score += 55
+            entry.tags.any { it.lowercase().contains(query) } -> score += 40
+        }
+        if (source?.contains(query) == true) score += 30
+        if (fileName.contains(query)) score += 20
+        return score
     }
 
     /**

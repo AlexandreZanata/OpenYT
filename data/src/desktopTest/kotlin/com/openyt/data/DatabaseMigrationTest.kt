@@ -26,6 +26,7 @@ class DatabaseMigrationTest {
             val library = repository.loadLibrary()
             assertEquals(1, library.size)
             assertEquals("youtube", library.single().source)
+            assertEquals(null, library.single().author)
 
             val tasks = repository.loadTasks()
             assertEquals(1, tasks.size)
