@@ -180,7 +180,7 @@ jobs:
           name: validation-native-media-${{ runner.os }}
           path: |
             desktopApp/build/test-results/test/
-            desktopApp/build/validation/live-engine.err
+            desktopApp/build/validation/*.err
       - name: Flatten Windows installers
         if: runner.os == 'Windows'
         shell: bash

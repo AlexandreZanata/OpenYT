@@ -55,7 +55,9 @@ class DesktopYtDlpLocalTest {
         File(fixture, "captions.vtt").writeText("WEBVTT\n\n00:00:00.000 --> 00:00:00.900\nOlá mundo\n")
         File(fixture, "index.html").writeText("""<html><head><title>Fixture</title></head><body><video controls><source src="/media.mpd" type="application/dash+xml"><track kind="subtitles" srclang="pt" label="Português" src="/captions.vtt"></video></body></html>""")
         val server = serve(fixture)
-        val engine = DesktopYtDlpEngine(locator)
+        val engine = DesktopYtDlpEngine(locator, startProcess = { arguments ->
+            ProcessBuilder(arguments).redirectError(File("build/validation/options-engine.err").apply { parentFile.mkdirs() }).start()
+        })
         try {
             val variants = listOf(
                 MediaKind.VIDEO to DownloadOptions(),
@@ -82,7 +84,7 @@ class DesktopYtDlpLocalTest {
                         "local-${kind.name}",
                     ).toList()
                 }
-                val completed = assertIs<DownloadEvent.Completed>(events.last(), events.toString())
+                val completed = assertIs<DownloadEvent.Completed>(events.last(), "variant=$index kind=$kind options=$options events=$events\n" + File("build/validation/options-engine.err").readText())
                 val output = File(completed.filePath)
                 assertTrue(output.name.startsWith("Configuração e transmissão."))
                 assertTrue(output.isFile && output.length() > 0)
