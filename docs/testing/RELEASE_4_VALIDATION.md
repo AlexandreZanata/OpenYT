@@ -49,12 +49,19 @@ passed on Linux, Windows and macOS after the FFmpeg fixes, including all eight
 download-option variants and actual bounded live HLS capture. Every host also
 generated its inventory from the native binaries.
 
-The [final implementation CI 43048357446](https://github.com/AlexandreZanata/OpenYT/actions/runs/43048357446)
+The [implementation CI 43058173258](https://github.com/AlexandreZanata/OpenYT/actions/runs/43058173258)
 passed Android API 30 instrumentation: 19 discovered tests, 14 executed and five
 external-network tests intentionally skipped. This includes actual Media3 PiP,
 all 159 provider vectors, enlarged-text storage, D-pad/tablet navigation, bundled
-FFmpeg trim/conversion/normalization/tagging and Android XML safety. Screenshots
+FFmpeg trim/conversion/normalization/tagging, subsequent offline yt-dlp execution
+in the same process and Android XML safety. Screenshots
 and HTML reports are in its `android-instrumentation` artifact.
+
+That complete CI run passed, including real FFmpeg/tagger/VLC contracts with zero
+optional skips in the enabled media suites. The isolated native package setup
+[43053879186](https://github.com/AlexandreZanata/OpenYT/actions/runs/43053879186)
+also passed after runner-owned APT sources were replaced by consistent, temporary,
+signature-verified repository indexes for CI setup.
 
 Published assets must also pass
 `python3 scripts/verify-release.py v4.0.0 --commit <tested-main-sha>`.

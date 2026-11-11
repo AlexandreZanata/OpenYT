@@ -21,7 +21,7 @@ def main():
         return json.loads(subprocess.check_output(["gh", "api", f"repos/{repository}/{path}"], text=True))
 
     release = api(f"releases/tags/{args.tag}")
-    assert not release["draft"] and not release["prerelease"], "Release must be public and stable"
+    assert not release["draft"] and not release["prerelease"], "Release must be published and stable"
     assert api(f"commits/{args.tag}")["sha"] == args.commit, "Tag does not identify the tested commit"
     assets = {asset["name"]: asset for asset in release["assets"]}
     assert len(assets) == len(release["assets"]), "Duplicate asset names"
@@ -36,8 +36,8 @@ def main():
         work = Path(directory)
         subprocess.run(["gh", "release", "download", args.tag, "--repo", repository,
                         "--pattern", "SHA256SUMS.txt*", "--dir", str(work)], check=True)
-        certificate = root / "docs/releases/release-signing-public-key.pem"
-        public_key = subprocess.check_output(["openssl", "x509", "-in", str(certificate), "-pubkey", "-noout"])
+        trust_key = root / "docs/releases/release-signing-public-key.pem"
+        public_key = subprocess.check_output(["openssl", "pkey", "-pubin", "-in", str(trust_key), "-pubout"])
         (work / "trusted-public-key.pem").write_bytes(public_key)
         subprocess.run(["openssl", "dgst", "-sha256", "-verify", str(work / "trusted-public-key.pem"),
                         "-signature", str(work / "SHA256SUMS.txt.sig"), str(work / "SHA256SUMS.txt")], check=True)
@@ -49,7 +49,7 @@ def main():
             assert name not in checksums and name not in (".", ".."), "Duplicate or unsafe checksum entry"
             checksums[name] = digest
         assert checksums.keys() == assets.keys() - {"SHA256SUMS.txt", "SHA256SUMS.txt.sig"}, "Manifest asset coverage differs"
-        assert checksums[certificate.name] == hashlib.sha256(certificate.read_bytes()).hexdigest(), "Published trust certificate differs"
+        assert checksums[trust_key.name] == hashlib.sha256(trust_key.read_bytes()).hexdigest(), "Published trust key differs"
         for name, digest in checksums.items():
             assert assets[name].get("digest") == f"sha256:{digest}", f"GitHub asset digest mismatch: {name}"
     print(f"PASS {args.tag}: tested commit, pinned RSA signature, {len(checksums)} asset digests, complete native package inventory")
