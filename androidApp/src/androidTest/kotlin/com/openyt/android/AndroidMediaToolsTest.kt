@@ -50,6 +50,11 @@ class AndroidMediaToolsTest {
             } finally { retriever.release() }
             assertArrayEquals(bytes, source.readBytes())
             assertFalse(directory.listFiles().orEmpty().any { it.name.startsWith(".openyt-process-") || it.name.contains(".openyt-tag-") })
+            val engine = com.openyt.android.downloader.AndroidYtDlpEngine(context)
+            try {
+                val version = engine.capabilities().engineVersion.orEmpty()
+                assertTrue("Downloader must remain usable after local processing: $version", Regex("\\d{4}\\.\\d{2}\\.\\d{2}.*").matches(version))
+            } finally { engine.close() }
         } finally { directory.deleteRecursively() }
     }
 

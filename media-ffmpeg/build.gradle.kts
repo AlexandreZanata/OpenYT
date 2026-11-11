@@ -3,6 +3,12 @@ plugins {
     alias(libs.plugins.android.library)
 }
 
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    listOf("OPENYT_RUN_MEDIA_TESTS", "OPENYT_FFMPEG", "OPENYT_FFPROBE").forEach { name ->
+        inputs.property(name, providers.environmentVariable(name).orElse(""))
+    }
+}
+
 kotlin {
     androidTarget()
     jvm("desktop")

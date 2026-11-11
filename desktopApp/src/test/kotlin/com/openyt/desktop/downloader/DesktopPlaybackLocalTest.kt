@@ -36,7 +36,7 @@ class DesktopPlaybackLocalTest {
         try {
             val file = File(directory, "Vídeo de teste.mp4")
             val process = ProcessBuilder(
-                ExecutableLocator().findFfmpeg()!!,
+                assertNotNull(ExecutableLocator().findFfmpeg(), "Real playback requires a prepared FFmpeg executable"),
                 "-v", "error", "-f", "lavfi", "-i", "testsrc=duration=30:size=320x180:rate=10",
                 "-pix_fmt", "yuv420p", "-c:v", "libx264", file.absolutePath,
             ).redirectErrorStream(true).start()

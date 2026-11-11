@@ -112,6 +112,8 @@ jobs:
         env:
           OPENYT_RUN_MEDIA_TESTS: "1"
           OPENYT_RUN_PLAYBACK_TESTS: "1"
+          OPENYT_FFMPEG: ${{ github.workspace }}/desktopApp/build/bundled-tools/linux-x64/ffmpeg
+          OPENYT_FFPROBE: ${{ github.workspace }}/desktopApp/build/bundled-tools/linux-x64/ffprobe
         run: |
           bash scripts/install-ci-packages.sh libvlc5 vlc-plugin-base vlc-plugin-video-output xvfb
           ./gradlew :media-ffmpeg:desktopTest --console=plain

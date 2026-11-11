@@ -41,6 +41,11 @@ segments and duration limits. FFmpeg tests probe the codecs and trimmed duration
 and compare the original bytes. The playback test decodes a real video through
 libvlc, asserts always-on-top sizing, saves a position and reopens the session.
 Its screenshot is written to `desktopApp/build/validation/mini-player.png`.
+Set `OPENYT_FFMPEG` and `OPENYT_FFPROBE` to the prepared bundled executables when
+they are absent from the host; CI does this explicitly. Opt-in flags and executable
+paths are Gradle test inputs, so enabling a real-media contract cannot reuse an
+earlier report in which it was skipped. Missing tools fail an explicitly enabled
+contract instead of silently skipping it.
 
 ## Packaged Linux and browser handoff
 

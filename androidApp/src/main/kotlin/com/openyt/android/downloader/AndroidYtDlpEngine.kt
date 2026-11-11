@@ -14,7 +14,6 @@ import com.openyt.engine.ytdlp.YtDlpDownloadOptions
 import com.openyt.engine.ytdlp.YtDlpJsonParser
 import com.openyt.engine.ytdlp.YtDlpOutputParser
 import com.openyt.engine.ytdlp.YtDlpProgressParser
-import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import java.io.File
@@ -23,8 +22,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -38,7 +35,6 @@ class AndroidYtDlpEngine(
     private val context: Context,
 ) : DownloadEngine, com.openyt.core.application.ToolUpdater {
 
-    private val initMutex get() = runtimeInitMutex
     private val paused = ConcurrentHashMap.newKeySet<String>()
 
     @Volatile
@@ -208,7 +204,6 @@ class AndroidYtDlpEngine(
     override fun close() = Unit
 
     private companion object {
-        val runtimeInitMutex = Mutex()
         const val MAX_ID_LENGTH = 64
 
         const val PROGRESS_TEMPLATE =
@@ -221,27 +216,14 @@ class AndroidYtDlpEngine(
 
     private suspend fun initialize(): DownloadFailure? {
         if (initialized) return null
-        return initMutex.withLock {
-            if (initialized) return@withLock null
-            try {
-                withContext(Dispatchers.IO) {
-                    val appVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
-                    val marker = File(context.noBackupFilesDir, "openyt-engine-app-version")
-                    if (!marker.isFile || marker.readText() != appVersion) {
-                        val cache = File(context.noBackupFilesDir, "youtubedl-android/yt-dlp")
-                        check(!cache.exists() || cache.deleteRecursively())
-                    }
-                    FFmpeg.getInstance().init(context.applicationContext)
-                    YoutubeDL.getInstance().init(context.applicationContext)
-                    marker.writeText(appVersion)
-                }
-                initialized = true
-                null
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                DownloadFailure.DependencyMissing("yt-dlp runtime")
-            }
+        return try {
+            ensureAndroidMediaRuntime(context)
+            initialized = true
+            null
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            DownloadFailure.DependencyMissing("yt-dlp runtime")
         }
     }
 }

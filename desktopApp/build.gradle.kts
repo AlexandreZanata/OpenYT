@@ -20,6 +20,13 @@ val platform = hostPlatform()
 val architecture = hostArchitecture()
 val bundledToolsDir = layout.buildDirectory.dir("bundled-tools/$platform-$architecture")
 
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    listOf("OPENYT_RUN_LOCAL_ENGINE_TESTS", "OPENYT_RUN_MEDIA_TESTS", "OPENYT_RUN_PLAYBACK_TESTS", "OPENYT_RUN_NETWORK_TESTS",
+        "OPENYT_FFMPEG", "OPENYT_FFPROBE", "OPENYT_YTDLP", "OPENYT_JS_RUNTIME").forEach { name ->
+        inputs.property(name, providers.environmentVariable(name).orElse(""))
+    }
+}
+
 val prepareBundledTools by tasks.registering {
     description = "Downloads yt-dlp, FFmpeg, FFprobe, and Deno for the current platform."
     group = "distribution"
