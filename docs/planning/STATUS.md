@@ -2,6 +2,19 @@
 
 Updated: 2026-11-11
 
+## Current delivery: 4.0.0
+
+The expansion roadmap is consolidated in 4.0.0: persisted playback and desktop
+mini-player/Android PiP; subtitles, audio presets, normalization, segments and
+bounded live capture; local subscriptions; browser/deep-link handoff; OS-language
+detection; reviewed provider icons; verified release manifests and tool updates.
+D4 and G1 are closed as rejected viability decisions in ADR-0023. See the
+[roadmap audit](ROADMAP_EXPANSION.md), [usage guide](../USAGE.md) and
+[executed validation ledger](../testing/RELEASE_4_VALIDATION.md).
+
+The phase entries below are historical records of their named versions. The
+current limitations at the end supersede older descriptions of incomplete work.
+
 ## User video regression fixes
 
 - Final file confirmation uses UTF-8 and tagged JSON paths on both hosts, including
@@ -15,8 +28,8 @@ Updated: 2026-11-11
 - Shared provider logos use XML vectors compatible with Android resource loading.
 - Deterministic, local-tool, visual, and optional Android contracts are documented
   in [video regression contracts](../testing/VIDEO_REGRESSION_CONTRACTS.md).
-- Native Windows execution and Android device checks remain separate from local
-  Linux validation. See the contracts for executed evidence and pending checks.
+- Native Windows/macOS execution and Android emulator checks are separate from
+  local Linux validation. See the release ledger for the executed evidence.
 
 ## Completed
 
@@ -586,27 +599,23 @@ Validation:
 
 ## Known limitations
 
-- No automatic retry/backoff; retry is manual.
-- Share intake accepts `text/plain` only; `ACTION_VIEW` and multiple-item shares are
-  not implemented.
-- Desktop drag-and-drop accepts links only; local file import is not implemented.
-- Desktop folder chooser and multi-selection are not covered by UI automation in the
-  current headless environment; their persistence and parsing are unit-tested.
-- Windows/macOS packages are built in CI but not validated on real devices.
-- Download folder on Android is still app-specific; SAF selection and storage usage
-  are pending.
-- No pause support (engine only supports cancellation).
-- Playlist items download with the best available quality; per-entry format selection
-  is not implemented. Folder organization uses the playlist title only.
-- Media playback and subtitle download are not implemented.
+- Upstream sources may change or require authentication; a catalog entry is not
+  a guarantee that a particular URL is downloadable.
+- Subscriptions check while the app is running. There is no background server.
+- Desktop embedded playback needs installed VLC/libvlc; the system player remains
+  available when it is absent.
+- Lossless trimming may align the start to a nearby keyframe.
+- Windows and macOS lack Authenticode/notarization certificates. Native CI smoke
+  checks do not establish physical-device or manual GUI certification.
+- Android validation for this delivery uses an emulator. The user selected local
+  validation after USB installation was declined. No new physical Android, TV or
+  foldable validation is claimed.
 - SAF destination copies completed files to the chosen tree; the app keeps its local
   copy instead of moving the only file.
-- Updates download the installer and require OS/user confirmation; silent install is
-  not implemented. Automatic checks run once per process; manual re-check is in
-  Settings. Windows/macOS artifacts are unsigned until certificates are set.
+- Updates verify the signed checksum manifest and require OS/user installation
+  confirmation. They do not silently replace the running application.
 - Back up `~/.openyt/android-release.jks`; losing it prevents installing updates over
   production-signed APKs.
-- Desktop has no file import yet (Android-only SAF import).
 - Android probing may omit audio codec/bitrate when the extractor does not expose
   them; desktop probing requires FFprobe, which release packages bundle.
 - Collections have no rename UI (duplicate names are rejected; delete/recreate is
@@ -614,18 +623,7 @@ Validation:
 - Thumbnails require the source URL; offline and uncached entries show the
   placeholder. No thumbnail files are stored permanently.
 - Duplicate handling is detection only; there is no bulk duplicate cleanup action.
-- Library technical details do not probe codecs with FFprobe; they show path, size,
-  kind, and availability.
-- Library filters reset when leaving the tab; sorting options are not implemented.
-- Only arm64-v8a Android artifacts; no ABI splits.
-- Strings are centralized in Kotlin but not yet backed by Compose resources.
 - Corrupt databases disable persistence with a logged error and the app continues in
   memory.
-
-## Next step
-
-1. SAF download destination selection and storage usage.
-2. Code signing/notarization for Windows and macOS.
-3. Signed auto-update/install flow and release channels.
 
 Every claim above must be backed by a command or test recorded in the repository.

@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.StorageReport
 import com.openyt.ui.i18n.LocalStrings
+import com.openyt.ui.i18n.FeatureText
 import com.openyt.ui.util.fileNameOf
 import com.openyt.ui.util.formatBytes
 
@@ -69,7 +70,7 @@ fun StorageDialog(
                         item {
                             Text(strings.storageTotals, style = MaterialTheme.typography.labelLarge)
                             Text(
-                                "${report.totalEntries} ${strings.entriesCount} · " +
+                                "${report.totalEntries} ${if (report.totalEntries == 1) strings.features[FeatureText.ITEM_SINGULAR] else strings.entriesCount} · " +
                                     (formatBytes(report.totalBytes) ?: "0 B"),
                             )
                         }
@@ -94,7 +95,7 @@ fun StorageDialog(
                             if (report.orphanFiles.isNotEmpty()) {
                                 Text(strings.storageOrphanHint, style = MaterialTheme.typography.bodySmall)
                                 Text(
-                                    "${report.orphanFiles.size} ${strings.filesCount} · " +
+                                    "${report.orphanFiles.size} ${if (report.orphanFiles.size == 1) strings.features[FeatureText.FILE_SINGULAR] else strings.filesCount} · " +
                                         (formatBytes(report.orphanFiles.sumOf { it.sizeBytes }) ?: "0 B"),
                                 )
                             }

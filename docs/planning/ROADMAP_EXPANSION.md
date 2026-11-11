@@ -5,7 +5,8 @@ E1–E7, F3–F5 and G2–G5. D4 and G1 are closed as rejected viability decisio
 in ADR-0023, as their original exit criteria allow. F1/F2 now use available
 signatures and native installer/bundle smoke checks; Authenticode and notarization
 remain explicitly unavailable under the user's chosen signing scope. Final native
-CI/package validation is tracked in the release evidence, not inferred from code.
+CI/package validation is tracked in the [release evidence](../testing/RELEASE_4_VALIDATION.md),
+not inferred from code.
 
 ## 4.0.0 implementation audit
 
@@ -23,8 +24,8 @@ CI/package validation is tracked in the release evidence, not inferred from code
   validated deep links, Kotlin browser handoff, and download/library/watch CLI.
 - **F3/F4:** RPM, AppImage, Flatpak and checksum-filled Arch recipes in native CI.
   Actual DEB extraction/upgrade retained library data and migrated schema 13→18.
-  AppImage was built and executed locally. Other package checks require their CI
-  results before being called validated.
+  DEB/RPM/AppImage/Flatpak/Arch packages were built and executed in candidate CI;
+  the release ledger links the run. AppImage was also executed locally.
 - **F5:** responsive navigation and adaptive Library grid, a TV launcher/banner,
   hardware-key controls, enlarged-text and emulator D-pad/large-screen contracts.
   No physical TV/foldable certification is claimed.

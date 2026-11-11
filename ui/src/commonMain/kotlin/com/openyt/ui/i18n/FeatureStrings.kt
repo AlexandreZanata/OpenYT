@@ -7,6 +7,8 @@ class FeatureStrings(private val language: AppLanguage) {
 }
 
 enum class FeatureText(val portuguese: String, val english: String) {
+    ITEM_SINGULAR("item", "item"),
+    FILE_SINGULAR("arquivo", "file"),
     MINI_PLAYER("Mini-player", "Mini player"),
     FULL_PLAYER("Expandir player", "Expand player"),
     PIP("Reproduzir em janela flutuante", "Picture in picture"),
