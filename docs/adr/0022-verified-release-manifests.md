@@ -54,3 +54,9 @@ no nonfree switch; notices record the source and GPL compatibility check.
 All three hosts run the same native media contracts in release CI. Per-host
 CycloneDX inventories probe actual executable versions rather than assuming that
 a distribution tag matches each platform's binary.
+
+Flatpak packages preserve the prebuilt executables without ELF debug splitting or
+stripping. Packaging compares every bundled media/runtime tool byte-for-byte and
+executes the source catalog in the build sandbox; release CI also checks the
+installed bundle in its runtime sandbox. This avoids transforming self-contained
+tool archives during distribution.

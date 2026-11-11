@@ -116,6 +116,8 @@ jobs:
           APPIMAGETOOL="$RUNNER_TEMP/appimagetool" BUILD_FLATPAK=1 ./scripts/package-linux-extra.sh desktopApp/build/compose/binaries/main/deb/*.deb release-linux
           flatpak install --user -y release-linux/*.flatpak
           dbus-run-session -- flatpak run com.openyt.OpenYT --cli version
+          dbus-run-session -- flatpak run com.openyt.OpenYT --cli sources --json > native-flatpak-sources.json
+          python3 -c 'import json; assert len(json.load(open("native-flatpak-sources.json"))) > 100'
           mkdir rpm-smoke
           cd rpm-smoke
           rpm2cpio ../release-linux/*.rpm | cpio -id
@@ -156,6 +158,7 @@ jobs:
           hdiutil detach /tmp/openyt-volume
           /tmp/OpenYT.app/Contents/MacOS/OpenYT --cli version
           /tmp/OpenYT.app/Contents/MacOS/OpenYT --cli sources --json > native-sources.json
+          python3 -c 'import json; assert len(json.load(open("native-sources.json"))) > 100'
       - name: Native inventory
         shell: bash
         run: |
