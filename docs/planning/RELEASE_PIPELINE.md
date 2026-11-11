@@ -45,7 +45,7 @@ permissions.
 
 Each host generates a CycloneDX inventory with actual native binary versions.
 The publish job generates `SHA256SUMS.txt`, signs its exact bytes with the existing
-production key and attaches its detached signature/public certificate. The tag is
+production key and attaches its detached signature/public key. The tag is
 pinned to the tested workflow commit. Debug validation artifacts are excluded from
 published assets. See ADR-0022 for the trust and installer policy.
 
