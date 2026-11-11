@@ -46,7 +46,7 @@ def main():
         with sqlite3.connect(db) as connection:
             assert connection.execute("PRAGMA user_version").fetchone()[0] == 18
             assert connection.execute("SELECT COUNT(*) FROM library_entry").fetchone()[0] == 1
-        visible = [p for p in prefix.glob("usr/share/applications/*.desktop") if "NoDisplay=true" not in p.read_text()]
+        visible = [p for p in prefix.glob("opt/openyt/lib/*.desktop") if "NoDisplay=true" not in p.read_text()]
         assert len(visible) == 1, visible
         print("PASS migrations and single launcher")
         converted = cli("media", "--path", str(media), "--operation", "audio", "--audio-preset", "opus", "--normalize", "--json")

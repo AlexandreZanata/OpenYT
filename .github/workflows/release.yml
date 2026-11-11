@@ -108,12 +108,22 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           APPIMAGETOOL="$RUNNER_TEMP/appimagetool" BUILD_FLATPAK=1 ./scripts/package-linux-extra.sh desktopApp/build/compose/binaries/main/deb/*.deb release-linux
           flatpak install --user -y release-linux/*.flatpak
-          flatpak run com.openyt.OpenYT --cli version
+          dbus-run-session -- flatpak run com.openyt.OpenYT --cli version
           mkdir rpm-smoke
           cd rpm-smoke
           rpm2cpio ../release-linux/*.rpm | cpio -id
           ./opt/openyt/bin/OpenYT --cli version
           cd ..
+          docker run --rm -v "$PWD/release-linux:/out" archlinux:base-devel bash -c '
+            useradd -m builder
+            mkdir -p /tmp/package
+            cp /out/PKGBUILD /out/*.deb /tmp/package/
+            chown -R builder:builder /tmp/package
+            su builder -c "cd /tmp/package && makepkg --noconfirm --nodeps"
+            pacman -U --noconfirm /tmp/package/*.pkg.tar.zst
+            /opt/openyt/bin/OpenYT --cli version
+            cp /tmp/package/*.pkg.tar.zst /out/
+          '
           ./scripts/validate-linux.sh --scenario tools --no-build
           ./gradlew releaseSbom --console=plain
           cp build/release/openyt-sbom.cdx.json release-linux/
@@ -188,6 +198,7 @@ jobs:
           path: browserExtension/OpenYT-browser-handoff.zip
 
   publish:
+    if: github.ref == 'refs/heads/main'
     needs: [version, android, desktop, browser-handoff]
     runs-on: ubuntu-latest
     steps:
