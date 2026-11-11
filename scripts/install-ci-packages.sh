@@ -14,4 +14,10 @@ echo "Using Ubuntu mirror: $selected_mirror ($codename)"
 sudo sed -Ei "s|^URIs:.*|URIs: $selected_mirror|" /etc/apt/sources.list.d/ubuntu.sources
 options=(-o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::ForceIPv4=true)
 sudo apt-get "${options[@]}" -o APT::Update::Error-Mode=any update
-sudo apt-get "${options[@]}" install --no-install-recommends -y "$@"
+if ! sudo apt-get "${options[@]}" install --no-install-recommends -y "$@"; then
+    dpkg --print-architecture
+    cat /etc/apt/sources.list.d/ubuntu.sources
+    apt-cache policy "$@"
+    find /var/lib/apt/lists -maxdepth 1 -type f -printf '%f %s bytes\n'
+    exit 1
+fi
