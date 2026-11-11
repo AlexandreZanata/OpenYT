@@ -6,6 +6,10 @@ source change or operating-system failure. Real-network checks remain opt-in.
 ## Deterministic contracts
 
 - `SystemLanguageTest`: OS Portuguese variants, English fallback, explicit override.
+- `MediaPreviewTest`: distinct cached clips for distinct previews and cancellation
+  of the platform engine when leaving a preview.
+- `DesktopInstanceTest`: exclusive database ownership, validated link/focus handoff,
+  and no duplicate GUI coordinator.
 - `PlaybackCheckpointTest` / `PlaybackStoreTest`: completed-file reset, bounded
   mini-player dimensions, queue/position persistence across database reopen.
 - `AutomationConcurrencyTest` / `SubscriptionControllerTest`: concurrent duplicate
@@ -63,7 +67,9 @@ manual browser installation are separate from this contract.
 
 CI provides an API 30 emulator with KVM. Instrumentation renders provider vectors,
 checks storage recovery with enlarged text, opens actual Media3 playback and enters
-system PiP. Android network tests require the separate instrumentation argument
+system PiP. A separate Android FFmpeg test trims, converts, normalizes and tags a
+real fixture, re-probes output and verifies the original bytes. The platform RSS
+parser is checked on Android too. Android network tests require the separate instrumentation argument
 `-Pandroid.testInstrumentationRunnerArguments.openyt.network=1`.
 The local USB installation was declined; no claim of a physical-device test is made.
 

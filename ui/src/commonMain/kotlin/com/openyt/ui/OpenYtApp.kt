@@ -314,7 +314,7 @@ private fun AppShell(
                             }
                         },
                         onOpenRelease = { urlOpener.open(availableUpdate.releaseUrl) },
-                        onDismiss = { dismissedUpdateVersion = availableUpdate.version },
+                        onDismiss = { dismissedUpdateVersion = availableUpdate.version; updateInstallFailed = false },
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                     )
                 }

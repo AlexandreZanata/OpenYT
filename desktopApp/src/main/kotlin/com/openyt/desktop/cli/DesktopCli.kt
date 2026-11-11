@@ -156,8 +156,10 @@ object DesktopCli {
             val coordinator = DownloadCoordinator(
                 engine = engine,
                 scope = scope,
+                repository = SqlDelightDownloadRepository(createOpenYtDatabase(defaultDatabasePath())),
                 cookieRepository = EncryptedCookieRepository(cookieDirectory()),
             )
+            coordinator.restore()
             args.value("limit-bytes-per-second")?.toLongOrNull()?.let(coordinator::setSpeedLimit)
             val id = coordinator.enqueue(
                 media = media,
@@ -175,6 +177,10 @@ object DesktopCli {
                 priority = priority,
             )
             val task = awaitTasks(coordinator, listOf(id), args.timeoutMillis()).single()
+            if (!coordinator.awaitPersistence()) {
+                emitFailure("download", DownloadFailure.ProcessingFailed("library persistence unavailable"), args.flag("json"))
+                return 1
+            }
             emitTask("download", task, args.flag("json"))
             if (task.status == DownloadStatus.COMPLETED) 0 else 1
         } finally {
@@ -208,8 +214,10 @@ object DesktopCli {
             val coordinator = DownloadCoordinator(
                 engine = engine,
                 scope = scope,
+                repository = SqlDelightDownloadRepository(createOpenYtDatabase(defaultDatabasePath())),
                 cookieRepository = EncryptedCookieRepository(cookieDirectory()),
             )
+            coordinator.restore()
             args.value("limit-bytes-per-second")?.toLongOrNull()?.let(coordinator::setSpeedLimit)
             val ids = EnqueuePlaylistUseCase(coordinator)(
                 playlist = playlist,
@@ -222,6 +230,10 @@ object DesktopCli {
                 options = downloadOptions(args),
             )
             val tasks = awaitTasks(coordinator, ids, args.timeoutMillis())
+            if (!coordinator.awaitPersistence()) {
+                emitFailure("playlist", DownloadFailure.ProcessingFailed("library persistence unavailable"), args.flag("json"))
+                return 1
+            }
             emitPlaylist(playlist, tasks, args.flag("json"))
             if (tasks.all { it.status == DownloadStatus.COMPLETED }) 0 else 1
         } finally {
@@ -260,13 +272,20 @@ object DesktopCli {
         val operation = if (args.value("operation") == "audio") MediaOperation.CONVERT_AUDIO else MediaOperation.TRIM
         val options = downloadOptions(args)
         if (operation == MediaOperation.TRIM && options.segment == null) throw CliException("--start and --end are required")
+        val technical = com.openyt.desktop.downloader.DesktopMediaProbe().probe(path)
+        val kind = if (technical?.videoCodec != null) MediaKind.VIDEO else MediaKind.AUDIO
         val result = FfmpegMediaProcessor({ ExecutableLocator().findFfmpeg() }).process(
-            MediaProcessingRequest(path, File(path).nameWithoutExtension, MediaKind.VIDEO, operation, options.segment, options.audioPreset, options.normalizeAudio),
+            MediaProcessingRequest(path, File(path).nameWithoutExtension, kind, operation, options.segment, options.audioPreset, options.normalizeAudio),
         )
         return when (result) {
             is EngineResult.Failure -> { emitFailure("media", result.failure, args.flag("json")); 1 }
             is EngineResult.Success -> {
-                println(buildJsonObject { put("id", result.value.id); put("path", result.value.path); put("sizeBytes", result.value.sizeBytes) })
+                val output = result.value
+                SqlDelightDownloadRepository(createOpenYtDatabase(defaultDatabasePath())).insertLibraryEntry(
+                    com.openyt.core.domain.LibraryEntry(id = output.id, title = output.title, kind = output.kind,
+                        filePath = output.path, sizeBytes = output.sizeBytes, source = "local"),
+                )
+                println(buildJsonObject { put("id", output.id); put("path", output.path); put("sizeBytes", output.sizeBytes) })
                 0
             }
         }

@@ -5,6 +5,9 @@ import hashlib
 import http.server
 import json
 import os
+import signal
+import time
+import urllib.parse
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -55,7 +58,15 @@ def main():
         assert Path(trimmed["path"]).is_file()
         assert hashlib.sha256(media.read_bytes()).hexdigest() == original
         print("PASS packaged FFmpeg conversion and non-destructive trim")
-        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(fixture))
+        requested = []
+        class RecordingHandler(http.server.SimpleHTTPRequestHandler):
+            def do_GET(self):
+                requested.append(self.path)
+                super().do_GET()
+            def do_HEAD(self):
+                requested.append(self.path)
+                super().do_HEAD()
+        handler = functools.partial(RecordingHandler, directory=str(fixture))
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         try:
@@ -77,6 +88,37 @@ def main():
             (fixture / "feed.xml").write_text(f'<rss><channel><item><guid>broken</guid><title>Broken</title><enclosure url="{base}/missing.mp4"/></item></channel></rss>')
             cli("watch", "--check", "--dir", str(root / "downloads"), success=False)
             print("PASS failed automated download returns nonzero")
+            cli("download", "--url", base + "/Original%20a%C3%A7%C3%A3o.mp4", "--dir", str(root / "direct"), "--json")
+            with sqlite3.connect(db) as connection:
+                assert connection.execute("SELECT COUNT(*) FROM library_entry").fetchone()[0] == 5
+            print("PASS direct CLI downloads persist their Library record before exit")
+            if os.environ.get("DISPLAY"):
+                log = (root / "gui.log").open("w")
+                gui = subprocess.Popen([str(app)], env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                try:
+                    deadline = time.monotonic() + 30
+                    owner = root / "data/OpenYT/instance.owner"
+                    while (not owner.exists() or owner.read_text() != "gui") and time.monotonic() < deadline:
+                        assert gui.poll() is None, "GUI exited before acquiring state ownership"
+                        time.sleep(.1)
+                    assert owner.read_text() == "gui"
+                    cli("library", "--list", "--json", success=False)
+                    url = base + "/Original%20a%C3%A7%C3%A3o.mp4?handoff=1"
+                    link = "openyt://download?url=" + urllib.parse.quote(url, safe="")
+                    handoff = subprocess.run([str(app), link], env=env, capture_output=True, text=True, timeout=30)
+                    assert handoff.returncode == 0, handoff.stderr
+                    while not any("handoff=1" in request for request in requested) and time.monotonic() < deadline:
+                        assert gui.poll() is None, "Existing GUI exited during handoff"
+                        time.sleep(.1)
+                    assert any("handoff=1" in request for request in requested), "Existing GUI did not analyze the handed-off URL"
+                    assert gui.poll() is None
+                    print("PASS GUI handoff reuses the existing coordinator and blocks concurrent CLI mutations")
+                finally:
+                    if gui.poll() is None:
+                        os.killpg(gui.pid, signal.SIGTERM)
+                        gui.wait(timeout=15)
+                    log.close()
+
         finally:
             server.shutdown()
 

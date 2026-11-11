@@ -52,3 +52,10 @@ prefills a URL and requires the user's normal in-app download action.
 Android allows explicitly supplied HTTP feed/media URLs, consistently with the
 shared URL validator and the external engine. Installer and tool-update fetches
 remain HTTPS-only. No cookies are attached by the RSS reader.
+
+Desktop holds an OS file lock for the active coordinator. A second GUI launch
+forwards a validated link/focus request through a private, bounded local inbox.
+macOS additionally handles native OpenURI events. Mutating CLI sessions require
+exclusive access and report busy state while the GUI owns the database; read-only
+version/link commands remain available. CLI downloads/playlists now persist and
+flush the same queue/library records before exit. No IPC network server is added.

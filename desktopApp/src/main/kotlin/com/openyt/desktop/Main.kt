@@ -64,13 +64,28 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 
 fun main(args: Array<String>) {
-    if (args.firstOrNull() == "--cli") {
-        exitProcess(DesktopCli.run(args.drop(1)))
+    val cli = args.firstOrNull() == "--cli"
+    if (cli && args.getOrNull(1) in setOf("version", "link")) exitProcess(DesktopCli.run(args.drop(1)))
+    val initialUrl = if (cli) null else args.firstNotNullOfOrNull(OpenYtLink::parse)
+    val root = File(defaultDatabasePath()).parentFile
+    val instance = runCatching { DesktopInstance.acquire(root, gui = !cli) }.getOrNull()
+    if (instance == null) {
+        if (!cli && DesktopInstance.forward(root, initialUrl)) return
+        val text = if (java.util.Locale.getDefault().language == "pt")
+            "Não foi possível acessar os dados do OpenYT. Feche outra instância ou verifique o armazenamento."
+        else "Could not access OpenYT data. Close another instance or check storage."
+        if (cli) System.err.println("error: $text")
+        else javax.swing.JOptionPane.showMessageDialog(null, text, "OpenYT", javax.swing.JOptionPane.ERROR_MESSAGE)
+        exitProcess(1)
     }
-    launchApp(args.firstNotNullOfOrNull(OpenYtLink::parse))
+    if (cli) {
+        val result = instance.use { DesktopCli.run(args.drop(1)) }
+        exitProcess(result)
+    }
+    instance.use { launchApp(initialUrl, it) }
 }
 
-private fun launchApp(initialUrl: String? = null) = application {
+private fun launchApp(initialUrl: String?, instance: DesktopInstance) = application {
     val engine = remember { DesktopYtDlpEngine() }
     val scope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
     val database = remember {
@@ -206,6 +221,29 @@ private fun launchApp(initialUrl: String? = null) = application {
                 window.toFront()
             }
             onDispose { window.dropTarget = null }
+        }
+
+        LaunchedEffect(instance, window) {
+            while (true) {
+                val links = kotlinx.coroutines.withContext(Dispatchers.IO) { instance.takeLinks() }
+                links.forEach { url ->
+                    if (url != null) sharedUrl = url
+                    window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv()
+                    window.toFront()
+                    window.requestFocus()
+                }
+                kotlinx.coroutines.delay(300)
+            }
+        }
+        DisposableEffect(window) {
+            val desktop = runCatching { java.awt.Desktop.getDesktop() }.getOrNull()
+            val supported = desktop?.isSupported(java.awt.Desktop.Action.APP_OPEN_URI) == true
+            if (supported) desktop?.setOpenURIHandler { event ->
+                OpenYtLink.parse(event.uri.toString())?.let { url ->
+                    SwingUtilities.invokeLater { sharedUrl = url; window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv(); window.toFront(); window.requestFocus() }
+                }
+            }
+            onDispose { if (supported) desktop?.setOpenURIHandler(null) }
         }
 
         OpenYtApp(

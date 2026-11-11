@@ -52,6 +52,7 @@ class PlayerActivity : ComponentActivity() {
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller by mutableStateOf<MediaController?>(null)
     private var inPip by mutableStateOf(false)
+    private var pipReady by mutableStateOf(false)
     private var title by mutableStateOf("")
     private var playbackFailed by mutableStateOf(false)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -77,9 +78,11 @@ class PlayerActivity : ComponentActivity() {
             connected.addListener(object : Player.Listener {
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     title = mediaItem?.mediaMetadata?.title?.toString().orEmpty()
+                    playbackFailed = false
+                    updatePip()
                 }
                 override fun onIsPlayingChanged(isPlaying: Boolean) { updatePip() }
-                override fun onPlayerError(error: PlaybackException) { playbackFailed = true }
+                override fun onPlayerError(error: PlaybackException) { playbackFailed = true; updatePip() }
             })
             scope.launch {
                 if (paths.isNotEmpty()) {
@@ -127,7 +130,7 @@ class PlayerActivity : ComponentActivity() {
                         if (!inPip) {
                             Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp), maxLines = 2)
                             Row {
-                                if (supportsPip()) TextButton(onClick = ::enterPip) { Text(strings.features[FeatureText.PIP]) }
+                                if (supportsPip() && isVideo()) TextButton(onClick = ::enterPip, enabled = pipReady) { Text(strings.features[FeatureText.PIP]) }
                                 TextButton(onClick = { finish() }) { Text(strings.closeAction) }
                             }
                             if (playbackFailed) Text(strings.features[FeatureText.PLAYBACK_FAILED], modifier = Modifier.padding(16.dp))
@@ -152,8 +155,11 @@ class PlayerActivity : ComponentActivity() {
     }
 
     private fun isVideo(): Boolean = controller?.mediaMetadata?.extras?.getString("openyt.kind") != MediaKind.AUDIO.name
-    private fun updatePip() { if (supportsPip()) setPictureInPictureParams(pipParams()) }
-    private fun enterPip() { if (supportsPip() && isVideo() && controller?.mediaItemCount != 0) enterPictureInPictureMode(pipParams()) }
+    private fun updatePip() {
+        pipReady = (controller?.mediaItemCount ?: 0) > 0 && isVideo() && !playbackFailed
+        if (supportsPip()) setPictureInPictureParams(pipParams())
+    }
+    private fun enterPip() { if (supportsPip() && pipReady) enterPictureInPictureMode(pipParams()) }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()

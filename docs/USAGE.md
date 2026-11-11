@@ -71,3 +71,9 @@ downloads or media processing are running.
 Flatpak limits file access to Downloads by default; grant additional folders
 explicitly through your Flatpak permissions if needed. Local schedules do not
 continue after the app process exits.
+
+Desktop opens incoming links in the existing window. Close the GUI before running
+CLI operations that use the engine or stored state; an exclusive lock prevents
+concurrent coordinators from overwriting queue records. `--cli version` and
+`--cli link` remain available while the GUI is running. CLI downloads, playlist
+items and processed outputs appear in Library on the next app launch.

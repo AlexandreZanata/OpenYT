@@ -17,9 +17,21 @@ plugins {
 }
 
 tasks.register("releaseSbom") {
+    dependsOn(":desktopApp:prepareBundledTools")
     group = "distribution"
     description = "Generate a CycloneDX inventory of the resolved desktop and Android dependencies."
     doLast {
+        val toolDirectory = project(":desktopApp").tasks.named("prepareBundledTools").get().outputs.files.singleFile
+        val suffix = if (System.getProperty("os.name").contains("Windows", true)) ".exe" else ""
+        fun nativeVersion(name: String): String {
+            val process = ProcessBuilder(File(toolDirectory, "$name$suffix").absolutePath, "-version").redirectErrorStream(true).start()
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            check(process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS) && process.exitValue() == 0) { "Cannot inspect bundled $name" }
+            return Regex("$name version (?:n)?([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)").find(output)?.groupValues?.get(1)
+                ?: error("Unknown bundled $name version")
+        }
+        val ffmpegVersion = nativeVersion("ffmpeg")
+        val ffprobeVersion = nativeVersion("ffprobe")
         val targets = buildList {
             add(":desktopApp" to "runtimeClasspath")
             if (providers.gradleProperty("sbomAndroid").getOrElse("true").toBoolean()) add(":androidApp" to "releaseRuntimeClasspath")
@@ -32,10 +44,9 @@ tasks.register("releaseSbom") {
             mapOf("type" to "library", "group" to id.group, "name" to id.module, "version" to id.version,
                 "purl" to "pkg:maven/${id.group}/${id.module}@${id.version}")
         } + buildList {
-            val ffmpeg = if (System.getProperty("os.name").contains("Linux", true)) "8.1.3" else "6.1.1"
             add(mapOf("type" to "application", "name" to "yt-dlp", "version" to "2026.10.26"))
-            add(mapOf("type" to "application", "name" to "FFmpeg", "version" to ffmpeg))
-            add(mapOf("type" to "application", "name" to "FFprobe", "version" to ffmpeg))
+            add(mapOf("type" to "application", "name" to "FFmpeg", "version" to ffmpegVersion))
+            add(mapOf("type" to "application", "name" to "FFprobe", "version" to ffprobeVersion))
             add(mapOf("type" to "application", "name" to "Deno", "version" to "2.9.8"))
             if (targets.any { it.first == ":androidApp" }) {
                 add(mapOf("type" to "application", "name" to "yt-dlp-Android", "version" to "2025.11.12"))

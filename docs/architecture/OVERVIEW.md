@@ -104,8 +104,12 @@ and the [video regression contracts](../testing/VIDEO_REGRESSION_CONTRACTS.md).
   argument lists (never a shell). See ADR-0003. The host adds a native folder
   chooser, an AWT drop target for links, and a jpackage distribution with the
   `java.sql` module. See ADR-0007.
-- **Windows/macOS**: not yet validated; the desktop engine isolates OS differences
-  behind a process port so validation can follow without touching the core.
+- **Windows/macOS**: native MSI installation and the mounted/copied macOS bundle
+  are exercised in CI. OS certificate/notarization availability is explicit in
+  ADR-0022. The engine keeps OS differences behind a process port.
+- **Desktop state ownership**: an OS file lock permits one coordinator per database.
+  GUI links reach the existing window through a private local inbox; macOS also
+  registers an OpenURI handler. CLI mutations require exclusive access.
 
 ## Explicit non-goals
 

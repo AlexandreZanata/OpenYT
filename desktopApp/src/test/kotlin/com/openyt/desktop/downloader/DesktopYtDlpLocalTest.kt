@@ -49,10 +49,11 @@ class DesktopYtDlpLocalTest {
             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
             "-init_seg_name", "init-\$RepresentationID\$.m4s",
             "-media_seg_name", "chunk-\$RepresentationID\$-\$Number%05d\$.m4s",
-            "-seg_duration", "1", "-f", "dash", manifest.absolutePath,
-        ).redirectErrorStream(true).start()
+            "-seg_duration", "1", "-remove_at_exit", "0", "-f", "dash", manifest.name,
+        ).directory(fixture).redirectErrorStream(true).start()
         val diagnostic = generator.inputStream.bufferedReader().readText()
         assertEquals(0, generator.waitFor(), diagnostic)
+        assertTrue(File(fixture, "init-0.m4s").isFile, "DASH fixture segments missing: ${fixture.listFiles()?.map { it.name }}")
 
         File(fixture, "captions.vtt").writeText("WEBVTT\n\n00:00:00.000 --> 00:00:00.900\nOlá mundo\n")
         File(fixture, "index.html").writeText("""<html><head><title>Fixture</title></head><body><video controls><source src="/media.mpd" type="application/dash+xml"><track kind="subtitles" srclang="pt" label="Português" src="/captions.vtt"></video></body></html>""")
