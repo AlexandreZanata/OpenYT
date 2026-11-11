@@ -24,7 +24,10 @@ $powershell = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powersh
 function Run-Launcher([string]$Path, [string[]]$Arguments, [string]$Name) {
     $process = Start-Process -FilePath $Path -ArgumentList $Arguments -PassThru `
         -RedirectStandardOutput (Join-Path $work "$Name.log") -RedirectStandardError (Join-Path $work "$Name.err")
+    # Retain the native handle before a short-lived CLI process can exit.
+    $null = $process.Handle
     if (!$process.WaitForExit(90000)) { $process.Kill(); throw "$Name timed out" }
+    $process.WaitForExit()
     $process.Refresh()
     if ($process.ExitCode -ne 0) { Get-Content (Join-Path $work "$Name.err"); throw "$Name failed: $($process.ExitCode)" }
 }
@@ -36,6 +39,41 @@ function Find-Shortcuts {
     $menuLinks = @($menu | Where-Object { $_ } | ForEach-Object { Get-ChildItem $_ -Filter OpenYT.lnk -Recurse -ErrorAction SilentlyContinue })
     if (!$desktopLinks.Count -or !$menuLinks.Count) { throw 'Desktop or Start-menu shortcut missing' }
     return @($desktopLinks + $menuLinks | Sort-Object FullName -Unique)
+}
+
+function Read-ReferenceIcon {
+    # Icon.ToBitmap can corrupt PNG-compressed ICO entries on Windows GDI+.
+    # Decode the original 32px PNG entry directly, retaining an exact reference.
+    $bytes = [IO.File]::ReadAllBytes((Resolve-Path 'desktopApp/packaging/icons/openyt.ico').Path)
+    $count = [BitConverter]::ToUInt16($bytes, 4)
+    for ($index = 0; $index -lt $count; $index++) {
+        $entry = 6 + 16 * $index
+        if ($bytes[$entry] -ne 32 -or $bytes[$entry + 1] -ne 32) { continue }
+        $length = [BitConverter]::ToUInt32($bytes, $entry + 8)
+        $offset = [BitConverter]::ToUInt32($bytes, $entry + 12)
+        if ([BitConverter]::ToString($bytes, $offset, 8) -ne '89-50-4E-47-0D-0A-1A-0A') { throw 'Reference ICO entry must contain PNG data' }
+        $stream = [IO.MemoryStream]::new($bytes, [int]$offset, [int]$length)
+        try {
+            $decoded = [Drawing.Bitmap]::new($stream)
+            try { return $decoded.Clone() } finally { $decoded.Dispose() }
+        } finally { $stream.Dispose() }
+    }
+    throw 'Reference ICO has no 32px entry'
+}
+
+function Assert-ExplorerSelection([string]$Target) {
+    $deadline = [DateTime]::UtcNow.AddSeconds(20)
+    do {
+        foreach ($window in @($explorer.Windows())) {
+            try {
+                foreach ($item in @($window.Document.SelectedItems())) {
+                    if ($item.Path -eq $Target) { return }
+                }
+            } catch { }
+        }
+        Start-Sleep -Milliseconds 200
+    } until ([DateTime]::UtcNow -gt $deadline)
+    throw 'Explorer did not select the requested Unicode file'
 }
 
 function Validate-Installed([string]$Format) {
@@ -57,10 +95,9 @@ function Validate-Installed([string]$Format) {
         if (![IO.Path]::IsPathRooted($icon)) { $icon = Join-Path (Split-Path $shortcut.TargetPath) $icon }
         if (!(Test-Path $icon)) { throw "Shortcut icon resource missing: $icon" }
         $actualIcon = [Drawing.Icon]::ExtractAssociatedIcon($icon)
-        $expectedIcon = [Drawing.Icon]::new((Resolve-Path 'desktopApp/packaging/icons/openyt.ico').Path, [Drawing.Size]::new(32,32))
+        $expected = Read-ReferenceIcon
         try {
             $actual = [Drawing.Bitmap]::new($actualIcon.ToBitmap(),32,32)
-            $expected = $expectedIcon.ToBitmap()
             try {
                 $matched = 0; $visible = 0
                 for ($y=0; $y -lt 32; $y++) { for ($x=0; $x -lt 32; $x++) {
@@ -73,7 +110,7 @@ function Validate-Installed([string]$Format) {
                 $actual.Save((Join-Path $work "$Format-icon-$($linkEvidence.Count).png"))
                 if ($visible -lt 100 -or $matched / $visible -lt 0.9) { throw "Installed shortcut does not use the OpenYT brand icon: $matched/$visible matching pixels" }
             } finally { $actual.Dispose(); $expected.Dispose() }
-        } finally { $actualIcon.Dispose(); $expectedIcon.Dispose() }
+        } finally { $actualIcon.Dispose() }
     }
     Run-Launcher $app @('--cli', 'version') "$Format-version"
     $expected = (Select-String '^openyt.version=' gradle.properties).Line.Split('=')[1]
@@ -99,41 +136,39 @@ function Validate-Installed([string]$Format) {
     $root = Split-Path $app
     $testExe = Join-Path $root 'OpenYT-contract.exe'
     $testCfg = Join-Path $root 'app/OpenYT-contract.cfg'
-    Copy-Item $app $testExe -Force
-    $config = Get-Content (Join-Path $root 'app/OpenYT.cfg') -Raw
-    $config = $config -replace '(?m)^app.mainclass=.*$', 'app.mainclass=com.openyt.desktop.contract.WindowsContractHarness'
-    $config = $config.Replace('[JavaOptions]', ('app.classpath=' + (Resolve-Path $Harness).Path + "`n`n[JavaOptions]"))
-    [IO.File]::WriteAllText($testCfg, $config, [Text.UTF8Encoding]::new($false))
+    $testJar = Join-Path $root 'app/OpenYT-contract.jar'
     try {
+        Copy-Item $app $testExe -Force
+        Copy-Item $Harness $testJar -Force
+        $config = Get-Content (Join-Path $root 'app/OpenYT.cfg') -Raw
+        $config = $config -replace '(?m)^app.mainclass=.*$', 'app.mainclass=com.openyt.desktop.contract.WindowsContractHarness'
+        $config = $config.Replace('[JavaOptions]', ('app.classpath=$APPDIR\OpenYT-contract.jar' + "`n`n[JavaOptions]"))
+        [IO.File]::WriteAllText($testCfg, $config, [Text.UTF8Encoding]::new($false))
         Remove-Item (Join-Path $work 'opened.txt') -ErrorAction SilentlyContinue
         Run-Launcher $testExe @('open', ('"' + $targetFile + '"')) "$Format-open"
         $deadline = [DateTime]::UtcNow.AddSeconds(15)
         while (!(Test-Path (Join-Path $work 'opened.txt')) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
         if (!(Test-Path (Join-Path $work 'opened.txt')) -or (Get-Content (Join-Path $work 'opened.txt') -Raw) -ne $targetFile) { throw 'Open did not reach the associated handler with the exact Unicode path' }
         Run-Launcher $testExe @('reveal', ('"' + $targetFile + '"')) "$Format-reveal"
-        $found = $false
-        $deadline = [DateTime]::UtcNow.AddSeconds(20)
-        do {
-            foreach ($window in @($explorer.Windows())) {
-                try {
-                    foreach ($item in @($window.Document.SelectedItems())) {
-                        if ($item.Path -eq $targetFile) { $found = $true }
-                    }
-                } catch { }
-            }
-            if (!$found) { Start-Sleep -Milliseconds 200 }
-        } until ($found -or [DateTime]::UtcNow -gt $deadline)
-        if (!$found) { throw 'Explorer did not select the requested Unicode file' }
+        Assert-ExplorerSelection $targetFile
         $previousPlugins = $env:VLC_PLUGIN_PATH
         $env:VLC_PLUGIN_PATH = Join-Path $work 'incompatible-vlc-plugins'
         try {
             Run-Launcher $testExe @('play', ('"' + (Join-Path $work "$Format-vídeo & ação.mp4") + '"')) "$Format-play"
         } finally { $env:VLC_PLUGIN_PATH = $previousPlugins }
         Copy-Item (Join-Path $work 'windows-playback.png') (Join-Path $work "$Format-playback.png") -Force
+        Copy-Item (Join-Path $work 'windows-video-surface.png') (Join-Path $work "$Format-video-surface.png") -Force
+        # A new folder containing only a real MP4 exercises Explorer's video view.
+        $videoFolder = Join-Path $work ("$Format-first-reveal-" + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory $videoFolder | Out-Null
+        $video = Join-Path $videoFolder 'Vídeo 100% & ação #1 (final).mp4'
+        Copy-Item (Join-Path $work "$Format-vídeo & ação.mp4") $video
+        Run-Launcher $testExe @('reveal', ('"' + $video + '"')) "$Format-reveal-video"
+        Assert-ExplorerSelection $video
     } finally {
-        Remove-Item $testExe, $testCfg -ErrorAction SilentlyContinue
+        Remove-Item $testExe, $testCfg, $testJar -ErrorAction SilentlyContinue
     }
-    Write-Output "PASS ${Format}: installed shortcut target/icon/launch, exact external-open handler, Explorer selection, bundled VLC decoded playback"
+    Write-Output "PASS ${Format}: installed shortcut target/icon/launch, exact external-open handler, Explorer selection including first-open MP4 folder, visible bundled VLC decoded playback"
 }
 
 try {

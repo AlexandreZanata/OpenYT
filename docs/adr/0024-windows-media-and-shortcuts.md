@@ -17,7 +17,10 @@ did not request desktop or Start-menu shortcuts.
 - Use the existing VLCJ/JNA dependencies. Windows open uses Unicode ShellExecuteW;
   reveal uses SHParseDisplayName and SHOpenFolderAndSelectItems with the absolute
   item PIDL, count zero, initialized COM STA, and explicit memory cleanup. File
-  names never enter a shell command. Native return codes determine success.
+  names never enter a shell command. Opening a folder is followed by bounded COM
+  confirmation of its actual selection. If needed, ShellFolderView.SelectItem
+  selects/focuses the item once the view has loaded. Three consecutive observations
+  must retain the selection; all COM proxies are released on the same STA.
 - Keep native shell calls on a dedicated daemon STA executor. Shared file-action
   buttons dispatch blocking operations off the UI thread, prevent duplicate
   clicks while busy, and report failures with localized recovery instructions.
@@ -63,3 +66,11 @@ both actual installers, shortcut targets/icons/launch, a controlled file handler
 Explorer selection and decoded video through the packaged JVM/jars/native DLLs.
 The test harness is not included in release installers. Runner evidence does not
 claim a manual session on every Windows edition, GPU or user machine.
+
+Local Windows 11 validation exposed a further first-open regression: a new folder
+containing only MP4 video returned S_OK from SHOpenFolderAndSelectItems but lost
+its selection while Explorer loaded the video view. Both the zero-count form and
+an explicit parent/child PIDL reproduced it; an unknown extension or TXT did not.
+The COM view confirmation avoids treating an accepted shell request as completed
+selection. The native contracts include a fresh, video-only folder for each
+installer and inspect Explorer's actual SelectedItems.

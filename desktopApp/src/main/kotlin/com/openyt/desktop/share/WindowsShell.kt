@@ -34,7 +34,8 @@ internal object WindowsShell {
         val pointer = item.value ?: return@inApartment false
         try {
             // cidl=0 means select this absolute item in its parent folder.
-            api.SHOpenFolderAndSelectItems(pointer, 0, null, 0).toInt() >= 0
+            api.SHOpenFolderAndSelectItems(pointer, 0, null, 0).toInt() >= 0 &&
+                WindowsExplorerSelection.confirm(file)
         } finally { Ole32.INSTANCE.CoTaskMemFree(pointer) }
     }
 
