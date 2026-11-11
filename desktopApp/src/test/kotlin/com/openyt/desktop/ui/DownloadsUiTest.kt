@@ -4,11 +4,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.runSkikoComposeUiTest
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runComposeUiTest
@@ -45,6 +50,40 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class DownloadsUiTest {
+    @Test
+    fun narrowScreenWithLargeTextKeepsDownloadActionsReachable() = runSkikoComposeUiTest(
+        size = Size(320f, 640f),
+        density = Density(1f, fontScale = 1.5f),
+    ) {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val coordinator = DownloadCoordinator(SuspendedDownloadEngine(), scope)
+        coordinator.enqueue(
+            media = MediaInfo(
+                sourceId = "narrow",
+                source = "youtube",
+                title = "Configuração e transmissão de uma aula com nome longo",
+                webpageUrl = "https://example.com/watch",
+            ),
+            request = DownloadRequest("https://example.com/watch", destinationDirectory = "/tmp/ui-test"),
+        )
+        try {
+            setContent {
+                OpenYtTheme(darkTheme = true) {
+                    CompositionLocalProvider(LocalStrings provides PtBrStrings) {
+                        Surface { DownloadsScreen(coordinator, NoopMediaActions) }
+                    }
+                }
+            }
+            onNodeWithText(PtBrStrings.pauseAction).performScrollTo().assertIsDisplayed()
+            onNodeWithText(PtBrStrings.cancelAction).performScrollTo().assertIsDisplayed()
+            val screenshot = File("build/ui-regressions/downloads-mobile-large.png")
+            screenshot.parentFile.mkdirs()
+            ImageIO.write(captureToImage().toAwtImage(), "png", screenshot)
+        } finally {
+            scope.cancel()
+        }
+    }
+
     @Test
     fun progressBarMatchesGolden() = runComposeUiTest {
         setContent {
@@ -143,7 +182,7 @@ class DownloadsUiTest {
     }
 }
 
-private class SuspendedDownloadEngine : DownloadEngine {
+internal class SuspendedDownloadEngine : DownloadEngine {
     override suspend fun inspect(url: String): EngineResult<Inspection> =
         EngineResult.Failure(DownloadFailure.UnsupportedSource)
 
@@ -171,7 +210,7 @@ private class SuspendedDownloadEngine : DownloadEngine {
     override fun close() = Unit
 }
 
-private object NoopMediaActions : MediaActions {
+internal object NoopMediaActions : MediaActions {
     override val canShare: Boolean = false
     override val canOpen: Boolean = false
     override val canReveal: Boolean = false

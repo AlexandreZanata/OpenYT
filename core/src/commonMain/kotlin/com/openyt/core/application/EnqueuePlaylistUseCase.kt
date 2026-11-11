@@ -24,6 +24,7 @@ class EnqueuePlaylistUseCase(
         priority: DownloadPriority = DownloadPriority.NORMAL,
         overrides: Map<Int, PlaylistEntrySelection> = emptyMap(),
         preset: OrganizationPreset = OrganizationPreset.PLAYLIST,
+        options: com.openyt.core.domain.DownloadOptions = com.openyt.core.domain.DownloadOptions(),
         customFileNameTemplate: String? = null,
     ): List<String> {
         if (entries.isEmpty()) return emptyList()
@@ -52,6 +53,7 @@ class EnqueuePlaylistUseCase(
                     fileNameTemplate = organization.templatePrefix +
                         "$prefix - " + organization.fileTemplate,
                     playlistItemIndex = entry.index,
+                    options = options,
                 ),
                 priority = priority,
             )

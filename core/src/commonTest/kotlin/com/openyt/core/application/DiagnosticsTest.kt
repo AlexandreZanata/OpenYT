@@ -25,7 +25,14 @@ class DiagnosticsTest {
             "~/Downloads/OpenYT/video.mp4",
             DiagnosticsRedactor.redactPath("/home/alice/Downloads/OpenYT/video.mp4", "/home/alice"),
         )
-        assertEquals("/tmp/file", DiagnosticsRedactor.redactPath("/tmp/file", "/home/alice"))
+        assertEquals("<local>/file", DiagnosticsRedactor.redactPath("/tmp/file", "/home/alice"))
+    }
+
+    @Test
+    fun pathsOutsideHomeAndSimilarPrefixesDoNotExposePrivateRoots() {
+        assertEquals("<local>/private.mp4", DiagnosticsRedactor.redactPath("/home/alice-other/private.mp4", "/home/alice"))
+        assertEquals("~/Downloads/video.mp4", DiagnosticsRedactor.redactPath("C:\\Users\\Alice\\Downloads\\video.mp4", "c:\\users\\alice"))
+        assertEquals("not a URL", DiagnosticsRedactor.redactUrl("not a URL"))
     }
 
     @Test

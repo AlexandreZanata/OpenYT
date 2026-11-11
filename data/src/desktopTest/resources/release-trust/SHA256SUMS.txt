@@ -1,0 +1,1 @@
+f3fe389aeeea464b5cb05ec1f2456a965d68c8de3f31d4e90a5585fc6b51f8b5  synthetic-installer.fixture

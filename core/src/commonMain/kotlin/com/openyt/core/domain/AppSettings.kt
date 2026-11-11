@@ -7,6 +7,7 @@ enum class ThemeMode {
 }
 
 enum class AppLanguage {
+    SYSTEM,
     PT_BR,
     EN,
 }
@@ -39,7 +40,7 @@ enum class OrganizationPreset {
 
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val language: AppLanguage = AppLanguage.PT_BR,
+    val language: AppLanguage = AppLanguage.SYSTEM,
     val maxConcurrentDownloads: Int = DEFAULT_CONCURRENT,
     val downloadsDirectory: String? = null,
     val storageTreeUri: String? = null,
@@ -48,6 +49,8 @@ data class AppSettings(
     val downloadWindowEndMinutes: Int? = null,
     val organizationPreset: OrganizationPreset = OrganizationPreset.PLAYLIST,
     val fileOrganizationTemplate: String? = null,
+    val clipboardSuggestions: Boolean = false,
+    val downloadNotifications: Boolean = false,
 ) {
     companion object {
         const val MIN_CONCURRENT = 1

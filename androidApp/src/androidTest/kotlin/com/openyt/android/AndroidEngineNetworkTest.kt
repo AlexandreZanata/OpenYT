@@ -33,6 +33,11 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class AndroidEngineNetworkTest {
+    @org.junit.Before
+    fun requireExplicitNetworkOptIn() {
+        org.junit.Assume.assumeTrue(InstrumentationRegistry.getArguments().getString("openyt.network") == "1")
+    }
+
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
     private val YOUTUBE_URL = "https://www.youtube.com/watch?v=jNQXAC9IVRw"

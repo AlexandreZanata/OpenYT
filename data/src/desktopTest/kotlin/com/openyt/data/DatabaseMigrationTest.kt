@@ -2,6 +2,7 @@ package com.openyt.data
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.openyt.core.domain.DownloadPriority
+import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.OrganizationPreset
 import com.openyt.core.domain.SmartCollection
@@ -14,6 +15,38 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class DatabaseMigrationTest {
+    @Test
+    fun legacyPlaylistTaskRetriesItsStoredEntryAfterMigration() = runBlocking {
+        val file = File.createTempFile("openyt-v13-", ".db").apply { delete() }
+        try {
+            createVersionSixDatabase(file)
+            val driver = JdbcSqliteDriver("jdbc:sqlite:${file.absolutePath}")
+            OpenYtDatabase.Schema.migrate(driver, 6, 13)
+            driver.close()
+            DriverManager.getConnection("jdbc:sqlite:${file.absolutePath}").use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.executeUpdate("""
+                        UPDATE download_task SET
+                            source_id = 'https://example.com/entry/7',
+                            webpage_url = 'https://example.com/entry/7',
+                            url = 'https://example.com/playlist',
+                            status = 'FAILED', failure_kind = 'PROCESSING_FAILED',
+                            failure_detail = 'output file missing or empty'
+                    """.trimIndent())
+                    statement.executeUpdate("PRAGMA user_version = 13")
+                }
+            }
+
+            val task = SqlDelightDownloadRepository(createOpenYtDatabase(file.absolutePath))
+                .loadTasks().single()
+            assertEquals("https://example.com/entry/7", task.request.url)
+            assertEquals(null, task.request.playlistItemIndex)
+            assertEquals(DownloadFailure.OutputMissing, task.failure)
+        } finally {
+            file.delete()
+        }
+    }
+
     @Test
     fun migratesVersionSixAndBackfillsProviderSource() = runBlocking {
         val file = File.createTempFile("openyt-v6-", ".db").apply { delete() }
@@ -32,6 +65,8 @@ class DatabaseMigrationTest {
             assertEquals(1, tasks.size)
             assertEquals(DownloadPriority.NORMAL, tasks.single().priority)
             assertEquals(0, tasks.single().attempt)
+            assertEquals("%(title).150B [%(id)s].%(ext)s", tasks.single().request.fileNameTemplate)
+            assertEquals(null, tasks.single().request.playlistItemIndex)
 
             val settings = SqlDelightSettingsRepository(database).load()
             assertEquals(null, settings.speedLimitBytesPerSecond)

@@ -66,6 +66,11 @@ import com.openyt.core.domain.PlaylistInfo
 import com.openyt.ui.components.BrandMark
 import com.openyt.ui.components.MediaThumbnail
 import com.openyt.ui.components.ProviderIcon
+import com.openyt.ui.components.SourcesDialog
+import com.openyt.ui.components.DownloadOptionsEditor
+import com.openyt.core.application.MediaPreview
+import com.openyt.core.domain.DownloadOptions
+import com.openyt.ui.i18n.FeatureText
 import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.util.failureMessage
 import com.openyt.ui.util.formatDuration
@@ -90,10 +95,12 @@ fun HomeScreen(
     initialSharedUrl: String? = null,
     onSharedUrlConsumed: () -> Unit = {},
     showBrand: Boolean = false,
+    mediaPreview: MediaPreview? = null,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
     val scope = rememberCoroutineScope()
+    var showSources by remember { mutableStateOf(false) }
     val inspectMedia = remember(engine) { InspectMediaUseCase(engine) }
     var url by rememberSaveable { mutableStateOf("") }
     var state by remember { mutableStateOf<HomeState>(HomeState.Idle) }
@@ -122,6 +129,7 @@ fun HomeScreen(
         if (showBrand) {
             BrandMark()
         }
+        TextButton(onClick = { showSources = true }) { Text(strings.features[FeatureText.SUPPORTED_SOURCES]) }
         Text(
             strings.homeTitle,
             style = MaterialTheme.typography.headlineMedium,
@@ -181,6 +189,7 @@ fun HomeScreen(
                 is Inspection.Single -> MediaSummary(
                     media = inspection.media,
                     sourceUrl = current.sourceUrl,
+                    mediaPreview = mediaPreview,
                     coordinator = coordinator,
                     downloadsDirectory = downloadsDirectory,
                     organizationPreset = organizationPreset,
@@ -200,12 +209,15 @@ fun HomeScreen(
             }
         }
     }
+    if (showSources) SourcesDialog(engine) { showSources = false }
+
 }
 
 @Composable
 private fun MediaSummary(
     media: MediaInfo,
     sourceUrl: String,
+    mediaPreview: MediaPreview?,
     coordinator: DownloadCoordinator,
     downloadsDirectory: String,
     organizationPreset: OrganizationPreset,
@@ -216,6 +228,10 @@ private fun MediaSummary(
     val hasVideo = media.formats.any { it.kind == MediaKind.VIDEO }
     val hasAudio = media.formats.any { it.kind == MediaKind.AUDIO }
 
+    var options by remember(media) { mutableStateOf(DownloadOptions(liveDurationSeconds = if (media.isLive) 60 else null)) }
+    var optionsValid by remember(media) { mutableStateOf(true) }
+    var previewMessage by remember(media) { mutableStateOf<String?>(null) }
+    val previewScope = rememberCoroutineScope()
     var kind by remember(media) {
         mutableStateOf(if (hasVideo) MediaKind.VIDEO else MediaKind.AUDIO)
     }
@@ -271,6 +287,24 @@ private fun MediaSummary(
                 )
             }
 
+            if (media.subtitles.isNotEmpty()) {
+                FilterChip(kind == MediaKind.SUBTITLE, { kind = MediaKind.SUBTITLE }, label = { Text(strings.features[FeatureText.SUBTITLES]) })
+            }
+            DownloadOptionsEditor(media, kind, options, { options = it }, { optionsValid = it },
+                onPreview = mediaPreview?.let { preview ->
+                    { segment ->
+                        previewMessage = strings.features[FeatureText.WORKING]
+                        previewScope.launch {
+                            val result = try { preview.preview(media, sourceUrl, segment) }
+                                catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                                catch (_: Exception) { null }
+                            previewMessage = if (result is EngineResult.Success) null else strings.features[FeatureText.PLAYBACK_FAILED]
+                        }
+                    }
+                },
+            )
+            previewMessage?.let { Text(it) }
+
             Box(Modifier.fillMaxWidth()) {
                 OutlinedButton(
                     onClick = { menuOpen = true },
@@ -323,11 +357,13 @@ private fun MediaSummary(
                             kind = kind,
                             formatId = selectedFormatId,
                             destinationDirectory = downloadsDirectory,
+                            fileNameTemplate = OrganizationPlanner.singleTemplate(organizationPreset, fileNameTemplate),
+                            options = options,
                         ),
                     )
                     onDownloadStarted()
                 },
-                enabled = formats.isNotEmpty(),
+                enabled = optionsValid && (formats.isNotEmpty() || (kind == MediaKind.SUBTITLE && options.subtitle != null)),
             ) {
                 Text(strings.downloadButton)
             }

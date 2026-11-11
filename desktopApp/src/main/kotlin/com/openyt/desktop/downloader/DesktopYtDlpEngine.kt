@@ -9,6 +9,7 @@ import com.openyt.core.domain.EngineResult
 import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaKind
 import com.openyt.engine.ytdlp.YtDlpErrorMapper
+import com.openyt.engine.ytdlp.YtDlpDownloadOptions
 import com.openyt.engine.ytdlp.YtDlpJsonParser
 import com.openyt.engine.ytdlp.YtDlpOutputParser
 import com.openyt.engine.ytdlp.YtDlpProgressParser
@@ -31,6 +32,7 @@ import kotlinx.coroutines.withContext
  */
 class DesktopYtDlpEngine(
     private val locator: ExecutableLocator = ExecutableLocator(),
+    private val startProcess: (List<String>) -> Process = { ProcessBuilder(it).start() },
 ) : DownloadEngine {
 
     private val processes = ConcurrentHashMap<String, Process>()
@@ -43,6 +45,9 @@ class DesktopYtDlpEngine(
 
         val arguments = buildList {
             add(binary)
+            add("--ignore-config")
+            add("--encoding")
+            add("utf-8")
             add("--dump-single-json")
             add("--no-warnings")
             add("--flat-playlist")
@@ -63,7 +68,7 @@ class DesktopYtDlpEngine(
 
     override fun download(request: DownloadRequest, downloadId: String): Flow<DownloadEvent> =
         channelFlow {
-            if (request.kind == MediaKind.SUBTITLE) {
+            if (request.kind == MediaKind.SUBTITLE && request.options.subtitle == null) {
                 send(DownloadEvent.Failed(DownloadFailure.UnsupportedSource))
                 return@channelFlow
             }
@@ -89,6 +94,10 @@ class DesktopYtDlpEngine(
             val tempDirectory = File(directory, ".openyt-tmp-$safeId").apply { mkdirs() }
             val arguments = buildList {
                 add(binary)
+                add("--ignore-config")
+                add("--encoding")
+                add("utf-8")
+                add("--no-colors")
                 request.playlistItemIndex?.let {
                     add("--playlist-items")
                     add(it.toString())
@@ -102,25 +111,10 @@ class DesktopYtDlpEngine(
                 add("-o")
                 add(request.fileNameTemplate)
                 add("--print")
-                add("after_move:filepath")
+                add(if (request.kind == MediaKind.SUBTITLE) YtDlpOutputParser.SUBTITLE_PATH_TEMPLATE else YtDlpOutputParser.FILE_PATH_TEMPLATE)
                 add("--progress-template")
                 add(PROGRESS_TEMPLATE)
-                when (request.kind) {
-                    MediaKind.AUDIO -> {
-                        add("-f")
-                        add(request.formatId ?: "bestaudio/best")
-                        add("-x")
-                        add("--audio-format")
-                        add("m4a")
-                    }
-
-                    MediaKind.VIDEO -> {
-                        add("-f")
-                        add(request.formatId ?: "bv*+ba/b")
-                    }
-
-                    MediaKind.SUBTITLE -> Unit
-                }
+                addAll(YtDlpDownloadOptions.arguments(request))
                 request.limitBytesPerSecond?.let {
                     add("--limit-rate")
                     add(it.toString())
@@ -141,19 +135,21 @@ class DesktopYtDlpEngine(
             }
 
             val process = try {
-                ProcessBuilder(arguments).start()
+                startProcess(arguments)
             } catch (e: Exception) {
+                tempDirectory.deleteRecursively()
                 send(DownloadEvent.Failed(DownloadFailure.Unexpected(null)))
                 return@channelFlow
             }
 
             processes[downloadId] = process
+            if (downloadId in paused || downloadId in canceled) killTree(process)
             send(DownloadEvent.Starting)
 
             val stderrLines = Collections.synchronizedList(mutableListOf<String>())
             val stderrThread = thread(isDaemon = true, name = "openyt-stderr-$downloadId") {
                 runCatching {
-                    process.errorStream.bufferedReader().forEachLine { line ->
+                    process.errorStream.bufferedReader(Charsets.UTF_8).forEachLine { line ->
                         if (stderrLines.size < MAX_STDERR_LINES) stderrLines.add(line)
                     }
                 }
@@ -162,9 +158,11 @@ class DesktopYtDlpEngine(
             var finalPath: String? = null
             var pausedByUser = false
             try {
-                process.inputStream.bufferedReader().forEachLine { line ->
+                process.inputStream.bufferedReader(Charsets.UTF_8).forEachLine { line ->
                     YtDlpProgressParser.parse(line)?.let { trySend(it) }
-                    if (line.contains("[Merger]") || line.contains("[ExtractAudio]")) {
+                    if (line.contains("[Merger]") || line.contains("[ExtractAudio]") ||
+                        line.contains("[Fixup")
+                    ) {
                         trySend(DownloadEvent.Processing)
                     }
                     YtDlpOutputParser.extractFilePath(line)?.let { finalPath = it }
@@ -180,7 +178,7 @@ class DesktopYtDlpEngine(
                     canceled.remove(downloadId) -> send(DownloadEvent.Canceled)
 
                     exitCode == 0 -> {
-                        val file = finalPath?.let(::File)?.takeIf { it.isFile && it.length() > 0 }
+                        val file = com.openyt.data.confirmedEngineOutput(finalPath, directory, tempDirectory, request.kind == MediaKind.SUBTITLE)
                         if (file != null) {
                             send(
                                 DownloadEvent.Completed(
@@ -191,7 +189,7 @@ class DesktopYtDlpEngine(
                         } else {
                             send(
                                 DownloadEvent.Failed(
-                                    DownloadFailure.ProcessingFailed("output file missing or empty"),
+                                    DownloadFailure.OutputMissing,
                                 ),
                             )
                         }
@@ -205,6 +203,14 @@ class DesktopYtDlpEngine(
                 }
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: Exception) {
+                pausedByUser = paused.remove(downloadId)
+                val event = when {
+                    pausedByUser -> DownloadEvent.Paused
+                    canceled.remove(downloadId) -> DownloadEvent.Canceled
+                    else -> DownloadEvent.Failed(DownloadFailure.Unexpected(null))
+                }
+                send(event)
             } finally {
                 processes.remove(downloadId)
                 canceled.remove(downloadId)
@@ -223,6 +229,12 @@ class DesktopYtDlpEngine(
         processes.remove(downloadId)?.let(::killTree)
     }
 
+    override suspend fun supportedSources(): List<String> = withContext(Dispatchers.IO) {
+        val binary = locator.findYtDlp() ?: return@withContext emptyList()
+        val output = runCapture(listOf(binary, "--ignore-config", "--encoding", "utf-8", "--list-extractors"))
+        if (output.exitCode == 0) output.stdout.lineSequence().map { it.trim() }.filter { it.isNotBlank() }.distinct().sorted().toList() else emptyList()
+    }
+
     override suspend fun capabilities(): EngineCapabilities = withContext(Dispatchers.IO) {
         val binary = locator.findYtDlp()
         val version = binary
@@ -235,8 +247,8 @@ class DesktopYtDlpEngine(
         EngineCapabilities(
             engineName = "yt-dlp (desktop)",
             engineVersion = version,
-            supportsPause = false,
-            supportsSubtitles = false,
+            supportsPause = true,
+            supportsSubtitles = true,
         )
     }
 
@@ -246,15 +258,15 @@ class DesktopYtDlpEngine(
     }
 
     private fun runCapture(arguments: List<String>): ProcessOutput {
-        val process = ProcessBuilder(arguments).start()
+        val process = startProcess(arguments)
         val errorBuffer = ByteArrayOutputStream()
         val errorThread = thread(isDaemon = true) {
             runCatching { process.errorStream.copyTo(errorBuffer) }
         }
-        val stdout = process.inputStream.bufferedReader().readText()
+        val stdout = process.inputStream.bufferedReader(Charsets.UTF_8).readText()
         val exitCode = process.waitFor()
         errorThread.join()
-        return ProcessOutput(exitCode, stdout, errorBuffer.toString())
+        return ProcessOutput(exitCode, stdout, errorBuffer.toString(Charsets.UTF_8))
     }
 
     private fun killTree(process: Process) {

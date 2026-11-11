@@ -28,3 +28,7 @@ include(":data")
 include(":ui")
 include(":androidApp")
 include(":desktopApp")
+
+include(":media-ffmpeg")
+
+include(":browserExtension")

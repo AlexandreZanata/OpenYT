@@ -1,0 +1,1 @@
+CREATE TABLE subscription_rule (id TEXT NOT NULL PRIMARY KEY, definition_json TEXT NOT NULL);

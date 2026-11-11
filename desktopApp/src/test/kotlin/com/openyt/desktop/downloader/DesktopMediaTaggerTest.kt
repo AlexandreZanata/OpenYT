@@ -7,6 +7,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class DesktopMediaTaggerTest {
@@ -14,9 +15,8 @@ class DesktopMediaTaggerTest {
     fun writesEmbeddedTagsWithoutRenamingTheFile() = runBlocking {
         assumeTrue(System.getenv("OPENYT_RUN_MEDIA_TESTS") == "1")
         val locator = ExecutableLocator()
-        val ffmpeg = locator.findFfmpeg()
-        val ffprobe = locator.findFfprobe()
-        assumeTrue(ffmpeg != null && ffprobe != null)
+        val ffmpeg = assertNotNull(locator.findFfmpeg(), "Real media contracts require a prepared FFmpeg executable")
+        val ffprobe = assertNotNull(locator.findFfprobe(), "Real media contracts require a prepared FFprobe executable")
 
         val directory = File(System.getProperty("java.io.tmpdir"), "openyt-tagger-test")
         directory.deleteRecursively()

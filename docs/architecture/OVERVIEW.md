@@ -10,7 +10,9 @@ core/        Pure Kotlin Multiplatform (JVM + Android)
   domain/      Models, value objects, structured errors
   application/ Use cases and ports (DownloadEngine, repositories)
 engine-ytdlp/ Pure Kotlin yt-dlp JSON/progress/error parsing (no process or I/O)
-data/        SQLDelight schema, repository, and platform drivers
+data/        SQLDelight schema, repositories, verified downloads, platform drivers
+media-ffmpeg/ External FFmpeg processing and tagging adapter (shared JVM/Android)
+browserExtension/ Kotlin/JS URL handoff; no extraction or download service
 ui/          Compose Multiplatform screens and design system
 androidApp/  Android host: Activity, platform port implementations
 desktopApp/  Desktop host: main window, platform port implementations
@@ -62,6 +64,11 @@ supplies native icon files to jpackage. Android supplies adaptive launcher layer
 The [brand guidelines](../branding/README.md) link to the SVG master and platform
 assets.
 
+Provider glyphs use shared XML vectors supported by Android and desktop. Storage
+messages are grouped inside `AppStrings` to keep the JVM constructor and generated
+copy methods below the platform parameter limit. Storage rows are rendered lazily
+and dialog actions remain outside the scrolling content.
+
 ## Technical metadata
 
 `MediaProbe` is a core port for local file metadata. Android implements it with
@@ -83,6 +90,11 @@ auto-resumed. Retry creates a fresh task. Removing a library entry deletes only 
 record, never the file. Temporary directories are per task and cleaned at completion,
 cancellation, and startup. See ADR-0005.
 
+Final output confirmation uses tagged JSON paths and explicit UTF-8 on both hosts.
+Schema 18 adds playback sessions, typed download options, subscriptions, and opt-in settings. Schema 14 also preserves the filename template and playlist item index so a restored
+task repeats its original request. See [ADR-0020](../adr/0020-download-completion.md)
+and the [video regression contracts](../testing/VIDEO_REGRESSION_CONTRACTS.md).
+
 ## Platform notes
 
 - **Android**: yt-dlp is provided by `io.github.junkfood02.youtubedl-android`,
@@ -92,11 +104,18 @@ cancellation, and startup. See ADR-0005.
   argument lists (never a shell). See ADR-0003. The host adds a native folder
   chooser, an AWT drop target for links, and a jpackage distribution with the
   `java.sql` module. See ADR-0007.
-- **Windows/macOS**: not yet validated; the desktop engine isolates OS differences
-  behind a process port so validation can follow without touching the core.
+- **Windows/macOS**: native MSI installation and the mounted/copied macOS bundle
+  are exercised in CI. OS certificate/notarization availability is explicit in
+  ADR-0022. The engine keeps OS differences behind a process port.
+- **Desktop state ownership**: an OS file lock permits one coordinator per database.
+  GUI links reach the existing window through a private local inbox; macOS also
+  registers an OpenURI handler. CLI mutations require exclusive access.
 
 ## Explicit non-goals
 
 - Reimplementing extraction, codecs, or DRM handling.
 - Backend services, accounts, telemetry, or remote job processing.
 - Executing unverified binaries or silent remote updates.
+
+See [ADR-0021](../adr/0021-local-media-expansion.md) for playback/automation and
+[ADR-0022](../adr/0022-verified-release-manifests.md) for release verification.
