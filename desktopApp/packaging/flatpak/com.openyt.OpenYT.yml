@@ -13,6 +13,9 @@ finish-args:
 modules:
   - name: openyt
     buildsystem: simple
+    build-options:
+      no-debuginfo: true
+      strip: false
     build-commands:
       - mkdir -p /app/lib /app/bin
       - cp -a openyt /app/lib/
