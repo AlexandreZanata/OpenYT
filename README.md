@@ -3,277 +3,331 @@
   <img src="docs/branding/openyt-lockup-light.svg" width="310" alt="OpenYT">
 </picture>
 
-[Usage guide](docs/USAGE.md) · [Brand rules](docs/branding/README.md) · [4.0.0 notes](docs/releases/v4.0.0.md) · [Regression contracts](docs/testing/EXPANSION_CONTRACTS.md)
+# OpenYT — video downloader, audio downloader and media library
 
-Local-first, multiplatform media downloader and library manager built with Kotlin.
+[![Release](https://img.shields.io/github/v/release/AlexandreZanata/OpenYT)](https://github.com/AlexandreZanata/OpenYT/releases/latest)
+[![CI](https://github.com/AlexandreZanata/OpenYT/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AlexandreZanata/OpenYT/actions/workflows/ci.yml)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-0F766E)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platforms-Android%20%C2%B7%20Windows%20%C2%B7%20Linux%20%C2%B7%20macOS-0F766E)](#download-and-install)
 
-OpenYT lets a user paste or share a media URL, inspect available formats, download
-authorized content, and organize it in a local library. There is no account and no
-backend: the app runs entirely on the device.
+**Download videos, audio and playlists, organize your files, and keep watching
+with Android picture-in-picture or a floating desktop mini-player.**
 
-> Status: 4.0.0 consolidates the expansion roadmap. Queue, library, playback and
-> automation persist locally. See the [validation ledger](docs/testing/RELEASE_4_VALIDATION.md)
-> for executed checks and platform limits.
+OpenYT is a local-first application built with **Kotlin Multiplatform**, **Compose
+Multiplatform**, **yt-dlp** and **FFmpeg**. Downloads, library records and settings
+stay on your device. There is no OpenYT account or remote download server.
 
-## Screenshots
+[Download](https://github.com/AlexandreZanata/OpenYT/releases/latest) ·
+[All supported sources](docs/SUPPORTED_SOURCES.md) ·
+[Usage guide](docs/USAGE.md) · [What's new in 4.0](docs/releases/v4.0.0.md) ·
+[Brand guidelines](docs/branding/README.md)
 
-| Desktop library | Desktop update banner |
-|-----------------|-----------------------|
-| ![OpenYT desktop library](docs/assets/phase9-desktop-dark.png) | ![OpenYT desktop update banner](docs/assets/phase14-update-banner.png) |
+## Features
+
+- **Video, audio and playlists:** inspect a link, review metadata and thumbnails,
+  choose the available format, select playlist/channel/album entries, and choose
+  formats per item. Files can be numbered and grouped into playlist folders.
+- **Download queue:** priorities, 1–4 concurrent downloads, pause/resume with
+  partial files preserved, cancellation, manual retry, automatic retry with
+  backoff, speed limits and download time windows. Recover interrupted work
+  after restarting the app.
+- **Local media library:** search titles, authors, tags and sources; filter video,
+  audio, missing files and possible duplicates; sort by title; create collections
+  and smart collections; edit metadata and inspect technical media details.
+- **File organization:** naming templates and organization presets, bulk
+  rename/move with a preview, folder scanning/import, JSON library export/import,
+  file verification, duplicate review and a storage report with import recovery.
+  Removing a library record preserves the media file.
+- **Playback:** a shared queue, saved playback positions, resume after restart,
+  previous/next and ten-second seeking. Android adds background audio and system
+  **PiP**; desktop adds a floating mini-player and keyboard controls.
+- **Audio tools:** M4A, MP3, Opus, FLAC and WAV presets, optional loudness
+  normalization and local audio conversion through FFmpeg.
+- **Video tools:** reported manual/automatic subtitle tracks as sidecars or
+  embedded captions, chapter preservation, optional SponsorBlock chapter marks,
+  segment selection/preview and bounded live-stream capture.
+- **Local editing:** create a clip or audio conversion from Library without
+  replacing the original file. Lossless cuts can align to nearby keyframes.
+- **Local automation:** subscribe to RSS/Atom feeds or watch playlists, record an
+  initial baseline, choose whether to include existing entries, and avoid repeated
+  downloads. Scheduled checks run while OpenYT is open.
+- **Link intake and sharing:** paste, Android share intake, desktop dropped links,
+  validated `openyt://` links, an optional active-tab browser extension and a
+  desktop CLI. Share completed Android media through the OS chooser; open or
+  reveal desktop files with the system's applications.
+- **Language and appearance:** automatically follow the OS language, with
+  Brazilian Portuguese and English overrides; system/light/dark themes; shared
+  OpenYT branding; source logos and accessible fallback tiles; responsive phone,
+  tablet and desktop layouts.
+- **Optional conveniences:** foreground-only clipboard suggestions and download
+  notifications, both off by default; authorized local cookies encrypted at rest.
+- **Updates and diagnostics:** a searchable installed-source catalog, explicitly
+  requested checksum-verified yt-dlp updates, redacted diagnostics and application
+  installer verification against a pinned signed release manifest.
+
+Embedded desktop playback, resume and the mini-player require **VLC/libvlc**.
+Without it, files open in the OS player. Live capture defaults to 60 seconds and
+can be bounded from 1 second to 24 hours. Generic photo/image gallery downloading
+is outside this release ([ADR-0023](docs/adr/0023-engine-and-image-viability.md)).
+
+## Supported sites and download sources
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/v4/source-examples-dark.svg">
+  <img src="docs/assets/v4/source-examples-light.svg" width="960" alt="Source examples: YouTube, Instagram, TikTok, X / Twitter, Facebook, Vimeo, Twitch, Reddit, Pinterest, SoundCloud, Bandcamp and Dailymotion">
+</picture>
+
+The installed yt-dlp engine supplies the source catalog. Examples include:
+
+- **Social video:** YouTube, Instagram, TikTok, X/Twitter, Facebook, Reddit,
+  Pinterest, Bluesky, Tumblr and VK.
+- **Video and live streams:** Vimeo, Twitch, Dailymotion, Rumble, Bilibili,
+  PeerTube, Kick, Niconico and Internet Archive.
+- **Music and audio:** SoundCloud, Bandcamp, Mixcloud, Audius and supported
+  podcast feeds.
+- **Learning and broadcasts:** TED, Khan Academy, LinkedIn Learning, Udemy,
+  BBC and ARTE, subject to the source's access requirements.
+- **Other supported media:** Telegram embeds, direct media links and the
+  additional providers and embed extractors in the complete catalog.
+
+**[Browse the complete source catalog: 1,754 extractor entries →](docs/SUPPORTED_SOURCES.md)**
+([machine-readable JSON](docs/sources/yt-dlp-2026.10.26.json)). This is the desktop
+4.0.0 reference catalog, not a count of distinct websites or verified working URLs.
+It preserves the engine's **136 `CURRENTLY BROKEN` warnings**. Android's bundled
+version and explicit engine updates can produce a different catalog.
+
+Open **Home → Sites and sources** to search the engine on your device. A provider
+can expose separate entries for videos, playlists, channels and embedded players.
+Availability depends on the installed version, source changes, region and
+authorized access. Source logos identify providers and do not imply affiliation.
+
+## Screenshots and feature walkthrough
+
+These are real captures of OpenYT 4.0.0. The desktop library uses labeled demo
+media; the Android PiP capture uses an emulator and a generated test clip.
+[Capture provenance](docs/assets/v4/README.md) records the source of each image.
+
+### Organize your library
+
+Search your files, keep a **Learning** collection, save a smart collection, or
+filter by media kind and file availability. Each available item offers playback,
+media processing, details and collection assignment. Select multiple records to
+preview a bulk rename or move before applying it.
+
+![OpenYT 4.0 desktop library with demo media, collections, smart collections, search and file actions](docs/assets/v4/desktop-library.png)
+
+### Keep watching while you work
+
+Play an available Library item. On desktop, **Space** pauses/plays, **←/→** jump
+ten seconds, **M** toggles the floating window, and **Escape** expands it. Choose
+**Resume playback** to restore the saved session. Android uses the system PiP
+window for video and supports background audio.
+
+<p>
+  <img src="docs/assets/v4/desktop-mini-player.png" width="440" alt="OpenYT floating desktop mini-player decoding a generated test video">
+  <img src="docs/assets/v4/android-pip.png" width="240" alt="OpenYT Android video playing in a real system PiP window on an emulator">
+</p>
+
+### Follow the OS language and choose your theme
+
+New installations use **System** language: Portuguese locales select Brazilian
+Portuguese; other locales currently fall back to English. In **Settings**, select
+System, Português or English explicitly, choose the appearance and concurrency,
+and opt into copied-link suggestions or download notifications. Existing saved
+language choices are preserved.
+
+![OpenYT Settings showing themes, optional clipboard and notification controls, language choices and download concurrency](docs/assets/v4/desktop-settings.png)
+
+<details>
+<summary><strong>Follow a playlist or subscribe to a podcast/RSS feed</strong></summary>
+
+Open **Settings → Local automation → Add subscription**. Enter a title, URL and
+check interval, then select a playlist or RSS/podcast feed. Leave **Also download
+existing items** off to establish a baseline and fetch only new entries.
+Checks run while the application is open; failed downloads remain available for
+an explicit retry in Downloads.
+
+![OpenYT local automation form with interval, playlist/feed selection and include-existing control](docs/assets/v4/desktop-subscription-form.png)
+
+</details>
+
+<details>
+<summary><strong>Find a source or create a local clip</strong></summary>
+
+**Home → Sites and sources** searches the installed engine rather than a fixed
+marketing list. In **Library → Media processing**, choose a clip interval or an
+audio preset. The output is a new file, and the original is preserved.
+
+![OpenYT installed source browser with provider icons](docs/assets/v4/desktop-sources.png)
+
+![OpenYT local media processing dialog](docs/assets/v4/desktop-media-processing.png)
+
+</details>
 
 ## Download and install
 
-Get the latest files from the [Releases page](https://github.com/AlexandreZanata/OpenYT/releases/latest)
-(Android APK, Linux packages, Windows MSI/EXE, macOS DMG, browser handoff and signed checksums).
+Get **[OpenYT 4.0.0 from Releases](https://github.com/AlexandreZanata/OpenYT/releases/latest)**.
+The release includes Android APK, Linux DEB/RPM/AppImage/Flatpak/Arch packages,
+Windows MSI/EXE, macOS DMG, the browser handoff extension, per-host software
+inventories and signed checksums.
 
 ### Android
 
-1. Download `androidApp-release.apk`.
-2. Allow installing unknown apps for the browser or file manager.
-3. Open the APK and install. Requires Android 8.0+ (`minSdk 26`); verified on arm64.
+1. Download `androidApp-release.apk` from the release.
+2. Allow your browser or file manager to install the APK, then open it.
+3. Launch OpenYT. Requires **Android 8.0+**; yt-dlp and FFmpeg are bundled.
 
-The Android build bundles yt-dlp and FFmpeg, so no extra setup is required.
+The release APK uses the project's production signing certificate. Completed
+media can be shared through installed Android apps, imported through the system
+file picker, or exported to a selected storage tree.
 
 ### Linux
 
 ```bash
-# Debian/Ubuntu (amd64)
+# Debian/Ubuntu, x86_64
 wget https://github.com/AlexandreZanata/OpenYT/releases/latest/download/openyt_4.0.0_amd64.deb
 sudo apt install ./openyt_4.0.0_amd64.deb
 ```
 
-The release bundles yt-dlp, FFmpeg, FFprobe, and Deno. No extra setup is required.
-RPM, AppImage, Flatpak and an Arch package/recipe are also provided. Embedded
-playback uses separately installed VLC/libvlc; downloads do not require it.
+RPM, AppImage, Flatpak and an Arch package/recipe are also available. Desktop
+releases bundle yt-dlp, FFmpeg, FFprobe and Deno. Install VLC/libvlc separately for
+embedded playback and the mini-player. Flatpak grants access to Downloads by
+default; additional folders need explicit permissions.
 
 ### Windows
 
-1. Download `OpenYT-4.0.0.exe` (recommended) or `OpenYT-4.0.0.msi`, run it, and
-   confirm the SmartScreen prompt (More info → Run anyway) because the installer
-   is unsigned.
-2. Open OpenYT. yt-dlp, FFmpeg, FFprobe, and Deno are bundled.
-
-Native CI installs the MSI and executes its bundled launcher and engine. This
-does not claim a manual GUI session or physical-device certification.
+Download and run `OpenYT-4.0.0.exe` or `OpenYT-4.0.0.msi`. The desktop tools are
+bundled; install VLC separately for embedded playback. Windows installers do not
+currently carry Authenticode signatures, so SmartScreen can display a warning.
+Use the official release and its signed checksums to verify the downloaded file.
 
 ### macOS
 
-1. Download `OpenYT-4.0.0.dmg`, open it, and drag OpenYT to Applications.
-2. The app is unsigned, so right-click → Open (or remove the quarantine flag):
+Open `OpenYT-4.0.0.dmg` and drag OpenYT to Applications. Desktop tools are bundled;
+VLC is separate. The app is currently unsigned and not notarized, so opening it
+is subject to the Mac's Gatekeeper policy. Native CI validates the copied bundle
+and launcher; see the [validation ledger](docs/testing/RELEASE_4_VALIDATION.md).
 
-```bash
-xattr -dr com.apple.quarantine /Applications/OpenYT.app
-```
+## Your first download
 
-yt-dlp, FFmpeg, FFprobe, and Deno are bundled. Native CI mounts the DMG, copies
-the app and executes its launcher and engine. Manual Gatekeeper/UI validation is
-separate from those checks.
+1. **Paste or share an authorized media URL** into Home.
+2. Select **Inspect** (**Analisar** in Portuguese). Review the title, thumbnail,
+   available formats, or playlist entries returned by the source.
+3. Choose **Video** or **Audio**, the format and the items you want. Expand
+   **Download options** for subtitles, audio conversion, normalization, chapters,
+   a segment or a bounded live capture.
+4. Select **Download** or **Download selected**. Follow progress in **Downloads**,
+   then play and organize completed files in **Library**.
 
-## Download examples
+For a playlist, the default organization creates a named folder with entries
+numbered in their original order. Settings provides alternative organization
+presets and editable file-name templates. See the [usage guide](docs/USAGE.md) for
+cookies, playback, local processing, automation, data locations and recovery.
 
-Only download content you are authorized to obtain.
+## Privacy, access and updates
 
-### Video (real example)
+There is no OpenYT account, telemetry or remote download service. Media and
+thumbnail requests go to their sources. Update checks use GitHub; optional
+SponsorBlock marking contacts that service only when enabled. Clipboard reads
+are opt-in and stop when the app loses foreground focus. Imported cookies remain
+local and encrypted at rest.
 
-1. Paste `https://www.youtube.com/watch?v=jNQXAC9IVRw` (Me at the zoo).
-2. Select **Inspect**.
-3. Choose **Video** and pick a format, e.g. `240p · MP4 · 314.8 KB`.
-4. Select **Download**; the file appears in **Downloads** and **Library**.
+Application updates verify the pinned signed manifest and checksums before
+opening an installer, which still requires OS confirmation. **Settings → Update
+engine** explicitly downloads and verifies official stable yt-dlp. Other bundled
+tools update with application releases. Removing a Library record never deletes
+the corresponding file.
 
-### Audio
+## Build and architecture
 
-1. Paste the same URL, or any authorized audio source.
-2. Select **Inspect**, switch to **Audio**, and pick a format such as M4A or Opus.
-3. Select **Download**.
-
-### Playlists
-
-1. Paste a playlist, channel, or album URL and select **Inspect**.
-2. Choose **Video** or **Audio**, select the items (all are selected by default),
-   and select **Download selected**.
-3. Each item becomes its own queued download. Files are saved inside a folder named
-   after the playlist, numbered in the original order (for example
-   `My playlist/01 - First video [id].mp4`).
-
-### Photos and images
-
-Generic photo/image gallery downloads are outside this release (ADR-0023). OpenYT downloads video and audio;
-thumbnails are displayed in the app but are not saved as separate files.
-
-## Supported sources and formats
-
-OpenYT delegates extraction to yt-dlp, so any site supported by the installed
-yt-dlp build can be inspected, including YouTube, Instagram, TikTok, X, Facebook,
-SoundCloud, Vimeo, Twitch, Reddit, Pinterest, Dailymotion, Bandcamp, Threads,
-Telegram, Bilibili, and Rumble. Settings → Sites and sources searches the installed
-catalog. Reviewed logos identify available brands; other sources receive accessible
-name/initial tiles. Site support depends on the bundled yt-dlp version and
-on the source's terms and restrictions.
-
-Playlists and channels use the same generic path. The app supports the video and
-audio formats exposed by yt-dlp and reported subtitle tracks, saved as sidecars
-or embedded in video. Availability can change at the upstream source.
-
-## Stack
-
-| Concern            | Choice                                                |
-|--------------------|-------------------------------------------------------|
-| Language           | Kotlin (product code)                                 |
-| Shared logic       | Kotlin Multiplatform (`jvm`, `android`)               |
-| UI                 | Compose Multiplatform (Android + desktop)             |
-| Concurrency        | Kotlin Coroutines + `StateFlow`                       |
-| Build              | Gradle Kotlin DSL + version catalog                   |
-| Serialization      | kotlinx.serialization                                 |
-| Extraction engine  | yt-dlp (external dependency; never reimplemented)     |
-| Conversion         | FFmpeg (external dependency)                          |
-| Distribution       | GitHub Actions                                        |
-
-## Supported platforms
-
-- Android (primary, `minSdk 26`) — verified on a real arm64 device during Phase 0.
-- Linux desktop — packaged upgrade, real downloads, processing and VLC playback.
-- Android 4.0.0 validation — KVM emulator; no new physical-device test is claimed.
-- Windows/macOS — native CI build, installer/bundle smoke and local media contracts.
-
-## Repository layout
+Product code is Kotlin. Shared logic uses Kotlin Multiplatform, shared UI uses
+Compose Multiplatform, persistence uses SQLDelight, and extraction/conversion
+delegate to external yt-dlp and FFmpeg. There is no backend.
 
 ```text
-androidApp/     Android host application
-desktopApp/     Desktop (Compose JVM) host application
-core/           Pure Kotlin Multiplatform domain + application layer
-engine-ytdlp/   Shared yt-dlp output/error/progress parsing
-data/           SQLDelight database and repository implementations
-media-ffmpeg/   Shared adapter invoking external FFmpeg
-browserExtension/ Kotlin/JS local URL handoff
-ui/             Shared Compose Multiplatform UI and design system
-docs/           Architecture, ADRs, planning, product, security, testing
+androidApp/        Android host and platform adapters
+desktopApp/        Compose JVM host, CLI and platform adapters
+core/              Pure Kotlin domain models, ports and use cases
+engine-ytdlp/      Shared engine output, progress and error parsing
+data/             SQLDelight persistence and repository implementations
+media-ffmpeg/      Adapter invoking external FFmpeg
+browserExtension/  Kotlin/JS active-tab URL handoff
+ui/                Shared Compose UI and design system
+docs/              Usage, architecture, ADRs, branding and validation
 ```
 
-`core` must never depend on Android SDK, Compose, yt-dlp, FFmpeg, or any I/O
-framework. `ui` may depend on `core`, never the reverse. Host applications wire
-platform implementations into the shared use cases.
+Read the [architecture overview](docs/architecture/OVERVIEW.md) and relevant
+[ADRs](docs/adr/) before changing modules. `core` is independent of UI, I/O and
+platform SDKs; host apps implement and inject platform ports.
 
-## Build
-
-Requirements:
-
-- JDK 17+ (JDK 21 recommended)
-- Android SDK with platform 36 and build-tools 36
-- `ANDROID_HOME` or `local.properties` with `sdk.dir`
-- Network access when packaging desktop builds (yt-dlp, FFmpeg, FFprobe, and Deno
-  are downloaded and embedded)
-- yt-dlp, FFmpeg, and Deno on `PATH` only when running the desktop app from source
+Requirements: **JDK 17+** (21 recommended), **Android SDK platform/build-tools 36**
+and `ANDROID_HOME` or `local.properties` with `sdk.dir`. Packaging downloads the
+pinned desktop tools. Running desktop directly from source requires yt-dlp,
+FFmpeg and Deno on `PATH`.
 
 ```bash
-./gradlew :core:allTests
 ./gradlew :androidApp:assembleDebug
 ./gradlew :desktopApp:run
 ./gradlew :desktopApp:createDistributable
 ./gradlew :desktopApp:packageDeb
 ```
 
-Install the debug APK on a connected device:
+### Desktop CLI and browser handoff
+
+The packaged launcher also exposes headless commands. Close the GUI before
+commands using the engine or stored state; an exclusive coordinator lock
+protects queue and library records. `version` and `link` remain available while
+the GUI is running.
 
 ```bash
-./gradlew :androidApp:installDebug
-```
-
-## Validation
-
-Unit and UI tests:
-
-```bash
-./gradlew :core:allTests :engine-ytdlp:allTests :data:desktopTest :desktopApp:test
-```
-
-Real Linux validation against the packaged `.deb` (extracts to an isolated
-prefix, uses isolated `XDG_*` directories, downloads real media and checks files,
-playlist layout, the database schema and a GUI screenshot):
-
-```bash
-./scripts/validate-linux.sh --scenario all
-./scripts/validate-linux.sh --scenario all --no-build   # reuse an existing deb
-./scripts/validate-linux.sh --scenario all --offline    # skip network scenarios
-```
-
-The packaged binary also exposes a headless CLI used by the validation script:
-
-```bash
-OpenYT --cli inspect  --url <url> --json
-OpenYT --cli download --url <url> --kind video --dir <path> --json
-OpenYT --cli playlist --url <url> --kind audio --limit 5 --json
-OpenYT --cli library  --list --json
+OpenYT --cli inspect --url '<authorized-url>' --json
+OpenYT --cli download --url '<authorized-url>' --kind video --dir '<folder>' --json
+OpenYT --cli playlist --url '<authorized-playlist-url>' --kind audio --limit 5 --json
+OpenYT --cli library --list --json
+OpenYT --cli sources --json
 OpenYT --cli version
 ```
 
-## Releases
+The optional browser ZIP contains an unpacked active-tab handoff extension. Load
+it through the browser's extension developer screen. It forwards a validated
+`openyt://` link for review in the app; browser-store publication is separate.
 
-Latest: [v4.0.0](https://github.com/AlexandreZanata/OpenYT/releases/tag/v4.0.0)
-(Android APK, Linux DEB/RPM/AppImage/Flatpak/Arch, Windows MSI/EXE, macOS DMG,
-browser handoff, per-host inventories and signed checksums).
+## Tests and release evidence
 
-Every push to `main` builds and publishes Android, Linux, Windows, and macOS
-artifacts through `.github/workflows/release.yml`. The version lives in
-`gradle.properties` (`openyt.version`). Android signing is optional; without
-secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
+Run deterministic unit and UI suites:
 
-## Current status
+```bash
+./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest \
+  :media-ffmpeg:desktopTest :desktopApp:test
+```
 
-- Paste or share a URL, inspect metadata/formats, choose video or audio, download
-  with progress, cancel/retry, and manage a persistent local Library.
-- Inspect playlists and channels, select items, choose formats per entry, and
-  download them into a numbered playlist folder; provider icons identify common
-  networks with accessible name tiles for other sources.
-- Follow the OS language automatically, with Portuguese/English overrides.
-- Restore playback position/queue, use Android PiP or the desktop floating
-  mini-player, seek and jump ten seconds with keyboard/player controls.
-- Select reported subtitle tracks, audio presets, normalization, chapters,
-  optional SponsorBlock marks, bounded live capture and segment preview.
-- Create clips/audio conversions without replacing the original. Subscribe to
-  RSS/Atom or watch playlists locally while the application is running.
-- Search the installed source catalog; use validated browser/deep-link handoff,
-  optional clipboard suggestions/notifications and checksum-verified tool updates.
-- Priority-aware queue (high/normal/low), pause/resume with partial files preserved,
-  automatic retries with backoff, speed limits, download windows, organization
-  presets and editable file-name templates, encrypted local browser cookies for
-  authorized content, library tags, smart collections, metadata search/editing,
-  JSON library export/import, watch-folder import, a read-only storage report,
-  bulk rename/move with preview, Android and desktop playback (VLCJ with system
-  fallback), a shared playback queue, and bulk resume of interrupted downloads.
-- Queue and Library survive app restarts; interrupted downloads can be retried.
-- Removing a Library entry never deletes the downloaded file.
-- Library search, kind/availability/duplicate filters, title sorting, missing-file
-  detection, safe duplicate cleanup, and technical detail dialogs.
-- Thumbnails in the inspect result, Downloads, and Library on Android and desktop.
-- Library collections: create, filter, and assign media; deleting a collection
-  never touches files or library entries.
-- Desktop uses larger responsive thumbnails and a themed wide layout.
-- Shared OpenYT identity with light and dark themes, an adaptive Android launcher
-  icon, and desktop window and package icons.
-- Library details show technical metadata (duration, resolution, codecs, bitrate,
-  container) via platform probes.
-- Share completed media to WhatsApp, Drive, and any installed Android handler via
-  the system chooser; open or reveal files on desktop.
-- Import existing video/audio through the Android Storage Access Framework and
-  export completed downloads to a chosen SAF tree.
-- Redacted diagnostics (copyable) and an automatic GitHub update banner with
-  an assisted installer verified against the pinned signed release manifest.
-- Branded OpenYT launcher/installer icons; production-signed Android APK.
-- Theme, language (pt-BR/en), and download concurrency are persisted locally.
-- Desktop: sidebar layout, dropped-link intake, Ctrl+1…4/Ctrl+Q shortcuts, folder
-  selection, multi-selection, and a Linux `.deb` package.
-- Phase 0 viability report: `docs/planning/PHASE_0_VIABILITY.md`
-- Project status and limitations: `docs/planning/STATUS.md`
-- Architecture and module rules: `docs/architecture/OVERVIEW.md`
-- Decisions: `docs/adr/`
-- [User video regression contracts and verification](docs/testing/VIDEO_REGRESSION_CONTRACTS.md)
-- [Brand assets and usage guidelines](docs/branding/README.md)
+Validate the real Linux package with isolated data directories:
 
-## Licensing
+```bash
+./scripts/validate-linux.sh --scenario all --no-build --offline
+# External-network scenarios are opt-in and run separately:
+./scripts/validate-linux.sh --scenario all --no-build
+```
 
-OpenYT is distributed under GPL-3.0. This is required by the Android yt-dlp
-wrapper (`io.github.junkfood02.youtubedl-android`, GPL-3.0). yt-dlp itself is
-Unlicense; FFmpeg licensing depends on the build. See `THIRD_PARTY_NOTICES.md`.
+The [4.0 validation ledger](docs/testing/RELEASE_4_VALIDATION.md) records executed
+checks and limitations: local engine/FFmpeg/VLC contracts, packaged Linux upgrade
+and handoff, Android emulator instrumentation, and native Windows/macOS installer
+and media contracts. It does not claim manual GUI or physical-device coverage on
+every platform. The published release notes contain final workflow evidence.
 
-OpenYT does not bypass DRM or access restrictions and must only be used to obtain
-content the user is authorized to download, in accordance with the source's terms.
+- [User-reported video regression contracts](docs/testing/VIDEO_REGRESSION_CONTRACTS.md)
+- [Expansion regression contracts](docs/testing/EXPANSION_CONTRACTS.md)
+- [Release pipeline and signing](docs/planning/RELEASE_PIPELINE.md)
+- [Current status and limitations](docs/planning/STATUS.md)
+- [Brand assets and usage rules](docs/branding/README.md)
+- [Source icon licenses and rules](docs/branding/PROVIDER_ICONS.md)
+
+## License
+
+OpenYT is distributed under **GPL-3.0**, including the requirements of the Android
+yt-dlp wrapper. yt-dlp itself is Unlicense; FFmpeg licensing depends on the
+packaged build. See [LICENSE](LICENSE) and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Download only content you are authorized to obtain, in accordance with the
+source's terms. OpenYT does not bypass DRM or access restrictions.
