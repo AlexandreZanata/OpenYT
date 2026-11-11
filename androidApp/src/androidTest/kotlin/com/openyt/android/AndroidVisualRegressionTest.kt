@@ -60,7 +60,7 @@ class AndroidVisualRegressionTest {
             val root = awaitText("rumble")
             assertNotNull(root)
             providers.forEach { provider ->
-                assertTrue("Missing provider $provider", root.findAccessibilityNodeInfosByText(provider).isNotEmpty())
+                assertTrue("Missing provider $provider", nodesWithText(root, provider).isNotEmpty())
             }
         } finally {
             instrumentation.runOnMainSync { activity.finish() }
@@ -109,18 +109,62 @@ class AndroidVisualRegressionTest {
             }
             instrumentation.waitForIdleSync()
             val root = awaitText(PtBrStrings.closeAction)
-            assertTrue(root.findAccessibilityNodeInfosByText(PtBrStrings.closeAction).any { it.isVisibleToUser })
-            assertTrue(root.findAccessibilityNodeInfosByText(PtBrStrings.watchFolderImport).any { it.isVisibleToUser })
+            assertTrue(nodesWithText(root, PtBrStrings.closeAction).any { it.isVisibleToUser })
+            assertTrue(nodesWithText(root, PtBrStrings.watchFolderImport).any { it.isVisibleToUser })
         } finally {
             instrumentation.runOnMainSync { activity.finish() }
         }
     }
 
+    @Test
+    fun largeScreenLibraryRemainsReachableWithDpadNavigation() {
+        org.junit.Assume.assumeTrue(android.os.Build.HARDWARE in setOf("ranchu", "goldfish"))
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val automation = instrumentation.uiAutomation
+        fun shell(command: String) { automation.executeShellCommand(command).use { descriptor -> java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() } } }
+        var activity: MainActivity? = null
+        try {
+            shell("wm size 1600x1000")
+            shell("wm density 160")
+            val context = instrumentation.targetContext
+            activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)) as MainActivity
+            instrumentation.runOnMainSync { (activity.application as OpenYtApplication).container.settingsController.setLanguage(com.openyt.core.domain.AppLanguage.EN) }
+            awaitText(com.openyt.ui.i18n.EnStrings.tabLibrary)
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_TAB)
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_DOWN)
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_DOWN)
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_CENTER)
+            val root = awaitText(com.openyt.ui.i18n.EnStrings.libraryEmpty)
+            assertTrue(nodesWithText(root, com.openyt.ui.i18n.EnStrings.libraryEmpty).any { it.isVisibleToUser })
+            val file = java.io.File(context.getExternalFilesDir(null), "validation/android-tablet-dpad.png").apply { parentFile!!.mkdirs() }
+            file.outputStream().use { automation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        } finally {
+            activity?.let { current -> instrumentation.runOnMainSync { current.finish() } }
+            shell("wm size reset")
+            shell("wm density reset")
+        }
+    }
+
+    private fun nodesWithText(root: android.view.accessibility.AccessibilityNodeInfo, text: String): List<android.view.accessibility.AccessibilityNodeInfo> {
+        val found = mutableListOf<android.view.accessibility.AccessibilityNodeInfo>()
+        val pending = java.util.ArrayDeque<android.view.accessibility.AccessibilityNodeInfo>()
+        pending.add(root)
+        while (pending.isNotEmpty()) {
+            val node = pending.removeFirst()
+            if (node.text?.toString() == text || node.contentDescription?.toString() == text) found.add(node)
+            repeat(node.childCount) { node.getChild(it)?.let(pending::addLast) }
+        }
+        return found
+    }
+
     private fun awaitText(text: String): android.view.accessibility.AccessibilityNodeInfo {
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        automation.serviceInfo = automation.serviceInfo.apply {
+            flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        }
         repeat(100) {
             val root = automation.rootInActiveWindow
-            if (root?.findAccessibilityNodeInfosByText(text)?.isNotEmpty() == true) return root
+            if (root != null && nodesWithText(root, text).isNotEmpty()) return root
             Thread.sleep(50)
         }
         error("Screen did not expose $text")

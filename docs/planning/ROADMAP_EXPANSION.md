@@ -1,6 +1,43 @@
 # OpenYT Expansion Roadmap
 
-Status: Phase 0 (validation foundation) implemented. Program A (pipeline) is complete: A1–A8 implemented. Program B1 (tags), B2 (smart collections), B3 (metadata search), B4 (metadata editing/embedded tags), B5 (library export/import) Program B (library/media) is complete: B1–B8 implemented. Program C1 (Android playback), C2 (desktop playback) and C3 (playback queue) implemented. C4–C6 and Programs D–G are planning only.
+Status: 4.0.0 delivery implementation is present for C4–C6, D1–D3/D5–D6,
+E1–E7, F3–F5 and G2–G5. D4 and G1 are closed as rejected viability decisions
+in ADR-0023, as their original exit criteria allow. F1/F2 now use available
+signatures and native installer/bundle smoke checks; Authenticode and notarization
+remain explicitly unavailable under the user's chosen signing scope. Final native
+CI/package validation is tracked in the release evidence, not inferred from code.
+
+## 4.0.0 implementation audit
+
+- **C4 — PIP and floating mini-player:** Android system PiP; desktop always-on-top,
+  expandable/dismissible window. Real VLC playback/close/reopen contract passed.
+- **C3/C5:** persisted queues and positions, explicit Continue playback action,
+  ±10-second controls, keyboard shortcuts, and seek/time controls.
+- **C6/D1/D2/D3/D6:** typed segment/subtitle/audio/chapter/SponsorBlock/live options;
+  original-preserving local FFmpeg processing. Real loopback engine variants and
+  codec/duration/source-preservation checks passed. SponsorBlock marks chapters;
+  it does not remove timeline segments in this release.
+- **D5/E1/E2:** persisted local RSS/Atom and playlist subscriptions, baseline-first
+  behavior, opt-in backlog, periodic checks while running, persisted deduplication.
+- **E3/E4/E5/E6/E7:** opt-in notifications/foreground clipboard suggestions,
+  validated deep links, Kotlin browser handoff, and download/library/watch CLI.
+- **F3/F4:** RPM, AppImage, Flatpak and checksum-filled Arch recipes in native CI.
+  Actual DEB extraction/upgrade retained library data and migrated schema 13→18.
+  AppImage was built and executed locally. Other package checks require their CI
+  results before being called validated.
+- **F5:** responsive navigation and adaptive Library grid, a TV launcher/banner,
+  hardware-key controls, enlarged-text and emulator D-pad/large-screen contracts.
+  No physical TV/foldable certification is claimed.
+- **G2/G3/G4/G5:** explicit checksum-verified yt-dlp cache update, signed release
+  manifest, CycloneDX inventory, migration/concurrency/parser/UI/native CI checks,
+  and diagnostics redaction/privacy/data-location rules.
+- **i18n/identity:** new installs detect the OS language (Portuguese/English,
+  explicit override), 143 additional CC0 vectors, a searchable installed catalog,
+  reviewed brand aliases, and accessible name tiles for sources without logos.
+
+See [usage rules](../USAGE.md), [expansion contracts](../testing/EXPANSION_CONTRACTS.md)
+and [release notes](../releases/v4.0.0.md). Historical wave versions below describe
+original sequencing; they are superseded by this consolidated 4.0.0 release.
 
 This roadmap covers the seven expansion areas requested after v1.4.1. It is
 organised into programs (A–G), each split into microphases (A1, A2, …). Every

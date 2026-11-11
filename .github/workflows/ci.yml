@@ -198,9 +198,12 @@ jobs:
           arch: x86_64
           profile: pixel_2
           disable-animations: true
-          script: ./gradlew :androidApp:connectedDebugAndroidTest -Popenyt.testAbi=x86_64 -Popenyt.testApplicationIdSuffix=.regression --console=plain
+          script: |
+            ./gradlew :androidApp:connectedDebugAndroidTest -Popenyt.testAbi=x86_64 -Popenyt.testApplicationIdSuffix=.regression --console=plain; result=$?; adb pull /sdcard/Android/data/com.openyt.android.regression/files/validation androidApp/build/android-visual-evidence || true; exit $result
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: android-instrumentation
-          path: androidApp/build/reports/androidTests/connected/
+          path: |
+            androidApp/build/reports/androidTests/connected/
+            androidApp/build/android-visual-evidence/

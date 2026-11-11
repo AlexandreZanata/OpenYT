@@ -136,15 +136,17 @@ jobs:
           if ($install.ExitCode -notin @(0, 3010)) { throw "MSI install failed: $($install.ExitCode)" }
           $app = Get-ChildItem 'C:/Program Files' -Filter OpenYT.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if (!$app) { throw 'Installed launcher missing' }
-          & $app.FullName --cli version
-          if ($LASTEXITCODE -ne 0) { throw 'Installed app failed' }
-          & $app.FullName --cli sources --json > native-sources.json
-          if ($LASTEXITCODE -ne 0) { throw 'Installed engine failed' }
+          $version = Start-Process $app.FullName -ArgumentList @('--cli', 'version') -Wait -PassThru -RedirectStandardOutput installed-version.txt -RedirectStandardError installed-error.log
+          if ($version.ExitCode -ne 0) { Get-Content installed-error.log; throw 'Installed app failed' }
+          Get-Content installed-version.txt
+          $sources = Start-Process $app.FullName -ArgumentList @('--cli', 'sources', '--json') -Wait -PassThru -RedirectStandardOutput native-sources.json -RedirectStandardError installed-error.log
+          if ($sources.ExitCode -ne 0) { Get-Content installed-error.log; throw 'Installed engine failed' }
+          if ((Get-Content native-sources.json -Raw | ConvertFrom-Json).Count -lt 100) { throw 'Source catalog missing' }
       - name: Native macOS bundle smoke
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          hdiutil attach desktopApp/build/compose/binaries/main/dmg/*.dmg -mountpoint /tmp/openyt-volume
+          printf 'Y\n' | hdiutil attach desktopApp/build/compose/binaries/main/dmg/*.dmg -mountpoint /tmp/openyt-volume
           cp -R /tmp/openyt-volume/OpenYT.app /tmp/OpenYT.app
           hdiutil detach /tmp/openyt-volume
           /tmp/OpenYT.app/Contents/MacOS/OpenYT --cli version
@@ -236,6 +238,7 @@ jobs:
           tag_name: v${{ needs.version.outputs.value }}
           name: OpenYT v${{ needs.version.outputs.value }}
           generate_release_notes: true
+          body_path: docs/releases/v${{ needs.version.outputs.value }}.md
           make_latest: true
           fail_on_unmatched_files: true
           files: release-artifacts/*
