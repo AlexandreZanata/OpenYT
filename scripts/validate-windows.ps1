@@ -42,11 +42,35 @@ function Validate-Installed([string]$Format) {
     $app = Join-Path $env:ProgramFiles 'OpenYT/OpenYT.exe'
     if (!(Test-Path $app)) { throw 'Installed launcher missing' }
     $links = @(Find-Shortcuts)
+    $linkEvidence = @()
     foreach ($link in $links) {
         $shortcut = $shell.CreateShortcut($link.FullName)
+        $linkEvidence += [ordered]@{ link = $link.FullName; target = $shortcut.TargetPath; icon = $shortcut.IconLocation }
+        $linkEvidence | ConvertTo-Json | Set-Content (Join-Path $work "$Format-shortcuts.json")
         if ($shortcut.TargetPath -ne $app) { throw "Invalid shortcut target: $($link.Name)" }
-        $icon = ($shortcut.IconLocation -replace ',\s*-?\d+$', '').Trim('"')
-        if (!$icon -or !(Test-Path $icon)) { throw 'Shortcut icon resource missing' }
+        $icon = [Environment]::ExpandEnvironmentVariables(($shortcut.IconLocation -replace ',\s*-?\d+$', '').Trim('"'))
+        # An empty IconLocation is valid: Explorer uses the target's embedded icon.
+        if (!$icon) { $icon = $shortcut.TargetPath }
+        if (![IO.Path]::IsPathRooted($icon)) { $icon = Join-Path (Split-Path $shortcut.TargetPath) $icon }
+        if (!(Test-Path $icon)) { throw "Shortcut icon resource missing: $icon" }
+        $actualIcon = [Drawing.Icon]::ExtractAssociatedIcon($icon)
+        $expectedIcon = [Drawing.Icon]::new((Resolve-Path 'desktopApp/packaging/icons/openyt.ico').Path, [Drawing.Size]::new(32,32))
+        try {
+            $actual = [Drawing.Bitmap]::new($actualIcon.ToBitmap(),32,32)
+            $expected = $expectedIcon.ToBitmap()
+            try {
+                $matched = 0; $visible = 0
+                for ($y=0; $y -lt 32; $y++) { for ($x=0; $x -lt 32; $x++) {
+                    $e = $expected.GetPixel($x,$y); $a = $actual.GetPixel($x,$y)
+                    if ($e.A -gt 128) {
+                        $visible++
+                        if ([Math]::Abs([int]$e.R-$a.R) -le 8 -and [Math]::Abs([int]$e.G-$a.G) -le 8 -and [Math]::Abs([int]$e.B-$a.B) -le 8) { $matched++ }
+                    }
+                } }
+                $actual.Save((Join-Path $work "$Format-icon-$($linkEvidence.Count).png"))
+                if ($visible -lt 100 -or $matched / $visible -lt 0.9) { throw 'Installed shortcut does not use the OpenYT brand icon' }
+            } finally { $actual.Dispose(); $expected.Dispose() }
+        } finally { $actualIcon.Dispose(); $expectedIcon.Dispose() }
     }
     Run-Launcher $app @('--cli', 'version') "$Format-version"
     $expected = (Select-String '^openyt.version=' gradle.properties).Line.Split('=')[1]
