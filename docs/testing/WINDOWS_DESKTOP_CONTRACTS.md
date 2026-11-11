@@ -36,6 +36,8 @@ target the installed launcher and reference an existing icon resource. Launch
 the desktop shortcut and require an application window. Uninstall without
 deleting the user-media fixture, install the actual EXE and repeat all installed
 contracts. Checking only Gradle flags or installer existence is insufficient.
+An empty shortcut IconLocation uses the target executable's embedded icon. The
+test resolves this default and compares the extracted image with OpenYT's ICO.
 
 ## W05 — Action failures are visible
 
@@ -59,6 +61,16 @@ privileges and an interactive desktop:
 ./gradlew :desktopApp:packageMsi :desktopApp:packageExe :desktopApp:windowsContractHarnessJar
 ./scripts/validate-windows.ps1
 ```
+
+For an isolated CI diagnostic without evidence-upload dependencies:
+
+```bash
+gh workflow run ci.yml --ref <branch> -f windows_only=true
+```
+
+Normal pull-request runs retain the full cross-platform suite. Windows evidence
+uploads have a bounded timeout so an upload failure cannot indefinitely delay
+the native test result.
 
 The test-only harness runs from a temporary alternate launcher/config beside the
 installed application. It uses the installed JVM, shipping jars and native DLLs;

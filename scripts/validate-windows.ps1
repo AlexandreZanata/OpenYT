@@ -4,6 +4,7 @@ param(
     [string]$Harness = "$PWD/desktopApp/build/libs/windows-contract-harness.jar"
 )
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Drawing
 $work = Join-Path $PWD 'build/windows-validation'
 New-Item -ItemType Directory -Force $work | Out-Null
 $shell = New-Object -ComObject WScript.Shell
@@ -24,6 +25,7 @@ function Run-Launcher([string]$Path, [string[]]$Arguments, [string]$Name) {
     $process = Start-Process -FilePath $Path -ArgumentList $Arguments -PassThru `
         -RedirectStandardOutput (Join-Path $work "$Name.log") -RedirectStandardError (Join-Path $work "$Name.err")
     if (!$process.WaitForExit(90000)) { $process.Kill(); throw "$Name timed out" }
+    $process.Refresh()
     if ($process.ExitCode -ne 0) { Get-Content (Join-Path $work "$Name.err"); throw "$Name failed: $($process.ExitCode)" }
 }
 

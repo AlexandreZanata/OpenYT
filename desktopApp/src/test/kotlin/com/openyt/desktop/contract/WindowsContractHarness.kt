@@ -48,6 +48,7 @@ object WindowsContractHarness {
             check(pluginPath == null || pluginPath.getString(0).isEmpty()) { "External plugins remain in VLC's native environment" }
             check(NativeLibrary.getInstance("libvlc").file.canonicalFile.parentFile == directory.canonicalFile) { "Loaded a machine VLC instead of the package" }
             check(LibVlc.libvlc_get_version().startsWith("3.0.24")) { "Unexpected native VLC version" }
+            println("Loaded bundled VLC ${LibVlc.libvlc_get_version()}; inherited external plugins excluded")
             val process = ProcessBuilder(checkNotNull(ExecutableLocator().findFfmpeg()),
                 "-v", "error", "-f", "lavfi", "-i", "testsrc=duration=20:size=320x180:rate=10",
                 "-c:v", "libx264", "-pix_fmt", "yuv420p", "-y", file.absolutePath).redirectErrorStream(true).start()
@@ -66,7 +67,9 @@ object WindowsContractHarness {
             }
             val window = checkNotNull(frame) { "Playback window never opened" }
             val player = window.contentPane.components.filterIsInstance<EmbeddedMediaPlayerComponent>().single().mediaPlayer()
-            check(player.status().isPlaying && player.status().time() >= 500) { "Video did not advance" }
+            check(player.status().isPlaying && player.status().time() >= 500) {
+                "Video did not advance: state=${player.status().state()}, time=${player.status().time()}, length=${player.status().length()}"
+            }
             launcher.toggleMiniPlayer()
             SwingUtilities.invokeAndWait {}
             check(window.isAlwaysOnTop && window.width == 420)
