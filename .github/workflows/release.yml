@@ -143,6 +143,7 @@ jobs:
           ./scripts/validate-windows.ps1
       - uses: actions/upload-artifact@v4
         if: always() && runner.os == 'Windows'
+        timeout-minutes: 2
         with:
           name: windows-installed-contracts
           path: build/windows-validation/

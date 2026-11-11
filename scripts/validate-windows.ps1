@@ -46,6 +46,7 @@ function Validate-Installed([string]$Format) {
     foreach ($link in $links) {
         $shortcut = $shell.CreateShortcut($link.FullName)
         $linkEvidence += [ordered]@{ link = $link.FullName; target = $shortcut.TargetPath; icon = $shortcut.IconLocation }
+        Write-Output ('Shortcut metadata: ' + ($linkEvidence[-1] | ConvertTo-Json -Compress))
         $linkEvidence | ConvertTo-Json | Set-Content (Join-Path $work "$Format-shortcuts.json")
         if ($shortcut.TargetPath -ne $app) { throw "Invalid shortcut target: $($link.Name)" }
         $icon = [Environment]::ExpandEnvironmentVariables(($shortcut.IconLocation -replace ',\s*-?\d+$', '').Trim('"'))
@@ -68,7 +69,7 @@ function Validate-Installed([string]$Format) {
                     }
                 } }
                 $actual.Save((Join-Path $work "$Format-icon-$($linkEvidence.Count).png"))
-                if ($visible -lt 100 -or $matched / $visible -lt 0.9) { throw 'Installed shortcut does not use the OpenYT brand icon' }
+                if ($visible -lt 100 -or $matched / $visible -lt 0.9) { throw "Installed shortcut does not use the OpenYT brand icon: $matched/$visible matching pixels" }
             } finally { $actual.Dispose(); $expected.Dispose() }
         } finally { $actualIcon.Dispose(); $expectedIcon.Dispose() }
     }
