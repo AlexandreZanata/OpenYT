@@ -267,6 +267,7 @@ private fun AppShell(
     val updateState by updateController.state.collectAsState()
     var dismissedUpdateVersion by remember { mutableStateOf<String?>(null) }
     var installingUpdate by remember { mutableStateOf(false) }
+    var updateInstallFailed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val settings by settingsController.settings.collectAsState()
     var clipboardUrl by remember { mutableStateOf<String?>(null) }
@@ -308,7 +309,7 @@ private fun AppShell(
                         onInstall = {
                             scope.launch {
                                 installingUpdate = true
-                                updateInstaller.install(availableUpdate)
+                                updateInstallFailed = !updateInstaller.install(availableUpdate)
                                 installingUpdate = false
                             }
                         },
@@ -317,6 +318,9 @@ private fun AppShell(
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                     )
                 }
+                if (updateInstallFailed) Text(strings.installFailed,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
                 Box(Modifier.fillMaxSize().weight(1f)) {
                 when (selected) {
                     0 -> HomeScreen(

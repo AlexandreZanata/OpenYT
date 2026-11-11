@@ -48,8 +48,7 @@ class PlaybackRegressionTest {
                 if (!pip) Thread.sleep(100)
             }
             assertTrue("Leaving video playback must enter PiP", pip)
-            val screenshot = File(context.getExternalFilesDir(null), "validation/android-pip.png").apply { parentFile!!.mkdirs() }
-            screenshot.outputStream().use { instrumentation.uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it) }
+            saveValidationScreenshot("android-pip.png")
         } finally {
             instrumentation.runOnMainSync { controller?.stop(); controller?.clearMediaItems(); controller?.release(); activity.finish() }
             context.stopService(Intent(context, PlaybackService::class.java))

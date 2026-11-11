@@ -23,7 +23,7 @@ class FfmpegMediaProcessor(
     private val processEnvironment: () -> Map<String, String> = { emptyMap() },
 ) : MediaProcessor {
     override suspend fun process(request: MediaProcessingRequest): EngineResult<ProcessedMedia> = withContext(Dispatchers.IO) {
-        val binary = executable() ?: return@withContext EngineResult.Failure(DownloadFailure.DependencyMissing("ffmpeg"))
+        val binary = (try { executable() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }) ?: return@withContext EngineResult.Failure(DownloadFailure.DependencyMissing("ffmpeg"))
         val source = File(request.sourcePath)
         if (!source.isFile) return@withContext EngineResult.Failure(DownloadFailure.Unavailable(null))
         val id = UUID.randomUUID().toString()

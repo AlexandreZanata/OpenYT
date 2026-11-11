@@ -54,23 +54,7 @@ class DesktopYtDlpLocalTest {
 
         File(fixture, "captions.vtt").writeText("WEBVTT\n\n00:00:00.000 --> 00:00:00.900\nOlá mundo\n")
         File(fixture, "index.html").writeText("""<html><head><title>Fixture</title></head><body><video controls><source src="/media.mpd" type="application/dash+xml"><track kind="subtitles" srclang="pt" label="Português" src="/captions.vtt"></video></body></html>""")
-        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.createContext("/") { exchange ->
-            try {
-                val path = fixture.toPath().resolve(exchange.requestURI.path.removePrefix("/")).normalize()
-                if (!path.startsWith(fixture.toPath()) || !path.toFile().isFile) {
-                    exchange.sendResponseHeaders(404, -1)
-                } else {
-                    val bytes = path.toFile().readBytes()
-                    exchange.responseHeaders.add("Content-Type", when (path.toFile().extension) { "mpd" -> "application/dash+xml"; "html" -> "text/html"; "vtt" -> "text/vtt"; else -> "video/mp4" })
-                    exchange.sendResponseHeaders(200, if (exchange.requestMethod == "HEAD") -1 else bytes.size.toLong())
-                    if (exchange.requestMethod != "HEAD") exchange.responseBody.write(bytes)
-                }
-            } finally {
-                exchange.close()
-            }
-        }
-        server.start()
+        val server = serve(fixture)
         val engine = DesktopYtDlpEngine(locator)
         try {
             val variants = listOf(
@@ -116,5 +100,52 @@ class DesktopYtDlpLocalTest {
             engine.close()
             server.stop(0)
         }
+    }
+    @Test
+    fun recordsAnActualLiveHlsFixtureUntilTheDurationLimit() = runBlocking {
+        val fixture = temporary.newFolder("live")
+        val generator = ProcessBuilder(locator.findFfmpeg()!!,
+            "-v", "error", "-re", "-f", "lavfi", "-i", "testsrc=size=160x90:rate=10",
+            "-f", "lavfi", "-i", "sine=frequency=440", "-t", "30", "-c:v", "libx264",
+            "-pix_fmt", "yuv420p", "-g", "10", "-c:a", "aac", "-f", "hls",
+            "-hls_time", "1", "-hls_list_size", "4", File(fixture, "live.m3u8").absolutePath,
+        ).redirectErrorStream(true).start()
+        val server = serve(fixture)
+        val engine = DesktopYtDlpEngine(locator, startProcess = { arguments ->
+            ProcessBuilder(arguments).redirectError(File("build/validation/live-engine.err").apply { parentFile.mkdirs() }).start()
+        })
+        try {
+            withTimeout(15_000) {
+                while (fixture.listFiles().orEmpty().count { it.extension == "ts" } < 3) kotlinx.coroutines.delay(100)
+            }
+            val url = "http://127.0.0.1:${server.address.port}/live.m3u8"
+            val inspected = assertIs<com.openyt.core.domain.EngineResult.Success<*>>(engine.inspect(url)).value as com.openyt.core.domain.Inspection.Single
+            assertTrue(inspected.media.isLive, "Fixture must be a real live playlist without ENDLIST")
+            val events = withTimeout(40_000) { engine.download(DownloadRequest(url, destinationDirectory = temporary.newFolder("capture").absolutePath, options = DownloadOptions(liveDurationSeconds = 2)), "live-capture").toList() }
+            val completed = assertIs<DownloadEvent.Completed>(events.last(), events.toString())
+            val duration = assertNotNull(DesktopMediaProbe(locator).probe(completed.filePath)?.durationMillis)
+            assertTrue(duration in 500..5_000, "Bounded live capture duration=$duration")
+        } finally { engine.close(); server.stop(0); generator.destroyForcibly(); generator.waitFor() }
+    }
+
+    private fun serve(fixture: File): HttpServer {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/") { exchange ->
+            try {
+                val path = fixture.toPath().resolve(exchange.requestURI.path.removePrefix("/")).normalize()
+                if (!path.startsWith(fixture.toPath()) || !path.toFile().isFile) {
+                    exchange.sendResponseHeaders(404, -1)
+                } else {
+                    val bytes = path.toFile().readBytes()
+                    exchange.responseHeaders.add("Content-Type", when (path.toFile().extension) { "mpd" -> "application/dash+xml"; "html" -> "text/html"; "vtt" -> "text/vtt"; "m3u8" -> "application/vnd.apple.mpegurl"; "ts" -> "video/mp2t"; else -> "video/mp4" })
+                    exchange.sendResponseHeaders(200, if (exchange.requestMethod == "HEAD") -1 else bytes.size.toLong())
+                    if (exchange.requestMethod != "HEAD") exchange.responseBody.write(bytes)
+                }
+            } finally {
+                exchange.close()
+            }
+        }
+        server.start()
+        return server
     }
 }

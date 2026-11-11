@@ -87,6 +87,7 @@ dependencies {
     implementation(libs.youtubedl.android.ffmpeg)
 
     androidTestImplementation(project(":data"))
+    androidTestImplementation(compose.components.resources)
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)

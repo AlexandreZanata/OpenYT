@@ -26,7 +26,8 @@ The explicit engine-update action downloads only official stable yt-dlp assets,
 checks the official SHA2-256SUMS entry before replacement, and keeps other bundled
 tools pinned. Desktop checks its cached executable against the stored digest before
 selecting it. Explicit environment overrides retain precedence for diagnostics.
-An HTTPS checksum provides transport/file integrity; it is not a substitute for
+Engine updates are scoped to the application version so an old runtime cache cannot
+override a newer bundled engine after an app upgrade. An HTTPS checksum provides transport/file integrity; it is not a substitute for
 an independently signed upstream update channel.
 
 ## Validation
@@ -36,3 +37,9 @@ manifest signed with the production key proves the pinned public certificate
 matches the available signing key. Real-network tool-update tests are kept
 separate from deterministic tests. Release assets are published only after native
 packaging jobs succeed.
+
+Linux FFmpeg is updated to the checksum-pinned retained monthly GPL 8.1.3 build
+from FFmpeg-Builds, after the previous static 6.1.1 binary crashed on the real HLS
+fixture. The replacement passed the same capture and conversion tests. Windows
+and macOS retain their existing pinned builds and run the same native media
+contracts in release CI. Per-host CycloneDX inventories include native artifacts.

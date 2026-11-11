@@ -54,6 +54,8 @@ enum class FeatureText(val portuguese: String, val english: String) {
     INTERVAL_MINUTES("Intervalo em minutos", "Interval in minutes"),
     ENABLED("Ativado", "Enabled"),
     LAST_CHECK("Última verificação", "Last check"),
+    RULE_INVALID("Informe um nome, um endereço válido e um intervalo de 1 a 10.080 minutos.", "Enter a name, a valid URL and an interval from 1 to 10,080 minutes."),
+    RULE_SAVE_FAILED("Não foi possível salvar a alteração. Verifique o armazenamento e tente novamente.", "Could not save the change. Check storage and try again."),
     RULE_FAILED("Não foi possível verificar esta assinatura. Confira o endereço e tente novamente.", "Could not check this subscription. Check its URL and try again."),
     CLIPBOARD_MONITOR("Sugerir links copiados", "Suggest copied links"),
     CLIPBOARD_HINT("Desativado por padrão. Verifica a área de transferência apenas enquanto o app está em uso.", "Off by default. Checks the clipboard only while the app is in use."),

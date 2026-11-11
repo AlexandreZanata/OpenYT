@@ -77,7 +77,7 @@ fun DownloadsScreen(
         val activeSelection = selected.intersect(selectableIds)
         val launcher = playbackLauncher?.takeIf { it.canPlay }
         val playableTasks = tasks.filter {
-            it.status == DownloadStatus.COMPLETED && !it.filePath.isNullOrBlank()
+            it.status == DownloadStatus.COMPLETED && !it.filePath.isNullOrBlank() && it.request.kind != com.openyt.core.domain.MediaKind.SUBTITLE
         }
 
         Column(

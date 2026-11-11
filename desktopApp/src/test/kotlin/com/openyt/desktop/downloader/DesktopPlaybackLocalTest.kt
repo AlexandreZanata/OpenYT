@@ -68,6 +68,12 @@ class DesktopPlaybackLocalTest {
             ImageIO.write(Robot().createScreenCapture(window.bounds), "png", screenshot)
             player.controls().setTime(3_000)
             Thread.sleep(250)
+            SwingUtilities.invokeAndWait {
+                window.contentPane.components.filterIsInstance<javax.swing.JToolBar>().single().components
+                    .filterIsInstance<javax.swing.JButton>().single { it.toolTipText == PtBrStrings.features[com.openyt.ui.i18n.FeatureText.STOP] }.doClick()
+            }
+            Thread.sleep(750)
+            assertTrue(assertNotNull(store.position(file.absolutePath)).resumeMillis in 2_000..5_000, "Stop must preserve the checkpoint")
             launcher.close()
             assertTrue(assertNotNull(store.position(file.absolutePath)).resumeMillis in 2_000..5_000)
             assertEquals(file.absolutePath, store.loadQueue()?.current?.path)

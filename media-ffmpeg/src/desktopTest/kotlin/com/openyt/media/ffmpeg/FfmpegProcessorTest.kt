@@ -15,6 +15,13 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class FfmpegProcessorTest {
+    @Test fun failedRuntimeInitializationReturnsAStructuredDependencyError() = runBlocking<Unit> {
+        val processor = FfmpegMediaProcessor({ error("runtime initialization failed") })
+        val result = processor.process(MediaProcessingRequest("/fixture.mp4", "Fixture", MediaKind.VIDEO, MediaOperation.TRIM, MediaSegment(0, 1000)))
+        val failure = assertIs<EngineResult.Failure>(result)
+        assertIs<com.openyt.core.domain.DownloadFailure.DependencyMissing>(failure.failure)
+    }
+
     @Test
     fun trimArgumentsAreStructuredAndNeverOverwriteTheSource() {
         val request = MediaProcessingRequest("/media/ação; echo x.mp4", "Ação", MediaKind.VIDEO, MediaOperation.TRIM, MediaSegment(1_000, 3_000))

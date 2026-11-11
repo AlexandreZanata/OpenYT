@@ -53,7 +53,7 @@ jobs:
         run: ./gradlew :androidApp:assembleRelease --console=plain --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: android-release
+          name: release-android
           path: androidApp/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
@@ -65,15 +65,15 @@ jobs:
         include:
           - os: ubuntu-latest
             task: packageDeb packageRpm
-            artifact: linux-deb
+            artifact: release-linux
             path: release-linux/*
           - os: windows-latest
             task: packageMsi packageExe
-            artifact: windows-installer
+            artifact: release-windows
             path: release-windows/*
           - os: macos-latest
             task: packageDmg
-            artifact: macos-dmg
+            artifact: release-macos
             path: desktopApp/build/compose/binaries/main/dmg/*.dmg
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
@@ -125,8 +125,6 @@ jobs:
             cp /tmp/package/*.pkg.tar.zst /out/
           '
           ./scripts/validate-linux.sh --scenario tools --no-build
-          ./gradlew releaseSbom --console=plain
-          cp build/release/openyt-sbom.cdx.json release-linux/
       - name: Native Windows install and CLI smoke
         if: runner.os == 'Windows'
         shell: pwsh
@@ -151,6 +149,38 @@ jobs:
           hdiutil detach /tmp/openyt-volume
           /tmp/OpenYT.app/Contents/MacOS/OpenYT --cli version
           /tmp/OpenYT.app/Contents/MacOS/OpenYT --cli sources --json > native-sources.json
+      - name: Native inventory
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then WITH_ANDROID=true; else WITH_ANDROID=false; fi
+          ./gradlew releaseSbom -PsbomAndroid="$WITH_ANDROID" --console=plain
+          mkdir -p release-inventory
+          cp build/release/openyt-sbom.cdx.json "release-inventory/openyt-sbom-${{ runner.os }}.cdx.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-inventory-${{ runner.os }}
+          path: release-inventory/*
+      - name: Native media engine contracts
+        shell: bash
+        env:
+          OPENYT_RUN_LOCAL_ENGINE_TESTS: "1"
+        run: |
+          case "${{ runner.os }}" in
+            Windows) TOOLS="$(cygpath -w "$PWD/desktopApp/build/bundled-tools/windows-x64")"; SUFFIX=.exe ;;
+            macOS) if [ "$(uname -m)" = "arm64" ]; then CPU=arm64; else CPU=x64; fi; TOOLS="$PWD/desktopApp/build/bundled-tools/macos-$CPU"; SUFFIX= ;;
+            *) TOOLS="$PWD/desktopApp/build/bundled-tools/linux-x64"; SUFFIX= ;;
+          esac
+          export OPENYT_YTDLP="$TOOLS/yt-dlp$SUFFIX"
+          export OPENYT_FFMPEG="$TOOLS/ffmpeg$SUFFIX"
+          export OPENYT_FFPROBE="$TOOLS/ffprobe$SUFFIX"
+          ./gradlew :desktopApp:test --tests '*DesktopYtDlpLocalTest' --console=plain
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-native-media-${{ runner.os }}
+          path: |
+            desktopApp/build/test-results/test/
+            desktopApp/build/validation/live-engine.err
       - name: Flatten Windows installers
         if: runner.os == 'Windows'
         shell: bash
@@ -196,7 +226,7 @@ jobs:
       - run: cd browserExtension/build/dist/js/productionExecutable && zip -r ../../../../OpenYT-browser-handoff.zip .
       - uses: actions/upload-artifact@v4
         with:
-          name: browser-handoff
+          name: release-browser-handoff
           path: browserExtension/OpenYT-browser-handoff.zip
 
   publish:
@@ -213,9 +243,11 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: release-artifacts
+          pattern: release-*
           merge-multiple: true
       - name: Generate checksums
         run: |
+          cp docs/releases/release-signing-public-key.pem release-artifacts/
           cd release-artifacts
           find . -mindepth 2 -type f -exec mv -t . {} +
           find . -mindepth 1 -type d -empty -delete
@@ -237,6 +269,7 @@ jobs:
         with:
           tag_name: v${{ needs.version.outputs.value }}
           name: OpenYT v${{ needs.version.outputs.value }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           body_path: docs/releases/v${{ needs.version.outputs.value }}.md
           make_latest: true

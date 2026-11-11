@@ -9,6 +9,18 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class VerifiedReleaseTest {
+    @Test fun unusableCacheDestinationFailsWithoutThrowingOrOverwritingFiles() = kotlinx.coroutines.runBlocking {
+        val directory = Files.createTempFile("openyt-blocked-cache", ".fixture").toFile()
+        directory.writeText("keep")
+        try {
+            val assets = listOf("app.apk", "SHA256SUMS.txt", "SHA256SUMS.txt.sig").map {
+                com.openyt.core.application.UpdateAsset(it, "https://not-allowed.invalid/$it")
+            }
+            assertNull(VerifiedReleaseDownloader().download(com.openyt.core.application.UpdateInfo("4.0.0", "https://github.com/fixture", assets), ".apk", directory))
+            kotlin.test.assertEquals("keep", directory.readText())
+        } finally { directory.delete() }
+    }
+
     @Test fun productionSignatureVerifiesAndRejectsModifiedManifests() {
         val manifest = javaClass.getResourceAsStream("/release-trust/SHA256SUMS.txt")!!.use { it.readBytes() }
         val signature = javaClass.getResourceAsStream("/release-trust/SHA256SUMS.txt.sig")!!.use { it.readBytes() }

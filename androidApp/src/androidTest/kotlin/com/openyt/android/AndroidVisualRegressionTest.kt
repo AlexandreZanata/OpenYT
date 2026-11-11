@@ -4,9 +4,15 @@ import android.content.Intent
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import org.jetbrains.compose.resources.painterResource
+import com.openyt.ui.resources.Res
+import com.openyt.ui.resources.allDrawableResources
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,12 +36,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
+@OptIn(ExperimentalLayoutApi::class)
 @RunWith(AndroidJUnit4::class)
 class AndroidVisualRegressionTest {
     @Test
     fun allProviderVectorsRenderOnAndroid() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
+        val vectors = Res.allDrawableResources.filterKeys { it.startsWith("source_") }
         val activity = instrumentation.startActivitySync(
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         ) as MainActivity
@@ -44,24 +52,26 @@ class AndroidVisualRegressionTest {
                 activity.setContent {
                     OpenYtTheme(darkTheme = true) {
                         Surface {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                providers.forEach { provider ->
-                                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                        ProviderIcon(provider, Modifier.size(24.dp))
-                                        Text(provider, style = MaterialTheme.typography.bodyMedium)
-                                    }
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    providers.forEach { ProviderIcon(it, Modifier.size(24.dp)) }
+                                    vectors.forEach { (name, resource) -> Icon(painterResource(resource), name, Modifier.size(24.dp)) }
                                 }
+                                Text("All provider vectors rendered")
                             }
                         }
                     }
                 }
             }
             instrumentation.waitForIdleSync()
-            val root = awaitText("rumble")
+            val root = awaitText("All provider vectors rendered")
+            assertTrue("Expected the expanded icon collection", vectors.size >= 140)
             assertNotNull(root)
             providers.forEach { provider ->
                 assertTrue("Missing provider $provider", nodesWithText(root, provider).isNotEmpty())
             }
+            vectors.keys.forEach { name -> assertTrue("Missing vector $name", nodesWithText(root, name).isNotEmpty()) }
+            saveValidationScreenshot("android-provider-icons.png")
         } finally {
             instrumentation.runOnMainSync { activity.finish() }
         }
@@ -111,6 +121,7 @@ class AndroidVisualRegressionTest {
             val root = awaitText(PtBrStrings.closeAction)
             assertTrue(nodesWithText(root, PtBrStrings.closeAction).any { it.isVisibleToUser })
             assertTrue(nodesWithText(root, PtBrStrings.watchFolderImport).any { it.isVisibleToUser })
+            saveValidationScreenshot("android-storage-large-text.png")
         } finally {
             instrumentation.runOnMainSync { activity.finish() }
         }
@@ -130,15 +141,19 @@ class AndroidVisualRegressionTest {
             activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)) as MainActivity
             instrumentation.runOnMainSync { (activity.application as OpenYtApplication).container.settingsController.setLanguage(com.openyt.core.domain.AppLanguage.EN) }
             awaitText(com.openyt.ui.i18n.EnStrings.tabLibrary)
-            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_TAB)
+            val homeRoot = awaitText(com.openyt.ui.i18n.EnStrings.tabHome)
+            var focus = nodesWithText(homeRoot, com.openyt.ui.i18n.EnStrings.tabHome).first()
+            while (!focus.isFocusable && focus.parent != null) focus = focus.parent
+            assertTrue("Home navigation item must accept keyboard focus", focus.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_FOCUS))
+            instrumentation.waitForIdleSync()
             instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_DOWN)
             instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_DOWN)
             instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_CENTER)
             val root = awaitText(com.openyt.ui.i18n.EnStrings.libraryEmpty)
             assertTrue(nodesWithText(root, com.openyt.ui.i18n.EnStrings.libraryEmpty).any { it.isVisibleToUser })
-            val file = java.io.File(context.getExternalFilesDir(null), "validation/android-tablet-dpad.png").apply { parentFile!!.mkdirs() }
-            file.outputStream().use { automation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            saveValidationScreenshot("android-tablet-dpad.png")
         } finally {
+            runCatching { saveValidationScreenshot("android-tablet-final-state.png") }
             activity?.let { current -> instrumentation.runOnMainSync { current.finish() } }
             shell("wm size reset")
             shell("wm density reset")

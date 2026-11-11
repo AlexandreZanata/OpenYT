@@ -18,9 +18,11 @@ class VerifiedReleaseDownloader {
         val manifest = update.assets.singleOrNull { it.name == "SHA256SUMS.txt" } ?: return@withContext null
         val signature = update.assets.singleOrNull { it.name == "SHA256SUMS.txt.sig" } ?: return@withContext null
         if (!safeName(asset.name)) return@withContext null
-        directory.mkdirs()
-        val temporary = File.createTempFile(".openyt-verified-", ".part", directory)
+        var temporary: File? = null
         try {
+            directory.mkdirs()
+            val part = File.createTempFile(".openyt-verified-", ".part", directory)
+            temporary = part
             val checksums = fetch(manifest.url, 1_048_576)
             val signed = fetch(signature.url, 16_384)
             if (!verifyManifest(checksums, signed)) return@withContext null
@@ -28,16 +30,16 @@ class VerifiedReleaseDownloader {
             connection(asset.url).let { connection ->
                 try {
                     check(connection.responseCode in 200..299)
-                    connection.inputStream.use { input -> temporary.outputStream().use { input.copyTo(it) } }
+                    connection.inputStream.use { input -> part.outputStream().use { input.copyTo(it) } }
                 } finally { connection.disconnect() }
             }
-            if (!matchesChecksum(temporary, expected)) return@withContext null
+            if (!matchesChecksum(part, expected)) return@withContext null
             val output = File(directory, asset.name)
-            java.nio.file.Files.move(temporary.toPath(), output.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            java.nio.file.Files.move(part.toPath(), output.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
             output
         } catch (_: Exception) {
             null
-        } finally { temporary.delete() }
+        } finally { temporary?.delete() }
     }
 
     private fun fetch(url: String, limit: Int): ByteArray = connection(url).let { connection ->

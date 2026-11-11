@@ -133,7 +133,7 @@ class PlayerActivity : ComponentActivity() {
                             if (playbackFailed) Text(strings.features[FeatureText.PLAYBACK_FAILED], modifier = Modifier.padding(16.dp))
                         }
                         AndroidView(
-                            factory = { context -> PlayerView(context) },
+                            factory = { context -> PlayerView(context).apply { setShowSubtitleButton(true) } },
                             update = { view -> view.player = controller; view.useController = !inPip },
                             modifier = Modifier.fillMaxSize(),
                         )

@@ -11,6 +11,7 @@
     <application
         android:name=".OpenYtApplication"
         android:allowBackup="false"
+        android:usesCleartextTraffic="true"
         android:extractNativeLibs="true"
         android:banner="@drawable/openyt_tv_banner"
         android:icon="@mipmap/openyt_launcher"

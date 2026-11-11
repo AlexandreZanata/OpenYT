@@ -25,7 +25,7 @@ class FfmpegMediaTagger(
         metadata: AudioMetadata,
         coverUrl: String?,
     ): Boolean = withContext(Dispatchers.IO) {
-        val ffmpeg = executable() ?: return@withContext false
+        val ffmpeg = (try { executable() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }) ?: return@withContext false
         val target = File(path)
         if (!target.isFile) return@withContext false
 
@@ -100,8 +100,8 @@ class FfmpegMediaTagger(
         connection.connectTimeout = 10_000
         connection.readTimeout = 20_000
         connection.setRequestProperty("User-Agent", "OpenYT")
+        val file = File.createTempFile("openyt-cover-", ".jpg")
         try {
-            val file = File.createTempFile("openyt-cover-", ".jpg")
             connection.inputStream.use { input ->
                 file.outputStream().use { output ->
                     val buffer = ByteArray(8192)
@@ -116,6 +116,9 @@ class FfmpegMediaTagger(
                 }
             }
             return file
+        } catch (e: Exception) {
+            file.delete()
+            throw e
         } finally {
             connection.disconnect()
         }

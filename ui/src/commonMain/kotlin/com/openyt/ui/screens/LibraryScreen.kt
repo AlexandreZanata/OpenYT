@@ -515,22 +515,22 @@ fun LibraryScreen(
                                 }
                             },
                             onDetails = { detail = item },
-                            onProcess = if (mediaProcessor != null && !item.missing) { { processingEntry = item.entry } } else null,
+                            onProcess = if (mediaProcessor != null && !item.missing && item.entry.kind != MediaKind.SUBTITLE) { { processingEntry = item.entry } } else null,
                             onCollections = { assigningEntry = item.entry },
                             onRemove = { coordinator.removeFromLibrary(item.entry.id) },
                             onPlay = playbackLauncher
-                                ?.takeIf { it.canPlay }
+                                ?.takeIf { it.canPlay && !item.missing && item.entry.kind != MediaKind.SUBTITLE }
                                 ?.let { launcher ->
                                     {
                                         launcher.play(
-                                            items = sortedItems.map { playable ->
+                                            items = sortedItems.filter { !it.missing && it.entry.kind != MediaKind.SUBTITLE }.map { playable ->
                                                 PlayableMedia(
                                                     path = playable.entry.filePath,
                                                     title = playable.entry.title,
                                                     kind = playable.entry.kind,
                                                 )
                                             },
-                                            startIndex = index,
+                                            startIndex = sortedItems.filter { !it.missing && it.entry.kind != MediaKind.SUBTITLE }.indexOfFirst { it.entry.id == item.entry.id },
                                         )
                                     }
                                 },
@@ -1601,5 +1601,5 @@ private fun LibraryEntry.toShareable() = ShareableMedia(
 private fun kindLabel(kind: MediaKind, strings: AppStrings): String = when (kind) {
     MediaKind.VIDEO -> strings.kindVideo
     MediaKind.AUDIO -> strings.kindAudio
-    MediaKind.SUBTITLE -> kind.name
+    MediaKind.SUBTITLE -> strings.features[FeatureText.SUBTITLES]
 }

@@ -104,6 +104,15 @@ jobs:
           ./gradlew :media-ffmpeg:desktopTest --console=plain
           env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE xvfb-run -a ./gradlew :desktopApp:test --tests '*DesktopMediaTaggerTest' --tests '*DesktopPlaybackLocalTest' --console=plain
 
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runtime-media-evidence
+          path: |
+            desktopApp/build/validation/
+            desktopApp/build/test-results/test/
+            media-ffmpeg/build/test-results/desktopTest/
+
       - name: Upload Linux deb
         uses: actions/upload-artifact@v4
         with:
@@ -199,7 +208,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
-            ./gradlew :androidApp:connectedDebugAndroidTest -Popenyt.testAbi=x86_64 -Popenyt.testApplicationIdSuffix=.regression --console=plain; result=$?; adb pull /sdcard/Android/data/com.openyt.android.regression/files/validation androidApp/build/android-visual-evidence || true; exit $result
+            ./gradlew :androidApp:connectedDebugAndroidTest -Popenyt.testAbi=x86_64 -Popenyt.testApplicationIdSuffix=.regression --console=plain; result=$?; adb pull /sdcard/Pictures/OpenYT-validation androidApp/build/android-visual-evidence || true; exit $result
       - uses: actions/upload-artifact@v4
         if: always()
         with:

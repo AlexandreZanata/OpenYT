@@ -3,6 +3,8 @@
   <img src="docs/branding/openyt-lockup-light.svg" width="310" alt="OpenYT">
 </picture>
 
+[Usage guide](docs/USAGE.md) · [Brand rules](docs/branding/README.md) · [4.0.0 notes](docs/releases/v4.0.0.md) · [Regression contracts](docs/testing/EXPANSION_CONTRACTS.md)
+
 Local-first, multiplatform media downloader and library manager built with Kotlin.
 
 OpenYT lets a user paste or share a media URL, inspect available formats, download

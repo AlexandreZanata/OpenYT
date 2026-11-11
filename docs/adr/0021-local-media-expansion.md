@@ -48,3 +48,7 @@ prefills a URL and requires the user's normal in-app download action.
 - SponsorBlock is a separately labeled, opt-in third-party request.
 - Existing external dependencies and licenses are reused. Kotlin/JS uses the
   same Apache-2.0 Kotlin toolchain; no npm packages are required for the popup.
+
+Android allows explicitly supplied HTTP feed/media URLs, consistently with the
+shared URL validator and the external engine. Installer and tool-update fetches
+remain HTTPS-only. No cookies are attached by the RSS reader.

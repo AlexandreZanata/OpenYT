@@ -42,6 +42,7 @@ fun SubscriptionsDialog(controller: SubscriptionController, onDismiss: () -> Uni
     var minutes by remember { mutableStateOf("60") }
     var kind by remember { mutableStateOf(SubscriptionKind.PLAYLIST) }
     var includeExisting by remember { mutableStateOf(false) }
+    var saveFailed by remember { mutableStateOf(false) }
     var invalid by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -49,6 +50,7 @@ fun SubscriptionsDialog(controller: SubscriptionController, onDismiss: () -> Uni
         text = {
             LazyColumn(Modifier.heightIn(max = 440.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item { Text(strings.features[FeatureText.AUTOMATION_HINT]) }
+                if (saveFailed) item { Text(strings.features[FeatureText.RULE_SAVE_FAILED]) }
                 if (adding) item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(name, { name = it }, label = { Text(strings.titleLabel) })
@@ -62,11 +64,14 @@ fun SubscriptionsDialog(controller: SubscriptionController, onDismiss: () -> Uni
                             Checkbox(includeExisting, { includeExisting = it })
                             Text(strings.features[FeatureText.INCLUDE_EXISTING])
                         }
-                        if (invalid) Text(strings.errorInvalidUrl)
+                        if (invalid) Text(strings.features[FeatureText.RULE_INVALID])
                         TextButton(onClick = {
                             scope.launch {
-                                invalid = !controller.add(name, url, kind, minutes.toIntOrNull() ?: 0, includeExisting)
-                                if (!invalid) adding = false
+                                try {
+                                    invalid = !controller.add(name, url, kind, minutes.toIntOrNull() ?: 0, includeExisting)
+                                    if (!invalid) adding = false
+                                } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                                catch (_: Exception) { saveFailed = true }
                             }
                         }) { Text(strings.saveMetadata) }
                     }
@@ -78,9 +83,9 @@ fun SubscriptionsDialog(controller: SubscriptionController, onDismiss: () -> Uni
                         if (rule.id in failures) Text(strings.features[FeatureText.RULE_FAILED])
                         if (rule.id in busy) Text(strings.features[FeatureText.WORKING])
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(rule.enabled, { scope.launch { controller.setEnabled(rule.id, !rule.enabled) } }, label = { Text(strings.features[FeatureText.ENABLED]) })
+                            FilterChip(rule.enabled, { scope.launch { try { controller.setEnabled(rule.id, !rule.enabled) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { saveFailed = true } } }, label = { Text(strings.features[FeatureText.ENABLED]) })
                             TextButton(enabled = rule.id !in busy, onClick = { scope.launch { controller.check(rule.id) } }) { Text(strings.features[FeatureText.CHECK_NOW]) }
-                            TextButton(onClick = { scope.launch { controller.remove(rule.id) } }) { Text(strings.removeFromLibrary) }
+                            TextButton(onClick = { scope.launch { try { controller.remove(rule.id) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { saveFailed = true } } }) { Text(strings.removeFromLibrary) }
                         }
                     }
                 }

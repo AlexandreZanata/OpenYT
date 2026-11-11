@@ -20,18 +20,31 @@ tasks.register("releaseSbom") {
     group = "distribution"
     description = "Generate a CycloneDX inventory of the resolved desktop and Android dependencies."
     doLast {
-        val modules = listOf(":desktopApp" to "runtimeClasspath", ":androidApp" to "releaseRuntimeClasspath")
+        val targets = buildList {
+            add(":desktopApp" to "runtimeClasspath")
+            if (providers.gradleProperty("sbomAndroid").getOrElse("true").toBoolean()) add(":androidApp" to "releaseRuntimeClasspath")
+        }
+        val modules = targets
             .flatMap { (module, configuration) -> project(module).configurations.getByName(configuration)
                 .incoming.resolutionResult.allComponents.mapNotNull { it.id as? org.gradle.api.artifacts.component.ModuleComponentIdentifier } }
             .distinctBy { it.toString() }
         val components = modules.sortedBy { it.toString() }.map { id ->
             mapOf("type" to "library", "group" to id.group, "name" to id.module, "version" to id.version,
                 "purl" to "pkg:maven/${id.group}/${id.module}@${id.version}")
-        } + listOf(
-            mapOf("type" to "application", "name" to "yt-dlp", "version" to "2026.10.26 (desktop) / 2025.11.12 (Android bundle)"),
-            mapOf("type" to "application", "name" to "FFmpeg", "version" to "b6.1.1 (desktop) / 7.1.1 (Android)"),
-            mapOf("type" to "application", "name" to "Deno", "version" to "2.9.8"),
-        )
+        } + buildList {
+            val ffmpeg = if (System.getProperty("os.name").contains("Linux", true)) "8.1.3" else "6.1.1"
+            add(mapOf("type" to "application", "name" to "yt-dlp", "version" to "2026.10.26"))
+            add(mapOf("type" to "application", "name" to "FFmpeg", "version" to ffmpeg))
+            add(mapOf("type" to "application", "name" to "FFprobe", "version" to ffmpeg))
+            add(mapOf("type" to "application", "name" to "Deno", "version" to "2.9.8"))
+            if (targets.any { it.first == ":androidApp" }) {
+                add(mapOf("type" to "application", "name" to "yt-dlp-Android", "version" to "2025.11.12"))
+                add(mapOf("type" to "application", "name" to "FFmpeg-Android", "version" to "7.1.1"))
+                add(mapOf("type" to "application", "name" to "Python-Android", "version" to "3.12.11"))
+                add(mapOf("type" to "application", "name" to "QuickJS-Android", "version" to "bundled-with-youtubedl-android-0.18.1"))
+            }
+        }
+
         val output = layout.buildDirectory.file("release/openyt-sbom.cdx.json").get().asFile
         output.parentFile.mkdirs()
         output.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(mapOf(

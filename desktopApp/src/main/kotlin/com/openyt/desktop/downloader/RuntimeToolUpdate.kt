@@ -20,12 +20,12 @@ object RuntimeToolUpdate {
             os.contains("mac") -> File(home, "Library/Caches/OpenYT")
             else -> File(System.getenv("XDG_CACHE_HOME") ?: "$home/.cache", "openyt")
         }
-        return File(base, "tools/runtime/${if (os.contains("win")) "yt-dlp.exe" else "yt-dlp"}")
+        return File(base, "tools/runtime/${com.openyt.desktop.BuildInfo.version}/${if (os.contains("win")) "yt-dlp.exe" else "yt-dlp"}")
     }
     fun updater() = VerifiedToolUpdate(assetName) { target() }
-    fun verifiedPath(): String? {
+    fun verifiedPath(): String? = runCatching {
         val file = target()
-        val digest = File(file.parentFile, "${file.name}.sha256").takeIf { it.isFile }?.readText()?.trim() ?: return null
-        return file.takeIf { VerifiedReleaseDownloader.matchesChecksum(it, digest) && (os.contains("win") || it.canExecute()) }?.absolutePath
-    }
+        val digest = File(file.parentFile, "${file.name}.sha256").takeIf { it.isFile }?.readText()?.trim() ?: return@runCatching null
+        file.takeIf { VerifiedReleaseDownloader.matchesChecksum(it, digest) && (os.contains("win") || it.canExecute()) }?.absolutePath
+    }.getOrNull()
 }

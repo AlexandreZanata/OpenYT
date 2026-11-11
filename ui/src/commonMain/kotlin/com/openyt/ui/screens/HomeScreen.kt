@@ -295,7 +295,9 @@ private fun MediaSummary(
                     { segment ->
                         previewMessage = strings.features[FeatureText.WORKING]
                         previewScope.launch {
-                            val result = runCatching { preview.preview(media, sourceUrl, segment) }.getOrNull()
+                            val result = try { preview.preview(media, sourceUrl, segment) }
+                                catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                                catch (_: Exception) { null }
                             previewMessage = if (result is EngineResult.Success) null else strings.features[FeatureText.PLAYBACK_FAILED]
                         }
                     }

@@ -8,7 +8,7 @@ in `gradle/libs.versions.toml` and documented in the relevant ADRs.
 | yt-dlp | 2026.10.26 (desktop bundle), 2025.11.12 (Android bundle) | Unlicense | Media extraction/download engine |
 | youtubedl-android | 0.18.1 | GPL-3.0 | Android wrapper bundling Python, yt-dlp, FFmpeg, QuickJS |
 | Python for Android | 3.12.11 (bundled) | PSF-2.0 | Runtime required by yt-dlp |
-| FFmpeg / FFprobe | 7.1.1 (Android bundle), b6.1.1 static builds (desktop bundle) | LGPL-2.1+/GPL | Merge/convert and probe media |
+| FFmpeg / FFprobe | 7.1.1 (Android bundle), 8.1.3-27-g8dca1586f4 GPL static (Linux), b6.1.1 (Windows/macOS) | LGPL-2.1+/GPL | Merge/convert and probe media |
 | Deno | 2.9.8 (desktop bundle) | MIT | JavaScript runtime required by yt-dlp EJS |
 | QuickJS | bundled with wrapper | MIT | JavaScript runtime required by yt-dlp EJS |
 | AndroidX / Compose | see version catalog | Apache-2.0 | UI and platform integration |
@@ -27,7 +27,7 @@ names and logos are trademarks of their respective owners and are used only to
 identify the source of the requested media.
 
 Desktop packages embed yt-dlp, FFmpeg/FFprobe (static builds from
-`eugeneware/ffmpeg-static`), and Deno at build time. The Gradle packaging task
+`FFmpeg-Builds/FFmpeg-Builds` on Linux and `eugeneware/ffmpeg-static` on Windows/macOS), and Deno at build time. The Gradle packaging task
 downloads the pinned versions and includes their license files and this notice in
 the application resources. An explicit Settings action can update yt-dlp from the official stable release after SHA-256 verification. Other tools stay pinned until an application release.
 
@@ -35,3 +35,11 @@ Sources:
 - yt-dlp: https://github.com/yt-dlp/yt-dlp
 - FFmpeg static builds: https://github.com/eugeneware/ffmpeg-static
 - Deno: https://github.com/denoland/deno
+
+Linux FFmpeg is pinned to the retained monthly GPL build
+`autobuild-2026-10-31-12-59`, release branch 8.1, source commit `8dca1586f4`.
+Its archive SHA-256 is checked before extraction (x64 and arm64 pins in the build).
+The nonfree variant is not used. The upstream GPL-3.0 license accompanies the
+binaries. Linux requires glibc >= 2.28 and kernel >= 4.18, as specified by upstream.
+This replaces the Linux 6.1.1 static binary after a real HLS capture crash.
+Sources: https://github.com/FFmpeg-Builds/FFmpeg-Builds and https://github.com/FFmpeg/FFmpeg

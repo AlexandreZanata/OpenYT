@@ -165,7 +165,7 @@ class DesktopPlaybackLauncher(
                 }
             }
             override fun error(mediaPlayer: MediaPlayer) {
-                SwingUtilities.invokeLater { showPlaybackError() }
+                SwingUtilities.invokeLater { loadedMedia = null; showPlaybackError() }
             }
         })
         window = JFrame("OpenYT").apply {
@@ -244,6 +244,7 @@ class DesktopPlaybackLauncher(
         button(">>", FeatureText.NEXT) { if (queue.hasNext) select(queue.next()) }
         button("[]", FeatureText.STOP) {
             checkpoint()
+            loadedMedia = null
             component?.mediaPlayer()?.controls()?.stop()
         }
         button("[ ]", FeatureText.MINI_PLAYER, ::toggleMiniPlayer)
@@ -299,6 +300,7 @@ class DesktopPlaybackLauncher(
     }
 
     private fun togglePlayback() {
+        if (loadedMedia == null) { playCurrent(); return }
         val player = component?.mediaPlayer() ?: return
         if (player.status().isPlaying) player.controls().pause() else player.controls().play()
     }
