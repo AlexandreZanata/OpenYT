@@ -40,14 +40,15 @@ if [[ "${BUILD_FLATPAK:-0}" == 1 ]]; then
     for tool in yt-dlp ffmpeg ffprobe deno; do
         cmp "$WORK/AppDir/opt/openyt/lib/app/resources/$tool" "$WORK/flatpak/build/files/lib/openyt/lib/app/resources/$tool"
     done
-    flatpak-builder --run "$WORK/flatpak/build" "$WORK/flatpak/com.openyt.OpenYT.yml" \
+    (cd "$WORK/flatpak" && flatpak-builder --run build com.openyt.OpenYT.yml \
         env XDG_DATA_HOME=/tmp/openyt-package-contract/data XDG_CACHE_HOME=/tmp/openyt-package-contract/cache XDG_CONFIG_HOME=/tmp/openyt-package-contract/config \
-        /app/lib/openyt/bin/OpenYT --cli sources --json > "$WORK/flatpak-sources.json"
+        /app/lib/openyt/bin/OpenYT --cli sources --json) > "$WORK/flatpak-sources.json"
     python3 - "$WORK/flatpak-sources.json" <<'PY'
 import json, sys
 with open(sys.argv[1]) as source:
     assert len(json.load(source)) > 100, "Packaged Flatpak engine catalog is missing"
 PY
+    echo 'PASS Flatpak tool byte preservation and sandboxed engine catalog'
     flatpak build-bundle "$WORK/flatpak/repo" "$OUTPUT/OpenYT-$VERSION.flatpak" com.openyt.OpenYT --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
 fi
 DEB_NAME="$(basename "$DEB")"
