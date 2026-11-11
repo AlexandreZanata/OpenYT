@@ -11,7 +11,9 @@ import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.i18n.EnStrings
 import com.openyt.ui.i18n.FeatureText
 import java.awt.BorderLayout
-import java.awt.Desktop
+import com.openyt.core.application.MediaActions
+import com.openyt.core.domain.ShareableMedia
+import com.openyt.desktop.share.DesktopMediaActions
 import java.awt.Dimension
 import java.awt.Rectangle
 import java.awt.event.WindowAdapter
@@ -38,7 +40,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.runBlocking
-import uk.co.caprica.vlcj.factory.discovery.NativeDiscovery
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
 import uk.co.caprica.vlcj.player.component.EmbeddedMediaPlayerComponent
@@ -48,6 +49,8 @@ class DesktopPlaybackLauncher(
     private val store: PlaybackStore = MemoryPlaybackStore(),
     private val strings: () -> AppStrings = { EnStrings },
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    private val mediaActions: MediaActions = DesktopMediaActions(),
+    private val runtimeAvailable: () -> Boolean = DesktopVlcRuntime::discover,
 ) : PlaybackLauncher {
     override val canPlay: Boolean = true
     private var window: JFrame? = null
@@ -90,7 +93,7 @@ class DesktopPlaybackLauncher(
     fun isVlcAvailable(): Boolean {
         if (!vlcChecked) {
             vlcChecked = true
-            vlcAvailable = runCatching { NativeDiscovery().discover() }.getOrDefault(false)
+            vlcAvailable = runCatching { runtimeAvailable() }.getOrDefault(false)
         }
         return vlcAvailable
     }
@@ -310,13 +313,9 @@ class DesktopPlaybackLauncher(
     }
 
     private fun openExternally(item: PlayableMedia) {
-        SwingUtilities.invokeLater {
-            val opened = runCatching {
-                check(File(item.path).isFile)
-                check(Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN))
-                Desktop.getDesktop().open(File(item.path))
-            }.isSuccess
-            if (!opened) showPlaybackError()
+        scope.launch(Dispatchers.IO) {
+            val opened = runCatching { mediaActions.open(ShareableMedia(item.path, item.title, item.kind)) }.getOrDefault(false)
+            if (!opened) SwingUtilities.invokeLater { showPlaybackError() }
         }
     }
 }

@@ -138,17 +138,14 @@ jobs:
         if: runner.os == 'Windows' && inputs.contracts_only != true
         shell: pwsh
         run: |
-          $msi = (Get-ChildItem desktopApp/build/compose/binaries/main/msi/*.msi)[0].FullName
-          $install = Start-Process msiexec.exe -ArgumentList @('/i', "`"$msi`"", '/qn', '/norestart') -Wait -PassThru
-          if ($install.ExitCode -notin @(0, 3010)) { throw "MSI install failed: $($install.ExitCode)" }
-          $app = Get-ChildItem 'C:/Program Files' -Filter OpenYT.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (!$app) { throw 'Installed launcher missing' }
-          $version = Start-Process $app.FullName -ArgumentList @('--cli', 'version') -Wait -PassThru -RedirectStandardOutput installed-version.txt -RedirectStandardError installed-error.log
-          if ($version.ExitCode -ne 0) { Get-Content installed-error.log; throw 'Installed app failed' }
-          Get-Content installed-version.txt
-          $sources = Start-Process $app.FullName -ArgumentList @('--cli', 'sources', '--json') -Wait -PassThru -RedirectStandardOutput native-sources.json -RedirectStandardError installed-error.log
-          if ($sources.ExitCode -ne 0) { Get-Content installed-error.log; throw 'Installed engine failed' }
-          if ((Get-Content native-sources.json -Raw | ConvertFrom-Json).Count -lt 100) { throw 'Source catalog missing' }
+          ./gradlew :desktopApp:windowsContractHarnessJar --console=plain
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./scripts/validate-windows.ps1
+      - uses: actions/upload-artifact@v4
+        if: always() && runner.os == 'Windows'
+        with:
+          name: windows-installed-contracts
+          path: build/windows-validation/
       - name: Native macOS bundle smoke
         if: runner.os == 'macOS' && inputs.contracts_only != true
         shell: bash

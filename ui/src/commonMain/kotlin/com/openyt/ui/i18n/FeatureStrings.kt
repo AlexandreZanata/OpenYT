@@ -7,6 +7,8 @@ class FeatureStrings(private val language: AppLanguage) {
 }
 
 enum class FeatureText(val portuguese: String, val english: String) {
+    OPEN_FILE_FAILED("Não foi possível abrir o arquivo. Verifique se ele ainda existe e se há um aplicativo compatível instalado.", "Could not open the file. Check that it still exists and a compatible application is installed."),
+    REVEAL_FILE_FAILED("Não foi possível mostrar o arquivo na pasta. Verifique se ele foi movido e se a pasta está acessível.", "Could not show the file in its folder. Check whether it was moved and that the folder is accessible."),
     ITEM_SINGULAR("item", "item"),
     FILE_SINGULAR("arquivo", "file"),
     MINI_PLAYER("Mini-player", "Mini player"),

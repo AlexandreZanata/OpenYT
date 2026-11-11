@@ -202,6 +202,27 @@ jobs:
           :desktopApp:test --tests '*DesktopYtDlpEngineTest'
           --console=plain --stacktrace
 
+      - name: Build Windows installers and contract harness
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install wixtoolset --no-progress -y
+          ./gradlew :desktopApp:packageMsi :desktopApp:packageExe :desktopApp:windowsContractHarnessJar --console=plain --stacktrace
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Windows installed media and shortcut contracts
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/validate-windows.ps1
+
+      - uses: actions/upload-artifact@v4
+        if: always() && runner.os == 'Windows'
+        with:
+          name: windows-installed-contracts
+          path: |
+            build/windows-validation/
+            desktopApp/build/compose/logs/
+
   android-emulator:
     if: inputs.infrastructure_only != true
     runs-on: ubuntu-latest

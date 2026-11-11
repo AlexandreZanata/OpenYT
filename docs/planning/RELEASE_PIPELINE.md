@@ -8,7 +8,7 @@ Workflow: `.github/workflows/release.yml`.
   A branch dispatch validates candidates without publishing. The `contracts_only`
   input runs native media checks and inventories without packaging.
 - `gradle.properties` is the single source of truth:
-  - `openyt.version` (SemVer, currently `4.0.0`)
+  - `openyt.version` (SemVer, currently `4.0.1`)
   - `openyt.versionCode` (Android integer)
 - Every main push rebuilds and **updates** the release for `v<version>`. Bump the
   version before merging to publish a new release; otherwise assets of the current
@@ -26,7 +26,10 @@ Workflow: `.github/workflows/release.yml`.
 Linux additionally supplies RPM, AppImage, Flatpak and an Arch package plus its
 checksum-filled recipe. `:browserExtension:packageHandoff` supplies the optional
 Kotlin/JS browser extension ZIP. Native runners execute installer/bundle smoke
-checks and real loopback yt-dlp/FFmpeg contracts before publication.
+checks and real loopback yt-dlp/FFmpeg contracts before publication. Windows
+additionally runs `scripts/validate-windows.ps1` against both MSI and EXE to
+verify shortcut icons/launch, native open/reveal and decoded bundled-VLC playback.
+These contracts also run in the required Windows PR check.
 
 Desktop packages embed yt-dlp, FFmpeg, FFprobe, and Deno through
 `desktopApp/build.gradle.kts` (`prepareBundledTools`). The task downloads the
@@ -41,6 +44,7 @@ permissions.
 | FFmpeg / FFprobe (Linux) | 8.1.3, retained 2026-10-31 GPL build | `BtbN/FFmpeg-Builds`, pinned SHA-256 |
 | FFmpeg / FFprobe (Windows) | pinned b6.1.1 distribution | `eugeneware/ffmpeg-static`; actual binary version recorded in SBOM |
 | FFmpeg / FFprobe (macOS) | 9.0.2 GPL, retained 2026-09-20 builds | Martin Riedl, pinned SHA-256 for Intel and Apple Silicon |
+| VLC / libVLC (Windows x64) | 3.0.24 | Official VideoLAN distribution, pinned SHA-256; separate DLLs/plugins and notices |
 | Deno | 2.9.8 | `denoland/deno` releases |
 
 Each host generates a CycloneDX inventory with actual native binary versions.

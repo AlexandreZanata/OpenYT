@@ -4,6 +4,10 @@
 
 Accepted (Program C2).
 
+Windows packaging is superseded by [ADR-0024](0024-windows-media-and-shortcuts.md)
+in 4.0.1: its installers bundle a verified libVLC runtime. Linux/macOS retain the
+external-runtime policy below.
+
 ## Context
 
 Program C2 asks for a desktop player and a documented dependency decision. The
