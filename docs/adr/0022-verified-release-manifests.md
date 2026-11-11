@@ -30,6 +30,12 @@ Engine updates are scoped to the application version so an old runtime cache can
 override a newer bundled engine after an app upgrade. An HTTPS checksum provides transport/file integrity; it is not a substitute for
 an independently signed upstream update channel.
 
+Android downloader and local FFmpeg ports share one locked runtime initializer.
+It applies the application-version cache policy before either wrapper singleton
+starts, preventing a later engine initialization from deleting a runtime already
+loaded by local processing. Instrumentation executes yt-dlp after processing in
+the same process without network access.
+
 ## Validation
 
 Deterministic tests reject tampered installers and signatures. A synthetic
