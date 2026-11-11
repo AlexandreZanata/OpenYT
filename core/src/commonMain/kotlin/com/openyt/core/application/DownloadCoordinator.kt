@@ -413,10 +413,7 @@ class DownloadCoordinator(
             pausingTasks.update { it - id }
         }
         val applied = if (pausing) DownloadEvent.Paused else event
-        _tasks.update { tasks ->
-            tasks.map { task -> if (task.id == id) task.apply(applied) else task }
-        }
-        val updated = _tasks.value.firstOrNull { it.id == id } ?: return
+        val updated = previous.apply(applied)
 
         val percentageBucketChanged =
             (updated.percent.toInt() / PROGRESS_BUCKET) != (previous.percent.toInt() / PROGRESS_BUCKET)
@@ -434,8 +431,8 @@ class DownloadCoordinator(
                 attempt = updated.attempt + 1,
             )
             backoffTasks.update { it + retry.id }
-            _tasks.update { tasks -> tasks.map { if (it.id == retry.id) retry else it } }
             persist { repository?.updateTask(retry) }
+            _tasks.update { tasks -> tasks.map { if (it.id == retry.id) retry else it } }
             scope.launch {
                 delay(retryDelayMillis(retry.attempt))
                 backoffTasks.update { it - retry.id }
@@ -445,9 +442,6 @@ class DownloadCoordinator(
         }
 
         if (applied is DownloadEvent.Completed) {
-            scope.launch {
-                runCatching { completedHandler?.onCompleted(updated) }
-            }
             val entry = LibraryEntry(
                 id = updated.id,
                 title = updated.media.title,
@@ -462,6 +456,13 @@ class DownloadCoordinator(
                 listOf(entry) + entries.filterNot { it.id == entry.id }
             }
             persist { repository?.insertLibraryEntry(entry) }
+        }
+
+        // Observers may flush persistence and exit immediately on a terminal state.
+        // Queue every associated write before making that state observable.
+        _tasks.update { tasks -> tasks.map { if (it.id == id) updated else it } }
+        if (applied is DownloadEvent.Completed) {
+            scope.launch { runCatching { completedHandler?.onCompleted(updated) } }
         }
     }
 

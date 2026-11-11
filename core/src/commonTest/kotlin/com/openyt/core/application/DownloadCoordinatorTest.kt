@@ -22,7 +22,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.test.TestScope
@@ -39,6 +41,21 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DownloadCoordinatorTest {
+    @Test
+    fun observingCompletionThenFlushingPersistsTheLibraryBeforeExit() = runTest {
+        val repository = FakeRepository()
+        val coordinator = DownloadCoordinator(FakeDownloadEngine(), coordinatorScope(), repository)
+        val observer = backgroundScope.launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+            coordinator.tasks.first { tasks -> tasks.any { it.status == DownloadStatus.COMPLETED } }
+            assertTrue(coordinator.awaitPersistence())
+            assertEquals(1, repository.library.size, "Completion must enqueue every database write before observers can flush")
+        }
+        coordinator.restore()
+        coordinator.enqueue(FakeDownloadEngine.SAMPLE_MEDIA, request())
+        advanceUntilIdle()
+        observer.join()
+    }
+
     @Test
     fun cancelAfterAnExplicitPauseAndResumeEndsAsCanceled() = runTest {
         val events = Channel<DownloadEvent>(Channel.UNLIMITED)
