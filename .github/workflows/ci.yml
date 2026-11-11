@@ -12,6 +12,10 @@ on:
         description: Validate native package setup without building the application
         type: boolean
         default: false
+      windows_only:
+        description: Run only the native Windows installer and media contracts
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -30,7 +34,7 @@ jobs:
       - run: bash scripts/install-ci-packages.sh libvlc5 vlc-plugin-base vlc-plugin-video-output xvfb rpm flatpak flatpak-builder
 
   build:
-    if: inputs.infrastructure_only != true
+    if: inputs.infrastructure_only != true && inputs.windows_only != true
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -136,7 +140,7 @@ jobs:
           if-no-files-found: error
 
   network-integration:
-    if: inputs.infrastructure_only != true && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    if: inputs.infrastructure_only != true && inputs.windows_only != true && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -175,7 +179,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ inputs.windows_only == true && fromJSON('["windows-latest"]') || fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
 
@@ -202,8 +206,30 @@ jobs:
           :desktopApp:test --tests '*DesktopYtDlpEngineTest'
           --console=plain --stacktrace
 
+      - name: Build Windows installers and contract harness
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install wixtoolset --no-progress -y
+          ./gradlew :desktopApp:packageMsi :desktopApp:packageExe :desktopApp:windowsContractHarnessJar --console=plain --stacktrace
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Windows installed media and shortcut contracts
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/validate-windows.ps1
+
+      - uses: actions/upload-artifact@v4
+        if: always() && runner.os == 'Windows' && inputs.windows_only != true
+        timeout-minutes: 2
+        with:
+          name: windows-installed-contracts
+          path: |
+            build/windows-validation/
+            desktopApp/build/compose/logs/
+
   android-emulator:
-    if: inputs.infrastructure_only != true
+    if: inputs.infrastructure_only != true && inputs.windows_only != true
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:

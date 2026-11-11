@@ -1,5 +1,7 @@
 package com.openyt.ui.screens
 
+import com.openyt.ui.components.FileActionButtons
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -355,16 +357,7 @@ private fun DownloadTaskCard(
                                 Text(strings.shareAction)
                             }
                         }
-                        if (mediaActions.canOpen) {
-                            TextButton(onClick = { mediaActions.open(shareable) }) {
-                                Text(strings.openAction)
-                            }
-                        }
-                        if (mediaActions.canReveal) {
-                            TextButton(onClick = { mediaActions.reveal(shareable) }) {
-                                Text(strings.revealAction)
-                            }
-                        }
+                        FileActionButtons(shareable, mediaActions)
                         TextButton(onClick = onDismiss) { Text(strings.dismissAction) }
                     }
 

@@ -16,7 +16,8 @@ in `gradle/libs.versions.toml` and documented in the relevant ADRs.
 | SQLDelight | 2.4.1 | Apache-2.0 | Local SQLite schema, queries, and drivers |
 | Coil | 3.4.0 | Apache-2.0 | Compose image loading for thumbnails |
 | OkHttp | via Coil | Apache-2.0 | Desktop/Android HTTP image loading |
-| VLCJ / JNA | 4.12.1 / transitive | GPL-3.0 / LGPL-2.1+ or Apache-2.0 | Desktop playback bridge to separately installed libvlc |
+| VLCJ / JNA | 4.12.1 / transitive | GPL-3.0 / LGPL-2.1+ or Apache-2.0 | Desktop playback bridge and native Windows shell integration |
+| VLC / libVLC (Windows x64) | 3.0.24 | GPL-2.0-or-later / LGPL-2.1-or-later | Bundled native playback DLLs/plugins, excluding disc access |
 | Simple Icons | pinned cd796c98565fc466923fc1128b962e133fa3c612 | CC0-1.0 | Provider logos converted to shared XML vectors |
 
 Because the Android build links the GPL-3.0 `youtubedl-android` library, OpenYT as a
@@ -54,3 +55,15 @@ enables GPL/version3 and libxml2, without enabling nonfree components. This is
 compatible with OpenYT's GPL-3.0 distribution; the GPL license is included beside
 the tools. DASH demuxing is required for section downloads and was absent from the
 previous Apple Silicon binary. Native release CI exercises this exact contract.
+
+Windows 4.0.1 additionally bundles the unchanged VLC 3.0.24 runtime from VideoLAN's
+[official OSUOSL mirror](https://ftp.osuosl.org/pub/videolan/vlc/3.0.24/win64/vlc-3.0.24-win64.zip).
+Its archive SHA-256 is pinned before extraction. Only core DLLs, playback plugins
+and notices are retained; DVD/Blu-ray access modules are excluded. COPYING.txt,
+AUTHORS.txt, THANKS.txt, COPYING.LIB and a corresponding-source link accompany the
+DLLs. The original libraries remain separate and replaceable; no codecs are
+reimplemented. The native contract verifies the actual loaded version, decoded
+playback and application-owned location.
+Corresponding source: https://download.videolan.org/pub/videolan/vlc/3.0.24/vlc-3.0.24.tar.xz
+and https://code.videolan.org/videolan/vlc/-/tree/3.0.24
+Security release reviewed: https://images.videolan.org/security/sb-vlc3024.html

@@ -1,5 +1,7 @@
 package com.openyt.ui.screens
 
+import com.openyt.ui.components.FileActionButtons
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -1250,19 +1252,7 @@ private fun LibraryCard(
                         Text(strings.shareAction)
                     }
                 }
-                if (mediaActions.canOpen) {
-                    TextButton(
-                        onClick = { mediaActions.open(entry.toShareable()) },
-                        enabled = !item.missing,
-                    ) {
-                        Text(strings.openAction)
-                    }
-                }
-                if (mediaActions.canReveal) {
-                    TextButton(onClick = { mediaActions.reveal(entry.toShareable()) }) {
-                        Text(strings.revealAction)
-                    }
-                }
+                FileActionButtons(entry.toShareable(), mediaActions, enabled = !item.missing)
                 onProcess?.let { action ->
                     TextButton(onClick = action) { Text(strings.features[FeatureText.PROCESSING]) }
                 }

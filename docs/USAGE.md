@@ -33,8 +33,10 @@ nearby keyframe rather than an exact frame.
 
 Play an available Library item or choose Continue playback to restore the saved
 session. Desktop: Space pauses/plays, Left/Right jump 10 seconds, M toggles the
-floating window, Escape expands it. VLC/libvlc supplies embedded desktop playback;
-without it, OpenYT hands the file to the OS player. Android uses Media3, background
+floating window, Escape expands it. Windows 4.0.1 includes the VLC/libvlc playback runtime. Linux/macOS use an
+installed VLC/libvlc; without it, OpenYT hands the file to the OS player. Windows
+Show in folder selects the exact file in Explorer. Failed Open/Show in folder
+actions display recovery instructions instead of silently doing nothing. Android uses Media3, background
 audio and system PiP for video. Finished items restart from the beginning.
 
 ## Local automation and handoff

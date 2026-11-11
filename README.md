@@ -19,7 +19,7 @@ stay on your device. There is no OpenYT account or remote download server.
 
 [Download](https://github.com/AlexandreZanata/OpenYT/releases/latest) ·
 [All supported sources](docs/SUPPORTED_SOURCES.md) ·
-[Usage guide](docs/USAGE.md) · [What's new in 4.0](docs/releases/v4.0.0.md) ·
+[Usage guide](docs/USAGE.md) · [What's new in 4.0.1](docs/releases/v4.0.1.md) ·
 [Brand guidelines](docs/branding/README.md)
 
 ## Features
@@ -65,8 +65,9 @@ stay on your device. There is no OpenYT account or remote download server.
   requested checksum-verified yt-dlp updates, redacted diagnostics and application
   installer verification against a pinned signed release manifest.
 
-Embedded desktop playback, resume and the mini-player require **VLC/libvlc**.
-Without it, files open in the OS player. Live capture defaults to 60 seconds and
+Windows 4.0.1 bundles **VLC/libvlc** for embedded playback, resume and the
+mini-player. Linux/macOS require a separately installed VLC/libvlc; otherwise
+files open in the OS player. Live capture defaults to 60 seconds and
 can be bounded from 1 second to 24 hours. Generic photo/image gallery downloading
 is outside this release ([ADR-0023](docs/adr/0023-engine-and-image-viability.md)).
 
@@ -166,7 +167,7 @@ audio preset. The output is a new file, and the original is preserved.
 
 ## Download and install
 
-Get **[OpenYT 4.0.0 from Releases](https://github.com/AlexandreZanata/OpenYT/releases/latest)**.
+Get **[OpenYT 4.0.1 from Releases](https://github.com/AlexandreZanata/OpenYT/releases/latest)**.
 The release includes Android APK, Linux DEB/RPM/AppImage/Flatpak/Arch packages,
 Windows MSI/EXE, macOS DMG, the browser handoff extension, per-host software
 inventories and signed checksums.
@@ -185,8 +186,8 @@ file picker, or exported to a selected storage tree.
 
 ```bash
 # Debian/Ubuntu, x86_64
-wget https://github.com/AlexandreZanata/OpenYT/releases/latest/download/openyt_4.0.0_amd64.deb
-sudo apt install ./openyt_4.0.0_amd64.deb
+wget https://github.com/AlexandreZanata/OpenYT/releases/latest/download/openyt_4.0.1_amd64.deb
+sudo apt install ./openyt_4.0.1_amd64.deb
 ```
 
 RPM, AppImage, Flatpak and an Arch package/recipe are also available. Desktop
@@ -196,14 +197,16 @@ default; additional folders need explicit permissions.
 
 ### Windows
 
-Download and run `OpenYT-4.0.0.exe` or `OpenYT-4.0.0.msi`. The desktop tools are
-bundled; install VLC separately for embedded playback. Windows installers do not
+Download and run `OpenYT-4.0.1.exe` or `OpenYT-4.0.1.msi`. The desktop tools and
+VLC playback runtime are bundled. Both installers create branded desktop and
+Start-menu shortcuts. **Play** uses the embedded player; **Show in folder** opens
+Explorer with the file selected. Windows installers do not
 currently carry Authenticode signatures, so SmartScreen can display a warning.
 Use the official release and its signed checksums to verify the downloaded file.
 
 ### macOS
 
-Open `OpenYT-4.0.0.dmg` and drag OpenYT to Applications. Desktop tools are bundled;
+Open `OpenYT-4.0.1.dmg` and drag OpenYT to Applications. Desktop tools are bundled;
 VLC is separate. The app is currently unsigned and not notarized, so opening it
 is subject to the Mac's Gatekeeper policy. Native CI validates the copied bundle
 and launcher; see the [validation ledger](docs/testing/RELEASE_4_VALIDATION.md).
@@ -316,6 +319,7 @@ and media contracts. It does not claim manual GUI or physical-device coverage on
 every platform. The published release notes contain final workflow evidence.
 
 - [User-reported video regression contracts](docs/testing/VIDEO_REGRESSION_CONTRACTS.md)
+- [Windows playback, shell and shortcut contracts](docs/testing/WINDOWS_DESKTOP_CONTRACTS.md)
 - [Expansion regression contracts](docs/testing/EXPANSION_CONTRACTS.md)
 - [Release pipeline and signing](docs/planning/RELEASE_PIPELINE.md)
 - [Current status and limitations](docs/planning/STATUS.md)

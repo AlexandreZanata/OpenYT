@@ -18,6 +18,8 @@ apps. Embeding vendor SDKs would add accounts, permissions, and maintenance burd
 - "Open" uses `ACTION_VIEW` with the same content URI. "Reveal" is unsupported on
   Android and returns false.
 - Desktop uses `Desktop.open`/`browseFileDirectory` with an `xdg-open` fallback.
+  Windows 4.0.1 replaces this with native Unicode shell operations and visible
+  action failures; see [ADR-0024](0024-windows-media-and-shortcuts.md).
 - Never request broad storage permissions for app-owned downloads.
 
 ## Consequences

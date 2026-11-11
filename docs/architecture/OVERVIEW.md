@@ -82,6 +82,12 @@ read-only `FileProvider` URI and the system share/open choosers; desktop opens t
 default app or reveals the file in the file manager. No direct third-party SDK is
 embedded and no broad storage permission is required.
 
+Windows uses native Unicode shell calls through the existing JNA dependency,
+with COM apartment ownership and explicit result handling. Shared file-action
+buttons report failures without blocking the UI. Windows packages include a
+checksum-pinned libVLC runtime; other desktop hosts discover installed libVLC.
+See [ADR-0024](../adr/0024-windows-media-and-shortcuts.md).
+
 ## Persistence and queue
 
 SQLDelight/SQLite stores the queue snapshot, library, and app settings
