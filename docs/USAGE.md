@@ -1,6 +1,7 @@
 # Using OpenYT
 
-Paste a media URL, choose **Analyze**, review the available formats, and download.
+Paste a media URL, choose **Inspect** (**Analisar** in Portuguese), review the
+available formats, and download.
 The installed engine determines availability; authenticated or restricted sources
 can require your authorized local cookies file. An unavailable source is reported
 as an error with a recovery action, not as a successful download.
