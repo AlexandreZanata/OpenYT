@@ -4,5 +4,6 @@
   "version": "4.0.0",
   "description": "Open the current media link in your local OpenYT app for review.",
   "permissions": ["activeTab"],
-  "action": { "default_popup": "popup.html", "default_title": "OpenYT" }
+  "icons": { "128": "openyt.png" },
+  "action": { "default_popup": "popup.html", "default_icon": "openyt.png", "default_title": "OpenYT" }
 }

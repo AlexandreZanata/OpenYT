@@ -47,7 +47,9 @@ class DesktopYtDlpLocalTest {
             "-f", "lavfi", "-i", "testsrc=duration=1:size=160x120:rate=10",
             "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
-            "-f", "dash", manifest.absolutePath,
+            "-init_seg_name", "init-\$RepresentationID\$.m4s",
+            "-media_seg_name", "chunk-\$RepresentationID\$-\$Number%05d\$.m4s",
+            "-seg_duration", "1", "-f", "dash", manifest.absolutePath,
         ).redirectErrorStream(true).start()
         val diagnostic = generator.inputStream.bufferedReader().readText()
         assertEquals(0, generator.waitFor(), diagnostic)
@@ -136,6 +138,7 @@ class DesktopYtDlpLocalTest {
             try {
                 val path = fixture.toPath().resolve(exchange.requestURI.path.removePrefix("/")).normalize()
                 if (!path.startsWith(fixture.toPath()) || !path.toFile().isFile) {
+                    File("build/validation/fixture-http.err").apply { parentFile.mkdirs() }.appendText("${exchange.requestURI} missing; files=${fixture.listFiles()?.map { it.name }}\n")
                     exchange.sendResponseHeaders(404, -1)
                 } else {
                     val bytes = path.toFile().readBytes()
