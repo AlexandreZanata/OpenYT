@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      contracts_only:
+        description: Run native media contracts without packaging or publication
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -24,6 +29,7 @@ jobs:
           echo "value=$(grep '^openyt.version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
 
   android:
+    if: inputs.contracts_only != true
     needs: version
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -85,17 +91,18 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
       - name: Install WiX Toolset
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && inputs.contracts_only != true
         shell: pwsh
         run: choco install wixtoolset --no-progress -y
       - name: Install RPM packaging tools
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y rpm flatpak flatpak-builder
+        if: runner.os == 'Linux' && inputs.contracts_only != true
+        run: sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 update && sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 install -y rpm flatpak flatpak-builder
       - name: Package desktop
+        if: inputs.contracts_only != true
         shell: bash
         run: ./gradlew :desktopApp:${{ matrix.task }} --console=plain --stacktrace
       - name: Linux package smoke and inventory
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && inputs.contracts_only != true
         shell: bash
         run: |
           mkdir -p release-linux
@@ -126,7 +133,7 @@ jobs:
           '
           ./scripts/validate-linux.sh --scenario tools --no-build
       - name: Native Windows install and CLI smoke
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && inputs.contracts_only != true
         shell: pwsh
         run: |
           $msi = (Get-ChildItem desktopApp/build/compose/binaries/main/msi/*.msi)[0].FullName
@@ -141,7 +148,7 @@ jobs:
           if ($sources.ExitCode -ne 0) { Get-Content installed-error.log; throw 'Installed engine failed' }
           if ((Get-Content native-sources.json -Raw | ConvertFrom-Json).Count -lt 100) { throw 'Source catalog missing' }
       - name: Native macOS bundle smoke
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && inputs.contracts_only != true
         shell: bash
         run: |
           printf 'Y\n' | hdiutil attach desktopApp/build/compose/binaries/main/dmg/*.dmg -mountpoint /tmp/openyt-volume
@@ -165,6 +172,7 @@ jobs:
         env:
           OPENYT_RUN_LOCAL_ENGINE_TESTS: "1"
         run: |
+          ./gradlew :desktopApp:prepareBundledTools --console=plain
           case "${{ runner.os }}" in
             Windows) TOOLS="$(cygpath -w "$PWD/desktopApp/build/bundled-tools/windows-x64")"; SUFFIX=.exe ;;
             macOS) if [ "$(uname -m)" = "arm64" ]; then CPU=arm64; else CPU=x64; fi; TOOLS="$PWD/desktopApp/build/bundled-tools/macos-$CPU"; SUFFIX= ;;
@@ -182,7 +190,7 @@ jobs:
             desktopApp/build/test-results/test/
             desktopApp/build/validation/*.err
       - name: Flatten Windows installers
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && inputs.contracts_only != true
         shell: bash
         run: |
           mkdir -p release-windows
@@ -204,12 +212,14 @@ jobs:
           done
           ls -la desktopApp/build/compose/binaries/main/app || true
       - uses: actions/upload-artifact@v4
+        if: inputs.contracts_only != true
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.path }}
           if-no-files-found: error
 
   browser-handoff:
+    if: inputs.contracts_only != true
     needs: version
     runs-on: ubuntu-latest
     steps:
@@ -230,7 +240,7 @@ jobs:
           path: browserExtension/OpenYT-browser-handoff.zip
 
   publish:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && inputs.contracts_only != true
     needs: [version, android, desktop, browser-handoff]
     runs-on: ubuntu-latest
     steps:
