@@ -1,0 +1,16 @@
+pkgname=openyt-bin
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='Local-first media downloader and library manager'
+arch=('x86_64')
+url='https://github.com/AlexandreZanata/OpenYT'
+license=('GPL3')
+depends=('glibc' 'zlib' 'libx11' 'libxtst' 'alsa-lib' 'libxi' 'freetype2')
+optdepends=('vlc: embedded desktop playback')
+source=("https://github.com/AlexandreZanata/OpenYT/releases/download/v${pkgver}/@DEB@")
+sha256sums=('@SHA256@')
+package() {
+    bsdtar -xf data.tar.* -C "$pkgdir"
+    install -d "$pkgdir/usr/bin"
+    ln -s /opt/openyt/bin/OpenYT "$pkgdir/usr/bin/openyt"
+}

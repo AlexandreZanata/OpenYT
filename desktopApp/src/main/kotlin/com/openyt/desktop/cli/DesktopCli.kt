@@ -13,6 +13,19 @@ import com.openyt.core.application.LibraryQuery
 import com.openyt.core.application.OrganizationPlanner
 import com.openyt.core.application.PlayableMedia
 import com.openyt.core.application.PlaybackQueue
+import com.openyt.core.application.OpenYtLink
+import com.openyt.core.application.MediaProcessingRequest
+import com.openyt.core.application.MediaOperation
+import com.openyt.core.application.parseMediaSegment
+import com.openyt.core.automation.SubscriptionController
+import com.openyt.core.automation.SubscriptionKind
+import com.openyt.data.RssFeedReader
+import com.openyt.data.SqlDelightSubscriptions
+import com.openyt.media.ffmpeg.FfmpegMediaProcessor
+import com.openyt.desktop.downloader.ExecutableLocator
+import com.openyt.core.domain.DownloadOptions
+import com.openyt.core.domain.AudioPreset
+import com.openyt.core.domain.SubtitleSelection
 import com.openyt.core.application.StorageAnalyzer
 import com.openyt.core.application.toLibraryFilter
 import com.openyt.core.domain.DownloadFailure
@@ -84,6 +97,15 @@ object DesktopCli {
                     "library" -> library(args)
                     "cookies" -> cookies(args)
                     "playback" -> playback(args)
+                    "tool-update" -> {
+                        val success = com.openyt.desktop.downloader.RuntimeToolUpdate.updater().update()
+                        println(buildJsonObject { put("ok", success) })
+                        if (success) 0 else 1
+                    }
+                    "sources" -> sources(args)
+                    "link" -> { println(OpenYtLink.create(args.required("url")) ?: throw CliException("invalid URL")); 0 }
+                    "media" -> processMedia(args)
+                    "watch" -> watch(args)
                     else -> usage()
                 }
             }
@@ -91,7 +113,7 @@ object DesktopCli {
             System.err.println("error: ${e.message}")
             1
         } catch (e: Exception) {
-            System.err.println("error: ${e.message ?: e::class.simpleName}")
+            System.err.println("error: operation failed (${e::class.simpleName})")
             1
         }
     }
@@ -144,6 +166,7 @@ object DesktopCli {
                     kind = kind,
                     formatId = args.value("format-id"),
                     destinationDirectory = args.value("dir") ?: defaultDownloadsDirectory(),
+                    options = downloadOptions(args),
                     fileNameTemplate = OrganizationPlanner.singleTemplate(
                         preset,
                         args.value("template"),
@@ -196,6 +219,7 @@ object DesktopCli {
                 priority = priority,
                 preset = preset,
                 customFileNameTemplate = args.value("template"),
+                options = downloadOptions(args),
             )
             val tasks = awaitTasks(coordinator, ids, args.timeoutMillis())
             emitPlaylist(playlist, tasks, args.flag("json"))
@@ -204,6 +228,85 @@ object DesktopCli {
             scope.cancel()
             engine.close()
         }
+    }
+
+    private suspend fun sources(args: CliArgs): Int {
+        val engine = DesktopYtDlpEngine()
+        return try {
+            val sources = engine.supportedSources()
+            if (args.flag("json")) println(Json.encodeToString(sources)) else sources.forEach(::println)
+            if (sources.isEmpty()) 1 else 0
+        } finally { engine.close() }
+    }
+
+    private fun downloadOptions(args: CliArgs): DownloadOptions {
+        val segment = if (args.value("start") != null || args.value("end") != null) {
+            parseMediaSegment(args.value("start").orEmpty(), args.value("end").orEmpty()) ?: throw CliException("invalid segment")
+        } else null
+        val preset = args.value("audio-preset")?.let { runCatching { AudioPreset.valueOf(it.uppercase()) }.getOrNull() ?: throw CliException("invalid audio preset") } ?: AudioPreset.M4A
+        return DownloadOptions(
+            audioPreset = preset,
+            normalizeAudio = args.flag("normalize"),
+            subtitle = (args.value("sub-lang") ?: args.value("subtitle"))?.let { SubtitleSelection(it, args.flag("auto-subtitles"), (args.flag("embed-subs") || args.flag("embed-subtitles"))) },
+            preserveChapters = !args.flag("no-chapters"),
+            sponsorBlockMarkers = args.flag("sponsorblock"),
+            segment = segment,
+            liveDurationSeconds = args.value("live-seconds")?.toIntOrNull(),
+        )
+    }
+
+    private suspend fun processMedia(args: CliArgs): Int {
+        val path = args.required("path")
+        val operation = if (args.value("operation") == "audio") MediaOperation.CONVERT_AUDIO else MediaOperation.TRIM
+        val options = downloadOptions(args)
+        if (operation == MediaOperation.TRIM && options.segment == null) throw CliException("--start and --end are required")
+        val result = FfmpegMediaProcessor({ ExecutableLocator().findFfmpeg() }).process(
+            MediaProcessingRequest(path, File(path).nameWithoutExtension, MediaKind.VIDEO, operation, options.segment, options.audioPreset, options.normalizeAudio),
+        )
+        return when (result) {
+            is EngineResult.Failure -> { emitFailure("media", result.failure, args.flag("json")); 1 }
+            is EngineResult.Success -> {
+                println(buildJsonObject { put("id", result.value.id); put("path", result.value.path); put("sizeBytes", result.value.sizeBytes) })
+                0
+            }
+        }
+    }
+
+    private suspend fun watch(args: CliArgs): Int {
+        val database = createOpenYtDatabase(defaultDatabasePath())
+        val repository = SqlDelightDownloadRepository(database)
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val engine = DesktopYtDlpEngine()
+        try {
+            val coordinator = DownloadCoordinator(engine, scope, repository)
+            coordinator.restore()
+            val controller = SubscriptionController(SqlDelightSubscriptions(database), RssFeedReader(), engine, coordinator,
+                { args.value("dir") ?: defaultDownloadsDirectory() }, { System.currentTimeMillis() }, { java.util.UUID.randomUUID().toString() }, scope)
+            controller.restore()
+            if (args.flag("add")) {
+                val kind = if (args.value("kind") == "feed") SubscriptionKind.FEED else SubscriptionKind.PLAYLIST
+                if (!controller.add(args.required("name"), args.required("url"), kind, args.value("minutes")?.toIntOrNull() ?: 60, args.flag("include-existing"))) throw CliException("invalid or duplicate subscription")
+            }
+            args.value("remove")?.let { controller.remove(it) }
+            if (args.flag("check")) {
+                val id = args.value("id")
+                val before = coordinator.tasks.value.associateBy { it.id }
+                val rules = controller.rules.value.filter { it.enabled && (id == null || it.id == id) }
+                rules.forEach { controller.check(it.id) }
+                val affected = coordinator.tasks.value.filter { task ->
+                    val belongs = rules.any { task.request.options.originKey?.startsWith("${it.id}:") == true }
+                    belongs && (task.id !in before || before[task.id]?.status?.isActive == true)
+                }.map { it.id }
+                val checked = if (affected.isNotEmpty()) awaitTasks(coordinator, affected, args.timeoutMillis()) else emptyList()
+                val persisted = coordinator.awaitPersistence()
+                if (!persisted || checked.any { it.status != DownloadStatus.COMPLETED } || controller.failedIds.value.isNotEmpty()) {
+                    emitFailure("watch", checked.firstOrNull { it.failure != null }?.failure ?: DownloadFailure.ProcessingFailed(null), args.flag("json"))
+                    return 1
+                }
+            }
+            println(Json.encodeToString(controller.rules.value))
+            return 0
+        } finally { engine.close(); scope.cancel() }
     }
 
     private fun playback(args: CliArgs): Int {
@@ -797,6 +900,7 @@ object DesktopCli {
     private fun parseKind(value: String): MediaKind = when (value.lowercase()) {
         "video" -> MediaKind.VIDEO
         "audio" -> MediaKind.AUDIO
+        "subtitle" -> MediaKind.SUBTITLE
         else -> throw CliException("--kind must be video or audio")
     }
 
@@ -866,6 +970,16 @@ object DesktopCli {
               main --cli cookies  [--import <path>] [--check] [--clear] [--json]
               main --cli playback --check [--json]
               main --cli playback --queue-check [--json]
+              main --cli sources [--json]
+              main --cli link --url <url>
+              main --cli media --path <path> --operation trim|audio [--start <seconds> --end <seconds>]
+                               [--audio-preset m4a|mp3|opus|flac|wav] [--normalize]
+              main --cli watch --add --name <name> --url <url> --kind feed|playlist [--minutes 60] [--include-existing]
+              main --cli watch --check [--id <id>]
+              main --cli watch --remove <id>
+              main --cli tool-update
+              Download options: --audio-preset <preset> --normalize --subtitle <language> --auto-subtitles
+                                --embed-subtitles --sponsorblock --start <seconds> --end <seconds> --live-seconds <seconds>
               main --cli version
             """.trimIndent(),
         )

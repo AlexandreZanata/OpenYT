@@ -4,6 +4,7 @@ import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadEvent
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonObject
 
 /**
  * Maps low-level tool failures to structured, user-presentable failures. Raw tool
@@ -87,13 +88,23 @@ object YtDlpProgressParser {
 
 object YtDlpOutputParser {
     private const val FILE_MARKER = "OPENYT_FILE:"
+    private const val SUBTITLE_MARKER = "OPENYT_SUBTITLES:"
+    const val SUBTITLE_PATH_TEMPLATE = "after_video:$SUBTITLE_MARKER%(requested_subtitles)j"
     const val FILE_PATH_TEMPLATE = "after_move:$FILE_MARKER%(filepath)j"
 
     fun extractFilePath(stdout: String): String? =
         stdout.lineSequence()
             .map { it.trim().removePrefix("\uFEFF") }
-            .filter { it.startsWith(FILE_MARKER) }
+            .filter { it.startsWith(FILE_MARKER) || it.startsWith(SUBTITLE_MARKER) }
             .mapNotNull { line ->
+                if (line.startsWith(SUBTITLE_MARKER)) {
+                    val subtitles = runCatching {
+                        Json.parseToJsonElement(line.removePrefix(SUBTITLE_MARKER)) as? JsonObject
+                    }.getOrNull()
+                    return@mapNotNull subtitles?.values?.mapNotNull { track ->
+                        ((track as? JsonObject)?.get("filepath") as? JsonPrimitive)?.content
+                    }?.lastOrNull(::looksLikePath)
+                }
                 val value = runCatching {
                     Json.parseToJsonElement(line.removePrefix(FILE_MARKER))
                 }.getOrNull() as? JsonPrimitive

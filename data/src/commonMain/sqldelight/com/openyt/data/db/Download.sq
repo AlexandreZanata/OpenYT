@@ -24,7 +24,8 @@ CREATE TABLE download_task (
     priority TEXT NOT NULL DEFAULT 'NORMAL',
     attempt INTEGER NOT NULL DEFAULT 0,
     file_name_template TEXT NOT NULL DEFAULT '%(title).150B [%(id)s].%(ext)s',
-    playlist_item_index INTEGER
+    playlist_item_index INTEGER,
+    options_json TEXT NOT NULL DEFAULT '{}'
 );
 
 CREATE TABLE library_entry (
@@ -54,7 +55,7 @@ CREATE TABLE collection_entry (
 CREATE TABLE app_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     theme_mode TEXT NOT NULL DEFAULT 'SYSTEM',
-    language TEXT NOT NULL DEFAULT 'PT_BR',
+    language TEXT NOT NULL DEFAULT 'SYSTEM',
     max_concurrent INTEGER NOT NULL DEFAULT 2,
     downloads_directory TEXT,
     storage_tree_uri TEXT,
@@ -62,7 +63,9 @@ CREATE TABLE app_settings (
     download_window_start_minutes INTEGER,
     download_window_end_minutes INTEGER,
     organization_preset TEXT NOT NULL DEFAULT 'PLAYLIST',
-    file_organization_template TEXT
+    file_organization_template TEXT,
+    clipboard_suggestions INTEGER NOT NULL DEFAULT 0,
+    download_notifications INTEGER NOT NULL DEFAULT 0
 );
 
 selectSettings:
@@ -72,12 +75,12 @@ upsertSettings:
 INSERT OR REPLACE INTO app_settings(
     id, theme_mode, language, max_concurrent, downloads_directory, storage_tree_uri,
     speed_limit_bytes_per_second, download_window_start_minutes, download_window_end_minutes,
-    organization_preset, file_organization_template
+    organization_preset, file_organization_template, clipboard_suggestions, download_notifications
 )
 VALUES (
     1, :theme_mode, :language, :max_concurrent, :downloads_directory, :storage_tree_uri,
     :speed_limit_bytes_per_second, :download_window_start_minutes, :download_window_end_minutes,
-    :organization_preset, :file_organization_template
+    :organization_preset, :file_organization_template, :clipboard_suggestions, :download_notifications
 );
 
 selectAllTasks:
@@ -88,12 +91,12 @@ INSERT OR REPLACE INTO download_task(
     id, source_id, title, author, source, url, webpage_url, duration_seconds,
     thumbnail_url, kind, format_id, destination_directory, status, percent,
     speed_bytes_per_second, eta_seconds, file_path, size_bytes,
-    failure_kind, failure_detail, priority, attempt, file_name_template, playlist_item_index
+    failure_kind, failure_detail, priority, attempt, file_name_template, playlist_item_index, options_json
 ) VALUES (
     :id, :source_id, :title, :author, :source, :url, :webpage_url, :duration_seconds,
     :thumbnail_url, :kind, :format_id, :destination_directory, :status, :percent,
     :speed_bytes_per_second, :eta_seconds, :file_path, :size_bytes,
-    :failure_kind, :failure_detail, :priority, :attempt, :file_name_template, :playlist_item_index
+    :failure_kind, :failure_detail, :priority, :attempt, :file_name_template, :playlist_item_index, :options_json
 );
 
 updateTask:
@@ -198,3 +201,34 @@ VALUES (:collection_id, :entry_id);
 
 deleteCollectionEntry:
 DELETE FROM collection_entry WHERE collection_id = :collection_id AND entry_id = :entry_id;
+
+CREATE TABLE playback_position (
+    path TEXT NOT NULL PRIMARY KEY,
+    position_millis INTEGER NOT NULL,
+    duration_millis INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE playback_session (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    queue_json TEXT NOT NULL
+);
+
+selectPlaybackPosition:
+SELECT * FROM playback_position WHERE path = ?;
+
+savePlaybackPosition:
+INSERT OR REPLACE INTO playback_position VALUES (?, ?, ?);
+
+selectPlaybackQueue:
+SELECT queue_json FROM playback_session WHERE id = 1;
+
+savePlaybackQueue:
+INSERT OR REPLACE INTO playback_session VALUES (1, ?);
+
+CREATE TABLE subscription_rule (id TEXT NOT NULL PRIMARY KEY, definition_json TEXT NOT NULL);
+selectSubscriptions:
+SELECT * FROM subscription_rule ORDER BY id;
+saveSubscription:
+INSERT OR REPLACE INTO subscription_rule VALUES (?, ?);
+deleteSubscription:
+DELETE FROM subscription_rule WHERE id = ?;

@@ -1,0 +1,41 @@
+id: com.openyt.OpenYT
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+command: openyt
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=x11
+  - --socket=pulseaudio
+  - --device=dri
+  - --filesystem=xdg-download
+modules:
+  - name: openyt
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/lib /app/bin
+      - cp -a openyt /app/lib/
+      - install -Dm755 launcher /app/bin/openyt
+      - install -Dm644 openyt.png /app/share/icons/hicolor/512x512/apps/com.openyt.OpenYT.png
+      - install -Dm644 com.openyt.OpenYT.desktop /app/share/applications/com.openyt.OpenYT.desktop
+    sources:
+      - type: dir
+        path: openyt
+        dest: openyt
+      - type: file
+        path: openyt.png
+      - type: script
+        dest-filename: launcher
+        commands:
+          - exec /app/lib/openyt/bin/OpenYT "$@"
+      - type: inline
+        dest-filename: com.openyt.OpenYT.desktop
+        contents: |
+          [Desktop Entry]
+          Type=Application
+          Name=OpenYT
+          Exec=openyt %u
+          Icon=com.openyt.OpenYT
+          Categories=AudioVideo;
+          MimeType=x-scheme-handler/openyt;

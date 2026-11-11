@@ -18,7 +18,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters += "arm64-v8a"
+            abiFilters += providers.gradleProperty("openyt.testAbi").getOrElse("arm64-v8a")
         }
     }
 
@@ -46,6 +46,7 @@ android {
     }
 
     buildTypes {
+        debug { applicationIdSuffix = providers.gradleProperty("openyt.testApplicationIdSuffix").orNull }
         release {
             isMinifyEnabled = false
             signingConfig = if (releaseKeystore != null) {
@@ -70,6 +71,7 @@ dependencies {
     implementation(project(":ui"))
     implementation(project(":core"))
     implementation(project(":engine-ytdlp"))
+    implementation(project(":media-ffmpeg"))
     implementation(project(":data"))
 
     implementation(libs.androidx.activity.compose)

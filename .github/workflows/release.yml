@@ -64,9 +64,9 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            task: packageDeb
+            task: packageDeb packageRpm
             artifact: linux-deb
-            path: desktopApp/build/compose/binaries/main/deb/*.deb
+            path: release-linux/*
           - os: windows-latest
             task: packageMsi packageExe
             artifact: windows-installer
@@ -88,9 +88,57 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: choco install wixtoolset --no-progress -y
+      - name: Install RPM packaging tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm flatpak flatpak-builder
       - name: Package desktop
         shell: bash
         run: ./gradlew :desktopApp:${{ matrix.task }} --console=plain --stacktrace
+      - name: Linux package smoke and inventory
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p release-linux
+          cp desktopApp/build/compose/binaries/main/deb/*.deb release-linux/
+          cp desktopApp/build/compose/binaries/main/rpm/*.rpm release-linux/
+          curl -fL https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -o "$RUNNER_TEMP/appimagetool"
+          echo "e8c1169c4af66c3184d7ee110713d4be04befe671fa358e2c1591ee840553b03  $RUNNER_TEMP/appimagetool" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          APPIMAGETOOL="$RUNNER_TEMP/appimagetool" BUILD_FLATPAK=1 ./scripts/package-linux-extra.sh desktopApp/build/compose/binaries/main/deb/*.deb release-linux
+          flatpak install --user -y release-linux/*.flatpak
+          flatpak run com.openyt.OpenYT --cli version
+          mkdir rpm-smoke
+          cd rpm-smoke
+          rpm2cpio ../release-linux/*.rpm | cpio -id
+          ./opt/openyt/bin/OpenYT --cli version
+          cd ..
+          ./scripts/validate-linux.sh --scenario tools --no-build
+          ./gradlew releaseSbom --console=plain
+          cp build/release/openyt-sbom.cdx.json release-linux/
+      - name: Native Windows install and CLI smoke
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $msi = (Get-ChildItem desktopApp/build/compose/binaries/main/msi/*.msi)[0].FullName
+          $install = Start-Process msiexec.exe -ArgumentList @('/i', "`"$msi`"", '/qn', '/norestart') -Wait -PassThru
+          if ($install.ExitCode -notin @(0, 3010)) { throw "MSI install failed: $($install.ExitCode)" }
+          $app = Get-ChildItem 'C:/Program Files' -Filter OpenYT.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (!$app) { throw 'Installed launcher missing' }
+          & $app.FullName --cli version
+          if ($LASTEXITCODE -ne 0) { throw 'Installed app failed' }
+          & $app.FullName --cli sources --json > native-sources.json
+          if ($LASTEXITCODE -ne 0) { throw 'Installed engine failed' }
+      - name: Native macOS bundle smoke
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          hdiutil attach desktopApp/build/compose/binaries/main/dmg/*.dmg -mountpoint /tmp/openyt-volume
+          cp -R /tmp/openyt-volume/OpenYT.app /tmp/OpenYT.app
+          hdiutil detach /tmp/openyt-volume
+          /tmp/OpenYT.app/Contents/MacOS/OpenYT --cli version
+          /tmp/OpenYT.app/Contents/MacOS/OpenYT --cli sources --json > native-sources.json
       - name: Flatten Windows installers
         if: runner.os == 'Windows'
         shell: bash
@@ -119,11 +167,36 @@ jobs:
           path: ${{ matrix.path }}
           if-no-files-found: error
 
-  publish:
-    needs: [version, android, desktop]
+  browser-handoff:
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew :browserExtension:packageHandoff --console=plain
+      - run: cd browserExtension/build/dist/js/productionExecutable && zip -r ../../../../OpenYT-browser-handoff.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: browser-handoff
+          path: browserExtension/OpenYT-browser-handoff.zip
+
+  publish:
+    needs: [version, android, desktop, browser-handoff]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
       - uses: actions/download-artifact@v4
         with:
           path: release-artifacts
@@ -135,6 +208,17 @@ jobs:
           find . -mindepth 1 -type d -empty -delete
           sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
+      - name: Sign checksum manifest with the available production key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          OPENYT_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          OPENYT_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          OPENYT_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/openyt.jks"
+          export OPENYT_KEYSTORE_PATH="$RUNNER_TEMP/openyt.jks"
+          ./gradlew signReleaseManifest -PreleaseManifest=release-artifacts/SHA256SUMS.txt --console=plain
+          rm "$RUNNER_TEMP/openyt.jks"
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:

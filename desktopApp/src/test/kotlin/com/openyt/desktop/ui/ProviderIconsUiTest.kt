@@ -18,7 +18,7 @@ class ProviderIconsUiTest {
     fun everySharedProviderVectorLoads() = runComposeUiTest {
         val providers = listOf(
             "youtube", "instagram", "tiktok", "x", "facebook", "soundcloud", "vimeo", "twitch",
-            "reddit", "pinterest", "dailymotion", "bandcamp", "threads", "telegram", "bilibili", "rumble",
+            "reddit", "pinterest", "dailymotion", "bandcamp", "threads", "telegram", "bilibili", "rumble", "nebula", "applepodcasts", "unlisted-source",
         )
         setContent {
             OpenYtTheme(darkTheme = true) {

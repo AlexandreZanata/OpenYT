@@ -10,7 +10,9 @@ core/        Pure Kotlin Multiplatform (JVM + Android)
   domain/      Models, value objects, structured errors
   application/ Use cases and ports (DownloadEngine, repositories)
 engine-ytdlp/ Pure Kotlin yt-dlp JSON/progress/error parsing (no process or I/O)
-data/        SQLDelight schema, repository, and platform drivers
+data/        SQLDelight schema, repositories, verified downloads, platform drivers
+media-ffmpeg/ External FFmpeg processing and tagging adapter (shared JVM/Android)
+browserExtension/ Kotlin/JS URL handoff; no extraction or download service
 ui/          Compose Multiplatform screens and design system
 androidApp/  Android host: Activity, platform port implementations
 desktopApp/  Desktop host: main window, platform port implementations
@@ -89,7 +91,7 @@ record, never the file. Temporary directories are per task and cleaned at comple
 cancellation, and startup. See ADR-0005.
 
 Final output confirmation uses tagged JSON paths and explicit UTF-8 on both hosts.
-Schema 14 also preserves the filename template and playlist item index so a restored
+Schema 18 adds playback sessions, typed download options, subscriptions, and opt-in settings. Schema 14 also preserves the filename template and playlist item index so a restored
 task repeats its original request. See [ADR-0020](../adr/0020-download-completion.md)
 and the [video regression contracts](../testing/VIDEO_REGRESSION_CONTRACTS.md).
 
@@ -110,3 +112,6 @@ and the [video regression contracts](../testing/VIDEO_REGRESSION_CONTRACTS.md).
 - Reimplementing extraction, codecs, or DRM handling.
 - Backend services, accounts, telemetry, or remote job processing.
 - Executing unverified binaries or silent remote updates.
+
+See [ADR-0021](../adr/0021-local-media-expansion.md) for playback/automation and
+[ADR-0022](../adr/0022-verified-release-manifests.md) for release verification.

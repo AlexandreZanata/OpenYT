@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
@@ -61,8 +62,11 @@ import com.openyt.core.application.MediaImporter
 import com.openyt.core.application.MediaProbe
 import com.openyt.core.application.MediaTagger
 import com.openyt.core.application.PlaybackLauncher
+import com.openyt.core.application.MediaProcessor
+import com.openyt.core.application.MediaPreview
 import com.openyt.core.application.SafDestinationPicker
 import com.openyt.core.application.SettingsController
+import com.openyt.core.automation.SubscriptionController
 import com.openyt.core.application.UpdateController
 import com.openyt.core.application.UpdateInstaller
 import com.openyt.core.application.UpdateState
@@ -74,6 +78,7 @@ import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.ThemeMode
 import com.openyt.ui.components.BrandMark
 import com.openyt.ui.components.UpdateBanner
+import com.openyt.ui.i18n.stringsFor
 import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.i18n.EnStrings
 import com.openyt.ui.i18n.LocalStrings
@@ -111,9 +116,32 @@ fun OpenYtApp(
     folderImportService: FolderImportService? = null,
     bulkFileService: BulkFileService? = null,
     playbackLauncher: PlaybackLauncher? = null,
+    systemLanguageTag: String = "en",
+    isAppActive: Boolean = true,
+    notifier: com.openyt.core.application.DownloadNotifier? = null,
+    toolUpdater: com.openyt.core.application.ToolUpdater? = null,
+    mediaProcessor: MediaProcessor? = null,
+    mediaPreview: MediaPreview? = null,
+    subscriptions: SubscriptionController? = null,
 ) {
+    val ready by coordinator.ready.collectAsState()
     val settings by settingsController.settings.collectAsState()
-    val strings = stringsFor(settings.language)
+    val strings = stringsFor(settings.language, systemLanguageTag)
+    val tasks by coordinator.tasks.collectAsState()
+    val notificationTracker = remember { com.openyt.core.application.DownloadNotificationTracker() }
+    LaunchedEffect(settings.downloadNotifications) {
+        if (settings.downloadNotifications) notifier?.requestPermission()
+    }
+    LaunchedEffect(tasks, ready) {
+        if (!ready) return@LaunchedEffect
+        notificationTracker.update(tasks).forEach { task ->
+            if (settings.downloadNotifications) notifier?.show(
+                task.id, task.media.title,
+                if (task.status == com.openyt.core.domain.DownloadStatus.COMPLETED) strings.statusCompleted else strings.statusFailed,
+                task.status == com.openyt.core.domain.DownloadStatus.FAILED,
+            )
+        }
+    }
     val effectiveDownloadsDirectory = settings.downloadsDirectory ?: downloadsDirectory
 
     LaunchedEffect(settings.maxConcurrentDownloads) {
@@ -151,7 +179,9 @@ fun OpenYtApp(
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background,
             ) {
-                AppShell(
+                if (!ready) {
+                    androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
+                } else AppShell(
                     engine = engine,
                     coordinator = coordinator,
                     settingsController = settingsController,
@@ -178,16 +208,17 @@ fun OpenYtApp(
                     folderImportService = folderImportService,
                     bulkFileService = bulkFileService,
                     playbackLauncher = playbackLauncher,
+                    mediaProcessor = mediaProcessor,
+                    mediaPreview = mediaPreview,
+                    subscriptions = subscriptions,
+                    isAppActive = isAppActive,
+                    toolUpdater = toolUpdater,
                 )
             }
         }
     }
 }
 
-private fun stringsFor(language: AppLanguage): AppStrings = when (language) {
-    AppLanguage.PT_BR -> PtBrStrings
-    AppLanguage.EN -> EnStrings
-}
 
 private data class ShellTab(val icon: ImageVector, val label: String)
 
@@ -219,6 +250,11 @@ private fun AppShell(
     folderImportService: FolderImportService?,
     bulkFileService: BulkFileService?,
     playbackLauncher: PlaybackLauncher?,
+    mediaProcessor: MediaProcessor?,
+    mediaPreview: MediaPreview?,
+    subscriptions: SubscriptionController?,
+    isAppActive: Boolean,
+    toolUpdater: com.openyt.core.application.ToolUpdater?,
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -232,6 +268,8 @@ private fun AppShell(
     var dismissedUpdateVersion by remember { mutableStateOf<String?>(null) }
     var installingUpdate by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val settings by settingsController.settings.collectAsState()
+    var clipboardUrl by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(initialSharedUrl) {
         if (!initialSharedUrl.isNullOrBlank()) selected = 0
@@ -258,6 +296,10 @@ private fun AppShell(
         val wide = maxWidth >= 720.dp
         val content: @Composable (PaddingValues) -> Unit = { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
+                com.openyt.ui.components.ClipboardSuggestion(settings.clipboardSuggestions, isAppActive) {
+                    clipboardUrl = it
+                    selected = 0
+                }
                 val availableUpdate = (updateState as? UpdateState.Available)?.update
                 if (availableUpdate != null && dismissedUpdateVersion != availableUpdate.version) {
                     UpdateBanner(
@@ -284,9 +326,10 @@ private fun AppShell(
                         onDownloadStarted = { selected = 1 },
                         organizationPreset = organizationPreset,
                         fileNameTemplate = fileNameTemplate,
-                        initialSharedUrl = initialSharedUrl,
-                        onSharedUrlConsumed = onSharedUrlConsumed,
+                        initialSharedUrl = clipboardUrl ?: initialSharedUrl,
+                        onSharedUrlConsumed = { clipboardUrl = null; onSharedUrlConsumed() },
                         showBrand = !wide,
+                        mediaPreview = mediaPreview,
                     )
 
                     1 -> DownloadsScreen(
@@ -308,8 +351,10 @@ private fun AppShell(
                         folderImportService = folderImportService,
                         bulkFileService = bulkFileService,
                         playbackLauncher = playbackLauncher,
+                        mediaProcessor = mediaProcessor,
                     )
                     else -> SettingsScreen(
+                        toolUpdater = toolUpdater,
                         engine = engine,
                         downloadsDirectory = downloadsDirectory,
                         settingsController = settingsController,
@@ -322,6 +367,7 @@ private fun AppShell(
                         safDestinationPicker = safDestinationPicker,
                         folderPicker = folderPicker,
                         cookieRepository = cookieRepository,
+                        subscriptions = subscriptions,
                     )
                 }
                 }

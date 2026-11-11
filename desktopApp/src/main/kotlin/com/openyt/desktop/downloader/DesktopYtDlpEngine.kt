@@ -9,6 +9,7 @@ import com.openyt.core.domain.EngineResult
 import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaKind
 import com.openyt.engine.ytdlp.YtDlpErrorMapper
+import com.openyt.engine.ytdlp.YtDlpDownloadOptions
 import com.openyt.engine.ytdlp.YtDlpJsonParser
 import com.openyt.engine.ytdlp.YtDlpOutputParser
 import com.openyt.engine.ytdlp.YtDlpProgressParser
@@ -67,7 +68,7 @@ class DesktopYtDlpEngine(
 
     override fun download(request: DownloadRequest, downloadId: String): Flow<DownloadEvent> =
         channelFlow {
-            if (request.kind == MediaKind.SUBTITLE) {
+            if (request.kind == MediaKind.SUBTITLE && request.options.subtitle == null) {
                 send(DownloadEvent.Failed(DownloadFailure.UnsupportedSource))
                 return@channelFlow
             }
@@ -110,25 +111,10 @@ class DesktopYtDlpEngine(
                 add("-o")
                 add(request.fileNameTemplate)
                 add("--print")
-                add(YtDlpOutputParser.FILE_PATH_TEMPLATE)
+                add(if (request.kind == MediaKind.SUBTITLE) YtDlpOutputParser.SUBTITLE_PATH_TEMPLATE else YtDlpOutputParser.FILE_PATH_TEMPLATE)
                 add("--progress-template")
                 add(PROGRESS_TEMPLATE)
-                when (request.kind) {
-                    MediaKind.AUDIO -> {
-                        add("-f")
-                        add(request.formatId ?: "bestaudio/best")
-                        add("-x")
-                        add("--audio-format")
-                        add("m4a")
-                    }
-
-                    MediaKind.VIDEO -> {
-                        add("-f")
-                        add(request.formatId ?: "bv*+ba/b")
-                    }
-
-                    MediaKind.SUBTITLE -> Unit
-                }
+                addAll(YtDlpDownloadOptions.arguments(request))
                 request.limitBytesPerSecond?.let {
                     add("--limit-rate")
                     add(it.toString())
@@ -192,7 +178,7 @@ class DesktopYtDlpEngine(
                     canceled.remove(downloadId) -> send(DownloadEvent.Canceled)
 
                     exitCode == 0 -> {
-                        val file = finalPath?.let(::File)?.takeIf { it.isFile && it.length() > 0 }
+                        val file = com.openyt.data.confirmedEngineOutput(finalPath, directory, tempDirectory, request.kind == MediaKind.SUBTITLE)
                         if (file != null) {
                             send(
                                 DownloadEvent.Completed(
@@ -243,6 +229,12 @@ class DesktopYtDlpEngine(
         processes.remove(downloadId)?.let(::killTree)
     }
 
+    override suspend fun supportedSources(): List<String> = withContext(Dispatchers.IO) {
+        val binary = locator.findYtDlp() ?: return@withContext emptyList()
+        val output = runCapture(listOf(binary, "--ignore-config", "--encoding", "utf-8", "--list-extractors"))
+        if (output.exitCode == 0) output.stdout.lineSequence().map { it.trim() }.filter { it.isNotBlank() }.distinct().sorted().toList() else emptyList()
+    }
+
     override suspend fun capabilities(): EngineCapabilities = withContext(Dispatchers.IO) {
         val binary = locator.findYtDlp()
         val version = binary
@@ -256,7 +248,7 @@ class DesktopYtDlpEngine(
             engineName = "yt-dlp (desktop)",
             engineVersion = version,
             supportsPause = true,
-            supportsSubtitles = false,
+            supportsSubtitles = true,
         )
     }
 

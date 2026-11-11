@@ -1,6 +1,10 @@
 package com.openyt.desktop.downloader
 
 import com.openyt.core.domain.DownloadEvent
+import com.openyt.core.domain.DownloadOptions
+import com.openyt.core.domain.AudioPreset
+import com.openyt.core.domain.MediaSegment
+import com.openyt.core.domain.SubtitleSelection
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.MediaKind
 import com.sun.net.httpserver.HttpServer
@@ -48,6 +52,8 @@ class DesktopYtDlpLocalTest {
         val diagnostic = generator.inputStream.bufferedReader().readText()
         assertEquals(0, generator.waitFor(), diagnostic)
 
+        File(fixture, "captions.vtt").writeText("WEBVTT\n\n00:00:00.000 --> 00:00:00.900\nOlá mundo\n")
+        File(fixture, "index.html").writeText("""<html><head><title>Fixture</title></head><body><video controls><source src="/media.mpd" type="application/dash+xml"><track kind="subtitles" srclang="pt" label="Português" src="/captions.vtt"></video></body></html>""")
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->
             try {
@@ -56,7 +62,7 @@ class DesktopYtDlpLocalTest {
                     exchange.sendResponseHeaders(404, -1)
                 } else {
                     val bytes = path.toFile().readBytes()
-                    exchange.responseHeaders.add("Content-Type", if (path == manifest.toPath()) "application/dash+xml" else "video/mp4")
+                    exchange.responseHeaders.add("Content-Type", when (path.toFile().extension) { "mpd" -> "application/dash+xml"; "html" -> "text/html"; "vtt" -> "text/vtt"; else -> "video/mp4" })
                     exchange.sendResponseHeaders(200, if (exchange.requestMethod == "HEAD") -1 else bytes.size.toLong())
                     if (exchange.requestMethod != "HEAD") exchange.responseBody.write(bytes)
                 }
@@ -67,12 +73,24 @@ class DesktopYtDlpLocalTest {
         server.start()
         val engine = DesktopYtDlpEngine(locator)
         try {
-            for (kind in listOf(MediaKind.VIDEO, MediaKind.AUDIO)) {
-                val destination = temporary.newFolder("João-${kind.name}", "Curso Básico 日本語")
+            val variants = listOf(
+                MediaKind.VIDEO to DownloadOptions(),
+                MediaKind.AUDIO to DownloadOptions(),
+                MediaKind.AUDIO to DownloadOptions(audioPreset = AudioPreset.MP3, normalizeAudio = true),
+                MediaKind.AUDIO to DownloadOptions(audioPreset = AudioPreset.OPUS, normalizeAudio = true),
+                MediaKind.SUBTITLE to DownloadOptions(subtitle = SubtitleSelection("pt")),
+                MediaKind.VIDEO to DownloadOptions(subtitle = SubtitleSelection("pt", embed = true)),
+                MediaKind.VIDEO to DownloadOptions(segment = MediaSegment(0, 800)),
+                MediaKind.VIDEO to DownloadOptions(liveDurationSeconds = 1),
+            )
+            for ((index, variant) in variants.withIndex()) {
+                val (kind, options) = variant
+                val destination = temporary.newFolder("João-$index-${kind.name}", "Curso Básico 日本語")
                 val events = withTimeout(60_000) {
                     engine.download(
                         DownloadRequest(
-                            url = "http://127.0.0.1:${server.address.port}/media.mpd",
+                            url = "http://127.0.0.1:${server.address.port}/${if (options.subtitle != null) "index.html" else "media.mpd"}",
+                            options = options,
                             kind = kind,
                             destinationDirectory = destination.absolutePath,
                             fileNameTemplate = "Configuração e transmissão.%(ext)s",
@@ -84,9 +102,14 @@ class DesktopYtDlpLocalTest {
                 val output = File(completed.filePath)
                 assertTrue(output.name.startsWith("Configuração e transmissão."))
                 assertTrue(output.isFile && output.length() > 0)
-                val metadata = assertNotNull(DesktopMediaProbe(locator).probe(output.absolutePath))
-                assertNotNull(metadata.audioCodec)
-                if (kind == MediaKind.VIDEO) assertNotNull(metadata.videoCodec)
+                if (kind == MediaKind.SUBTITLE) {
+                    assertTrue(output.readText().contains("Olá mundo"))
+                } else {
+                    val metadata = assertNotNull(DesktopMediaProbe(locator).probe(output.absolutePath))
+                    assertNotNull(metadata.audioCodec)
+                    if (kind == MediaKind.VIDEO) assertNotNull(metadata.videoCodec)
+                    if (kind == MediaKind.AUDIO) assertEquals(options.audioPreset.extension, output.extension)
+                }
                 assertTrue(!File(destination, ".openyt-tmp-local-${kind.name}").exists())
             }
         } finally {

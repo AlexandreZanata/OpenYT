@@ -1,17 +1,17 @@
 package com.openyt.android.downloader
 
-import com.openyt.core.application.AudioMetadata
+import android.content.Context
 import com.openyt.core.application.MediaTagger
+import com.openyt.media.ffmpeg.FfmpegMediaTagger
+import com.yausername.ffmpeg.FFmpeg
+import java.io.File
 
-/**
- * Metadata embedding is not implemented on Android yet. The bundled FFmpeg from
- * youtubedl-android is used internally by yt-dlp but does not expose a public
- * command runner, so the app reports the failure instead of pretending success.
- */
-class AndroidMediaTagger : MediaTagger {
-    override suspend fun writeTags(
-        path: String,
-        metadata: AudioMetadata,
-        coverUrl: String?,
-    ): Boolean = false
-}
+class AndroidMediaTagger(context: Context) : MediaTagger by FfmpegMediaTagger(
+    executable = {
+        FFmpeg.getInstance().init(context.applicationContext)
+        File(context.applicationInfo.nativeLibraryDir, "libffmpeg.so").takeIf { it.isFile }?.absolutePath
+    },
+    processEnvironment = {
+        mapOf("LD_LIBRARY_PATH" to File(context.noBackupFilesDir, "youtubedl-android/packages/ffmpeg/usr/lib").absolutePath)
+    },
+)

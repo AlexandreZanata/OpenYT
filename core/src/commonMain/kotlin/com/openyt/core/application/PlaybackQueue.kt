@@ -1,8 +1,11 @@
 package com.openyt.core.application
 
+import kotlinx.serialization.Serializable
+
 /**
  * Pure, non-looping playback queue used for next/previous decisions and tests.
  */
+@Serializable
 data class PlaybackQueue(
     val items: List<PlayableMedia> = emptyList(),
     val currentIndex: Int = 0,

@@ -24,7 +24,7 @@ interface DiagnosticsProvider {
 
 object DiagnosticsRedactor {
     private val USER_INFO = Regex("""(https?://)[^/@\s]+@""", RegexOption.IGNORE_CASE)
-    private val QUERY_OR_FRAGMENT = Regex("""([https?://][^\s?#]+)[?#][^\s]*""", RegexOption.IGNORE_CASE)
+    private val QUERY_OR_FRAGMENT = Regex("""(https?://[^\s?#]+)[?#][^\s]*""", RegexOption.IGNORE_CASE)
     private val SECRET_KEYS = Regex(
         """(?i)(token|key|secret|password|authorization|cookie)=([^&\s]+)""",
     )
@@ -37,13 +37,15 @@ object DiagnosticsRedactor {
 
     fun redactPath(path: String, home: String?): String {
         if (path.isBlank()) return path
-        val normalizedHome = home?.trimEnd('/')?.takeIf { it.isNotBlank() }
-        val withoutHome = if (normalizedHome != null && path.startsWith(normalizedHome)) {
-            "~" + path.removePrefix(normalizedHome)
-        } else {
-            path
+        val normalizedPath = path.replace('\\', '/')
+        val normalizedHome = home?.replace('\\', '/')?.trimEnd('/')?.takeIf { it.isNotBlank() }
+        val insensitive = normalizedPath.getOrNull(1) == ':'
+        if (normalizedHome != null &&
+            (normalizedPath.equals(normalizedHome, insensitive) ||
+                normalizedPath.startsWith("$normalizedHome/", insensitive))) {
+            return "~" + normalizedPath.substring(normalizedHome.length)
         }
-        return withoutHome
+        return "<local>/" + normalizedPath.substringAfterLast('/')
     }
 }
 

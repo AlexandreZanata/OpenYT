@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "OpenYT Handoff",
+  "version": "4.0.0",
+  "description": "Open the current media link in your local OpenYT app for review.",
+  "permissions": ["activeTab"],
+  "action": { "default_popup": "popup.html", "default_title": "OpenYT" }
+}

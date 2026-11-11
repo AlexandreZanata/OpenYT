@@ -1,0 +1,38 @@
+# ADR-0022: Verified release manifests and available signatures
+
+- Status: accepted
+- Date: 2026-11-11
+
+## Decision
+
+Every new release contains a CycloneDX dependency inventory, SHA-256 manifest,
+and detached RSA signature over the exact manifest bytes. The existing Android
+production key signs the manifest. Only its public X.509 certificate is embedded
+in the application. Private credentials remain local or in GitHub Actions secrets.
+
+Assisted installers require the manifest signature and an exact, unique checksum
+entry before opening the OS installer. Downloads use a temporary file and reject
+unsafe names, duplicate manifest entries, missing signatures, and mismatched
+checksums. OS confirmation is still required. The signature authenticates the
+manifest; it does not replace Windows Authenticode or Apple notarization.
+
+The user explicitly selected publication with the currently available signatures.
+Android has a stable production signature. Windows and macOS installers currently
+have no organization certificate/notarization credentials. Release notes must
+state that limitation. Native CI installs the MSI and launches the mounted/copied
+macOS bundle; this does not prove a certificate or a manual GUI session exists.
+
+The explicit engine-update action downloads only official stable yt-dlp assets,
+checks the official SHA2-256SUMS entry before replacement, and keeps other bundled
+tools pinned. Desktop checks its cached executable against the stored digest before
+selecting it. Explicit environment overrides retain precedence for diagnostics.
+An HTTPS checksum provides transport/file integrity; it is not a substitute for
+an independently signed upstream update channel.
+
+## Validation
+
+Deterministic tests reject tampered installers and signatures. A synthetic
+manifest signed with the production key proves the pinned public certificate
+matches the available signing key. Real-network tool-update tests are kept
+separate from deterministic tests. Release assets are published only after native
+packaging jobs succeed.

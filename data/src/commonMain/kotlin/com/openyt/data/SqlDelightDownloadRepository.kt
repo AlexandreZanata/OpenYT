@@ -6,6 +6,9 @@ import com.openyt.core.domain.Collection
 import com.openyt.core.domain.DownloadFailure
 import com.openyt.core.domain.DownloadPriority
 import com.openyt.core.domain.DownloadRequest
+import com.openyt.core.domain.DownloadOptions
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
 import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.LibraryEntry
@@ -53,6 +56,7 @@ class SqlDelightDownloadRepository(
             attempt = task.attempt.toLong(),
             file_name_template = task.request.fileNameTemplate,
             playlist_item_index = task.request.playlistItemIndex?.toLong(),
+            options_json = Json.encodeToString(task.request.options),
         )
         Unit
     }
@@ -252,6 +256,7 @@ class SqlDelightDownloadRepository(
             destinationDirectory = row.destination_directory,
             fileNameTemplate = row.file_name_template,
             playlistItemIndex = row.playlist_item_index?.toInt(),
+            options = runCatching { Json.decodeFromString<DownloadOptions>(row.options_json) }.getOrDefault(DownloadOptions()),
         ),
         status = parseStatus(row.status),
         percent = row.percent,

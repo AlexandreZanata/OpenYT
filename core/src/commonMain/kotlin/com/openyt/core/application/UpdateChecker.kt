@@ -1,5 +1,7 @@
 package com.openyt.core.application
 
+import kotlinx.serialization.json.*
+
 data class UpdateAsset(
     val name: String,
     val url: String,
@@ -26,20 +28,18 @@ fun interface UrlOpener {
 }
 
 object GitHubReleaseParser {
-    private val TAG = Regex("\"tag_name\"\\s*:\\s*\"([^\"]+)\"")
-    private val URL = Regex("\"html_url\"\\s*:\\s*\"([^\"]+)\"")
-    private val ASSET = Regex("\"browser_download_url\"\\s*:\\s*\"([^\"]+)\"")
-
-    fun parse(body: String, currentVersion: String): UpdateInfo? {
-        val tag = TAG.find(body)?.groupValues?.getOrNull(1)?.removePrefix("v") ?: return null
-        val url = URL.find(body)?.groupValues?.getOrNull(1) ?: return null
-        val assets = ASSET.findAll(body)
-            .mapNotNull { it.groupValues.getOrNull(1) }
-            .filter { it.startsWith("https://") }
-            .map { UpdateAsset(name = it.substringAfterLast('/'), url = it) }
-            .toList()
-        return if (Semver.isNewer(tag, currentVersion)) UpdateInfo(tag, url, assets) else null
-    }
+    fun parse(body: String, currentVersion: String): UpdateInfo? = runCatching {
+        val release = Json.parseToJsonElement(body).jsonObject
+        if (release["draft"]?.jsonPrimitive?.booleanOrNull == true || release["prerelease"]?.jsonPrimitive?.booleanOrNull == true) return null
+        val tag = release["tag_name"]?.jsonPrimitive?.content?.removePrefix("v") ?: return null
+        val url = release["html_url"]?.jsonPrimitive?.content?.takeIf { it.startsWith("https://github.com/") } ?: return null
+        val assets = (release["assets"] as? JsonArray).orEmpty().mapNotNull { entry ->
+            val download = (entry as? JsonObject)?.get("browser_download_url")?.jsonPrimitive?.content
+                ?.takeIf { it.startsWith("https://github.com/") } ?: return@mapNotNull null
+            UpdateAsset(download.substringAfterLast('/'), download)
+        }
+        if (Semver.isNewer(tag, currentVersion)) UpdateInfo(tag, url, assets) else null
+    }.getOrNull()
 }
 
 object Semver {

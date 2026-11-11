@@ -29,6 +29,7 @@ data class MediaInfo(
     val webpageUrl: String,
     val formats: List<MediaFormat> = emptyList(),
     val isLive: Boolean = false,
+    val subtitles: List<SubtitleTrack> = emptyList(),
 )
 
 data class DownloadRequest(
@@ -40,6 +41,7 @@ data class DownloadRequest(
     val limitBytesPerSecond: Long? = null,
     val cookiesFilePath: String? = null,
     val playlistItemIndex: Int? = null,
+    val options: DownloadOptions = DownloadOptions(),
 )
 
 sealed interface DownloadEvent {

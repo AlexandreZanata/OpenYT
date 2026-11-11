@@ -106,6 +106,7 @@ dependencies {
     implementation(project(":ui"))
     implementation(project(":core"))
     implementation(project(":engine-ytdlp"))
+    implementation(project(":media-ffmpeg"))
     implementation(project(":data"))
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutines.core)
@@ -143,6 +144,13 @@ compose.desktop {
             macOS {
                 iconFile.set(project.file("packaging/icons/openyt.icns"))
                 bundleID = "com.openyt.desktop"
+                infoPlist {
+                    extraKeysRawXml = """
+                        <key>CFBundleURLTypes</key>
+                        <array><dict><key>CFBundleURLName</key><string>OpenYT</string>
+                        <key>CFBundleURLSchemes</key><array><string>openyt</string></array></dict></array>
+                    """.trimIndent()
+                }
             }
         }
     }

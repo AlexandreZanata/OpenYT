@@ -1,8 +1,11 @@
 package com.openyt.ui.i18n
 
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.openyt.core.domain.AppLanguage
+import com.openyt.core.application.resolveLanguage
 
 data class AppStrings(
+    val features: FeatureStrings,
     val appName: String,
     val tabHome: String,
     val tabDownloads: String,
@@ -272,6 +275,7 @@ data class StorageStrings(
 )
 
 val PtBrStrings = AppStrings(
+    features = FeatureStrings(AppLanguage.PT_BR),
     appName = "OpenYT",
     tabHome = "Início",
     tabDownloads = "Downloads",
@@ -527,6 +531,7 @@ val PtBrStrings = AppStrings(
 )
 
 val EnStrings = AppStrings(
+    features = FeatureStrings(AppLanguage.EN),
     appName = "OpenYT",
     tabHome = "Home",
     tabDownloads = "Downloads",
@@ -782,3 +787,9 @@ val EnStrings = AppStrings(
 )
 
 val LocalStrings = staticCompositionLocalOf { PtBrStrings }
+
+fun stringsFor(language: AppLanguage, systemLanguageTag: String): AppStrings =
+    when (resolveLanguage(language, systemLanguageTag)) {
+        AppLanguage.PT_BR -> PtBrStrings
+        else -> EnStrings
+    }

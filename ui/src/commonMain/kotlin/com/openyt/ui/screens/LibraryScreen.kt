@@ -15,6 +15,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
@@ -82,6 +86,9 @@ import com.openyt.core.domain.MediaTechnicalInfo
 import com.openyt.core.domain.ShareableMedia
 import com.openyt.ui.components.MediaThumbnail
 import com.openyt.ui.components.StorageDialog
+import com.openyt.ui.components.MediaToolsDialog
+import com.openyt.core.application.MediaProcessor
+import com.openyt.ui.i18n.FeatureText
 import com.openyt.ui.components.ProviderIcon
 import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.i18n.LocalStrings
@@ -110,8 +117,11 @@ fun LibraryScreen(
     folderImportService: FolderImportService? = null,
     bulkFileService: BulkFileService? = null,
     playbackLauncher: PlaybackLauncher? = null,
+    mediaProcessor: MediaProcessor? = null,
 ) {
     val strings = LocalStrings.current
+    val playbackScope = rememberCoroutineScope()
+    var resumeUnavailable by remember { mutableStateOf(false) }
     val entries by coordinator.library.collectAsState()
     val collections by libraryController.collections.collectAsState()
     val membership by libraryController.membership.collectAsState()
@@ -124,6 +134,7 @@ fun LibraryScreen(
     var checkToken by remember { mutableStateOf(0) }
     var missingIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var detail by remember { mutableStateOf<LibraryItem?>(null) }
+    var processingEntry by remember { mutableStateOf<LibraryEntry?>(null) }
     var sortByTitle by remember { mutableStateOf(false) }
     var confirmRemoveDuplicates by remember { mutableStateOf(false) }
     var selectedCollectionId by remember { mutableStateOf<String?>(null) }
@@ -235,11 +246,18 @@ fun LibraryScreen(
                 modifier = Modifier.semantics { heading() },
             )
 
+            if (resumeUnavailable) Text(strings.features[FeatureText.NO_PLAYBACK_SESSION], style = MaterialTheme.typography.bodySmall)
+
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (playbackLauncher?.canPlay == true) {
+                    TextButton(onClick = { playbackScope.launch { resumeUnavailable = !playbackLauncher.resumeLastSession() } }) {
+                        Text(strings.features[FeatureText.RESUME_PLAYBACK])
+                    }
+                }
                 if (archiveService != null) {
                     TextButton(
                         onClick = {
@@ -477,14 +495,16 @@ fun LibraryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
-                else -> LazyColumn(
+                else -> LazyVerticalGrid(
+                    columns = GridCells.Adaptive(480.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     itemsIndexed(sortedItems, key = { _, item -> item.entry.id }) { index, item ->
                         LibraryCard(
                             item = item,
-                            wide = wide,
+                            wide = false,
                             selectable = wide,
                             selected = item.entry.id in activeSelection,
                             onSelect = { checked ->
@@ -495,6 +515,7 @@ fun LibraryScreen(
                                 }
                             },
                             onDetails = { detail = item },
+                            onProcess = if (mediaProcessor != null && !item.missing) { { processingEntry = item.entry } } else null,
                             onCollections = { assigningEntry = item.entry },
                             onRemove = { coordinator.removeFromLibrary(item.entry.id) },
                             onPlay = playbackLauncher
@@ -516,7 +537,7 @@ fun LibraryScreen(
                             mediaActions = mediaActions,
                         )
                     }
-                    item {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             strings.libraryFileKeptHint,
                             style = MaterialTheme.typography.bodySmall,
@@ -922,6 +943,12 @@ fun LibraryScreen(
         )
     }
 
+    processingEntry?.let { entry ->
+        mediaProcessor?.let { processor ->
+            MediaToolsDialog(entry, processor, coordinator) { processingEntry = null }
+        }
+    }
+
     if (showStorage) {
         StorageDialog(
             report = storageReport,
@@ -1124,6 +1151,7 @@ private fun LibraryCard(
     selected: Boolean,
     onSelect: (Boolean) -> Unit,
     onDetails: () -> Unit,
+    onProcess: (() -> Unit)?,
     onCollections: () -> Unit,
     onRemove: () -> Unit,
     onPlay: (() -> Unit)?,
@@ -1234,6 +1262,9 @@ private fun LibraryCard(
                     TextButton(onClick = { mediaActions.reveal(entry.toShareable()) }) {
                         Text(strings.revealAction)
                     }
+                }
+                onProcess?.let { action ->
+                    TextButton(onClick = action) { Text(strings.features[FeatureText.PROCESSING]) }
                 }
                 TextButton(onClick = onDetails) { Text(strings.detailsAction) }
                 TextButton(onClick = onCollections) { Text(strings.assignCollections) }

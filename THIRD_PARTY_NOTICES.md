@@ -16,7 +16,8 @@ in `gradle/libs.versions.toml` and documented in the relevant ADRs.
 | SQLDelight | 2.4.1 | Apache-2.0 | Local SQLite schema, queries, and drivers |
 | Coil | 3.4.0 | Apache-2.0 | Compose image loading for thumbnails |
 | OkHttp | via Coil | Apache-2.0 | Desktop/Android HTTP image loading |
-| Simple Icons | CC0-1.0 | Provider logos converted to shared XML vectors |
+| VLCJ / JNA | 4.12.1 / transitive | GPL-3.0 / LGPL-2.1+ or Apache-2.0 | Desktop playback bridge to separately installed libvlc |
+| Simple Icons | pinned cd796c98565fc466923fc1128b962e133fa3c612 | CC0-1.0 | Provider logos converted to shared XML vectors |
 
 Because the Android build links the GPL-3.0 `youtubedl-android` library, OpenYT as a
 whole is distributed under GPL-3.0. Preserve upstream notices when packaging.
@@ -28,7 +29,7 @@ identify the source of the requested media.
 Desktop packages embed yt-dlp, FFmpeg/FFprobe (static builds from
 `eugeneware/ffmpeg-static`), and Deno at build time. The Gradle packaging task
 downloads the pinned versions and includes their license files and this notice in
-the application resources. No third-party binary is downloaded at runtime.
+the application resources. An explicit Settings action can update yt-dlp from the official stable release after SHA-256 verification. Other tools stay pinned until an application release.
 
 Sources:
 - yt-dlp: https://github.com/yt-dlp/yt-dlp
