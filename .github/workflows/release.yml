@@ -96,7 +96,7 @@ jobs:
         run: choco install wixtoolset --no-progress -y
       - name: Install RPM packaging tools
         if: runner.os == 'Linux' && inputs.contracts_only != true
-        run: sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::ForceIPv4=true update && sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::ForceIPv4=true install -y rpm flatpak flatpak-builder
+        run: bash scripts/install-ci-packages.sh rpm flatpak flatpak-builder
       - name: Package desktop
         if: inputs.contracts_only != true
         shell: bash
