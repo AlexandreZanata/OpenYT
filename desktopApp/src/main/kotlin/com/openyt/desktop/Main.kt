@@ -29,6 +29,12 @@ import com.openyt.data.FileBulkFileOperator
 import com.openyt.data.FileFolderScanner
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.SqlDelightSettingsRepository
+import com.openyt.data.SqlDelightPlaybackStore
+import com.openyt.data.SqlDelightSubscriptions
+import com.openyt.data.RssFeedReader
+import com.openyt.core.automation.SubscriptionController
+import com.openyt.core.application.MemoryPlaybackStore
+import com.openyt.ui.i18n.stringsFor
 import com.openyt.data.createOpenYtDatabase
 import com.openyt.data.defaultDatabasePath
 import com.openyt.desktop.BuildInfo
@@ -43,6 +49,10 @@ import com.openyt.desktop.downloader.DesktopYtDlpEngine
 import com.openyt.desktop.player.DesktopPlaybackLauncher
 import com.openyt.desktop.share.DesktopMediaActions
 import com.openyt.ui.OpenYtApp
+import com.openyt.core.application.EngineMediaPreview
+import com.openyt.core.application.OpenYtLink
+import com.openyt.media.ffmpeg.FfmpegMediaProcessor
+import com.openyt.desktop.downloader.ExecutableLocator
 import com.openyt.ui.components.BrandIconPainter
 import java.io.File
 import java.time.LocalTime
@@ -54,18 +64,33 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 
 fun main(args: Array<String>) {
-    if (args.firstOrNull() == "--cli") {
-        exitProcess(DesktopCli.run(args.drop(1)))
+    val cli = args.firstOrNull() == "--cli"
+    if (cli && args.getOrNull(1) in setOf("version", "link")) exitProcess(DesktopCli.run(args.drop(1)))
+    val initialUrl = if (cli) null else args.firstNotNullOfOrNull(OpenYtLink::parse)
+    val root = File(defaultDatabasePath()).parentFile
+    val instance = runCatching { DesktopInstance.acquire(root, gui = !cli) }.getOrNull()
+    if (instance == null) {
+        if (!cli && DesktopInstance.forward(root, initialUrl)) return
+        val text = if (java.util.Locale.getDefault().language == "pt")
+            "Não foi possível acessar os dados do OpenYT. Feche outra instância ou verifique o armazenamento."
+        else "Could not access OpenYT data. Close another instance or check storage."
+        if (cli) System.err.println("error: $text")
+        else javax.swing.JOptionPane.showMessageDialog(null, text, "OpenYT", javax.swing.JOptionPane.ERROR_MESSAGE)
+        exitProcess(1)
     }
-    launchApp()
+    if (cli) {
+        val result = instance.use { DesktopCli.run(args.drop(1)) }
+        exitProcess(result)
+    }
+    instance.use { launchApp(initialUrl, it) }
 }
 
-private fun launchApp() = application {
+private fun launchApp(initialUrl: String?, instance: DesktopInstance) = application {
     val engine = remember { DesktopYtDlpEngine() }
     val scope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
     val database = remember {
         runCatching { createOpenYtDatabase(defaultDatabasePath()) }
-            .onFailure { System.err.println("OpenYT: database initialization failed: ${it.message}") }
+            .onFailure { System.err.println("OpenYT: database initialization failed (${it::class.simpleName})") }
             .getOrNull()
     }
     val repository = remember(database) { database?.let(::SqlDelightDownloadRepository) }
@@ -97,9 +122,19 @@ private fun launchApp() = application {
     }
     val mediaProbe = remember { DesktopMediaProbe() }
     val mediaTagger = remember { DesktopMediaTagger() }
-    val playbackLauncher = remember { DesktopPlaybackLauncher() }
+    val playbackStore = remember(database) { database?.let(::SqlDelightPlaybackStore) ?: MemoryPlaybackStore() }
+    val playbackLauncher = remember {
+        DesktopPlaybackLauncher(playbackStore, {
+            stringsFor(settingsController.settings.value.language, java.util.Locale.getDefault().toLanguageTag())
+        }, scope)
+    }
     val mediaActions = remember { DesktopMediaActions() }
     val downloadsDirectory = remember { defaultDownloadsDirectory() }
+    val subscriptions = remember(database) {
+        database?.let { SubscriptionController(SqlDelightSubscriptions(it), RssFeedReader(), engine, coordinator,
+            { settingsController.settings.value.downloadsDirectory ?: downloadsDirectory },
+            { System.currentTimeMillis() }, { java.util.UUID.randomUUID().toString() }, scope) }
+    }
     val diagnosticsProvider = remember {
         DesktopDiagnosticsProvider(engine, downloadsDirectory)
     }
@@ -119,15 +154,19 @@ private fun launchApp() = application {
             },
         )
     }
+    val notifier = remember { DesktopDownloadNotifier() }
     val updateInstaller = remember { DesktopUpdateInstaller() }
     val urlOpener = remember { DesktopUrlOpener() }
     val folderPicker = remember { FolderPicker { current -> DesktopFolderPicker.pick(current) } }
-    var sharedUrl by remember { mutableStateOf<String?>(null) }
+    var sharedUrl by remember { mutableStateOf(initialUrl) }
 
     LaunchedEffect(coordinator, settingsController, libraryController) {
+        kotlinx.coroutines.withContext(Dispatchers.IO) { DesktopDeepLinks.register() }
         coordinator.restore()
         settingsController.restore()
         libraryController.restore()
+        subscriptions?.restore()
+        subscriptions?.start()
         cleanStaleTemporaryFiles(
             File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory),
         )
@@ -135,6 +174,8 @@ private fun launchApp() = application {
 
     Window(
         onCloseRequest = {
+            notifier.close()
+            playbackLauncher.close()
             engine.close()
             scope.cancel()
             exitApplication()
@@ -148,6 +189,8 @@ private fun launchApp() = application {
                 event.isCtrlPressed &&
                 event.key == Key.Q
             ) {
+                notifier.close()
+                playbackLauncher.close()
                 engine.close()
                 scope.cancel()
                 exitApplication()
@@ -162,6 +205,16 @@ private fun launchApp() = application {
             window.requestFocus()
         }
 
+        var appFocused by remember { mutableStateOf(window.isFocused) }
+        DisposableEffect(window) {
+            val listener = object : java.awt.event.WindowFocusListener {
+                override fun windowGainedFocus(event: java.awt.event.WindowEvent) { appFocused = true }
+                override fun windowLostFocus(event: java.awt.event.WindowEvent) { appFocused = false }
+            }
+            window.addWindowFocusListener(listener)
+            onDispose { window.removeWindowFocusListener(listener) }
+        }
+
         DisposableEffect(window) {
             window.dropTarget = DesktopDropTarget { url ->
                 SwingUtilities.invokeLater { sharedUrl = url }
@@ -170,9 +223,37 @@ private fun launchApp() = application {
             onDispose { window.dropTarget = null }
         }
 
+        LaunchedEffect(instance, window) {
+            while (true) {
+                val links = kotlinx.coroutines.withContext(Dispatchers.IO) { instance.takeLinks() }
+                links.forEach { url ->
+                    if (url != null) sharedUrl = url
+                    window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv()
+                    window.toFront()
+                    window.requestFocus()
+                }
+                kotlinx.coroutines.delay(300)
+            }
+        }
+        DisposableEffect(window) {
+            val desktop = runCatching { java.awt.Desktop.getDesktop() }.getOrNull()
+            val supported = desktop?.isSupported(java.awt.Desktop.Action.APP_OPEN_URI) == true
+            if (supported) desktop?.setOpenURIHandler { event ->
+                OpenYtLink.parse(event.uri.toString())?.let { url ->
+                    SwingUtilities.invokeLater { sharedUrl = url; window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv(); window.toFront(); window.requestFocus() }
+                }
+            }
+            onDispose { if (supported) desktop?.setOpenURIHandler(null) }
+        }
+
         OpenYtApp(
+            isAppActive = appFocused,
+            notifier = notifier,
+            toolUpdater = remember { com.openyt.desktop.downloader.RuntimeToolUpdate.updater() },
+            systemLanguageTag = java.util.Locale.getDefault().toLanguageTag(),
             engine = engine,
             coordinator = coordinator,
+            subscriptions = subscriptions,
             settingsController = settingsController,
             libraryController = libraryController,
             mediaProbe = mediaProbe,
@@ -193,6 +274,8 @@ private fun launchApp() = application {
             folderImportService = folderImportService,
             bulkFileService = bulkFileService,
             playbackLauncher = playbackLauncher,
+            mediaProcessor = remember { FfmpegMediaProcessor({ ExecutableLocator().findFfmpeg() }) },
+            mediaPreview = remember { EngineMediaPreview(engine, playbackLauncher, File(System.getProperty("java.io.tmpdir"), "openyt-previews").apply { mkdirs() }.absolutePath, { java.util.UUID.randomUUID().toString() }) },
         )
     }
 }

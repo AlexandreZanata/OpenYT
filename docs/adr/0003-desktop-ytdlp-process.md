@@ -18,6 +18,8 @@ Invoke a user-provisioned or app-managed yt-dlp executable through a process por
 - The executable path is configurable and resolved from known locations.
 - Version and capabilities are probed before download.
 - Progress is parsed from machine-readable output (`--newline`, `--progress-template`).
+- Output uses explicit UTF-8 and tagged JSON final paths. Ambient tool configuration
+  is disabled. See [ADR-0020](0020-download-completion.md) for completion and recovery.
 - Cancellation destroys the process tree and cleans task-scoped temporary files.
 - FFmpeg/FFprobe paths are passed explicitly when needed.
 - A supported JavaScript runtime (Deno or Node) is detected and passed with

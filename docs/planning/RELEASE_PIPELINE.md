@@ -4,9 +4,11 @@ Workflow: `.github/workflows/release.yml`.
 
 ## Trigger and version
 
-- Runs on every push to `main` and on manual dispatch.
+- Runs on every push to `main` and on manual dispatch. Only `main` can publish.
+  A branch dispatch validates candidates without publishing. The `contracts_only`
+  input runs native media checks and inventories without packaging.
 - `gradle.properties` is the single source of truth:
-  - `openyt.version` (SemVer, currently `3.1.1`)
+  - `openyt.version` (SemVer, currently `4.0.0`)
   - `openyt.versionCode` (Android integer)
 - Every main push rebuilds and **updates** the release for `v<version>`. Bump the
   version before merging to publish a new release; otherwise assets of the current
@@ -21,6 +23,11 @@ Workflow: `.github/workflows/release.yml`.
 | Windows | `:desktopApp:packageMsi` + `:desktopApp:packageExe` | `OpenYT-<version>.msi`, `OpenYT-<version>.exe` |
 | macOS | `:desktopApp:packageDmg` | `OpenYT-<version>.dmg` |
 
+Linux additionally supplies RPM, AppImage, Flatpak and an Arch package plus its
+checksum-filled recipe. `:browserExtension:packageHandoff` supplies the optional
+Kotlin/JS browser extension ZIP. Native runners execute installer/bundle smoke
+checks and real loopback yt-dlp/FFmpeg contracts before publication.
+
 Desktop packages embed yt-dlp, FFmpeg, FFprobe, and Deno through
 `desktopApp/build.gradle.kts` (`prepareBundledTools`). The task downloads the
 pinned versions below for the packaging host and `appResourcesRootDir` adds them
@@ -31,11 +38,16 @@ permissions.
 | Tool | Version | Source |
 |------|---------|--------|
 | yt-dlp | 2026.10.26 | `yt-dlp/yt-dlp` release binaries |
-| FFmpeg / FFprobe | b6.1.1 | `eugeneware/ffmpeg-static` |
+| FFmpeg / FFprobe (Linux) | 8.1.3, retained 2026-10-31 GPL build | `BtbN/FFmpeg-Builds`, pinned SHA-256 |
+| FFmpeg / FFprobe (Windows) | pinned b6.1.1 distribution | `eugeneware/ffmpeg-static`; actual binary version recorded in SBOM |
+| FFmpeg / FFprobe (macOS) | 9.0.2 GPL, retained 2026-09-20 builds | Martin Riedl, pinned SHA-256 for Intel and Apple Silicon |
 | Deno | 2.9.8 | `denoland/deno` releases |
 
-The publish job also generates `SHA256SUMS.txt` and attaches every artifact to the
-GitHub release `v<version>` (marked latest).
+Each host generates a CycloneDX inventory with actual native binary versions.
+The publish job generates `SHA256SUMS.txt`, signs its exact bytes with the existing
+production key and attaches its detached signature/public certificate. The tag is
+pinned to the tested workflow commit. Debug validation artifacts are excluded from
+published assets. See ADR-0022 for the trust and installer policy.
 
 ## Signing
 

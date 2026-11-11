@@ -17,6 +17,8 @@ class SqlDelightSettingsRepository(
     override suspend fun load(): AppSettings = withContext(Dispatchers.Default) {
         val row = queries.selectSettings().executeAsOneOrNull()
         AppSettings(
+            clipboardSuggestions = row?.clipboard_suggestions == 1L,
+            downloadNotifications = row?.download_notifications == 1L,
             themeMode = parseTheme(row?.theme_mode),
             language = parseLanguage(row?.language),
             maxConcurrentDownloads = (row?.max_concurrent
@@ -36,6 +38,8 @@ class SqlDelightSettingsRepository(
 
     override suspend fun save(settings: AppSettings) = withContext(Dispatchers.Default) {
         queries.upsertSettings(
+            clipboard_suggestions = if (settings.clipboardSuggestions) 1L else 0L,
+            download_notifications = if (settings.downloadNotifications) 1L else 0L,
             theme_mode = settings.themeMode.name,
             language = settings.language.name,
             max_concurrent = settings.maxConcurrentDownloads.toLong(),
@@ -54,7 +58,7 @@ class SqlDelightSettingsRepository(
         runCatching { ThemeMode.valueOf(value.orEmpty()) }.getOrDefault(ThemeMode.SYSTEM)
 
     private fun parseLanguage(value: String?): AppLanguage =
-        runCatching { AppLanguage.valueOf(value.orEmpty()) }.getOrDefault(AppLanguage.PT_BR)
+        runCatching { AppLanguage.valueOf(value.orEmpty()) }.getOrDefault(AppLanguage.SYSTEM)
 
     private fun parsePreset(value: String?): OrganizationPreset =
         runCatching { OrganizationPreset.valueOf(value.orEmpty()) }

@@ -2,6 +2,8 @@ package com.openyt.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
@@ -45,6 +48,7 @@ import com.openyt.core.application.OrganizationPlanner
 import com.openyt.core.application.PlatformDiagnostics
 import com.openyt.core.application.SafDestinationPicker
 import com.openyt.core.application.SettingsController
+import com.openyt.core.automation.SubscriptionController
 import com.openyt.core.application.UpdateController
 import com.openyt.core.application.UpdateInstaller
 import com.openyt.core.application.UpdateState
@@ -57,8 +61,11 @@ import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.EngineCapabilities
 import com.openyt.core.domain.ThemeMode
 import com.openyt.ui.i18n.LocalStrings
+import com.openyt.ui.i18n.FeatureText
+import com.openyt.ui.components.SubscriptionsDialog
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     engine: DownloadEngine,
@@ -74,8 +81,11 @@ fun SettingsScreen(
     folderPicker: FolderPicker? = null,
     cookieRepository: CookieRepository? = null,
     modifier: Modifier = Modifier,
+    subscriptions: SubscriptionController? = null,
+    toolUpdater: com.openyt.core.application.ToolUpdater? = null,
 ) {
     val strings = LocalStrings.current
+    var showSubscriptions by remember { mutableStateOf(false) }
     val settings by settingsController.settings.collectAsState()
     val tasks by coordinator.tasks.collectAsState()
     val library by coordinator.library.collectAsState()
@@ -83,6 +93,8 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     var capabilities by remember { mutableStateOf<EngineCapabilities?>(null) }
     var diagnostics by remember { mutableStateOf<PlatformDiagnostics?>(null) }
+    var updatingTool by remember { mutableStateOf(false) }
+    var toolMessage by remember { mutableStateOf<String?>(null) }
     var copied by remember { mutableStateOf<Boolean?>(null) }
     var fileNameTemplate by remember(settings.fileOrganizationTemplate) {
         mutableStateOf(settings.fileOrganizationTemplate.orEmpty())
@@ -119,6 +131,22 @@ fun SettingsScreen(
             modifier = Modifier.semantics { heading() },
         )
 
+        if (toolUpdater != null) {
+            Text(strings.features[FeatureText.TOOL_UPDATE_HINT], style = MaterialTheme.typography.bodySmall)
+            TextButton(enabled = !updatingTool && tasks.none { it.status.isActive }, onClick = {
+                scope.launch {
+                    updatingTool = true
+                    val success = toolUpdater.update()
+                    updatingTool = false
+                    toolMessage = strings.features[if (success) FeatureText.DONE else FeatureText.VERIFY_FAILED]
+                    if (success) capabilities = engine.capabilities()
+                }
+            }) { Text(strings.features[if (updatingTool) FeatureText.WORKING else FeatureText.TOOL_UPDATE]) }
+            toolMessage?.let { Text(it) }
+        }
+        if (subscriptions != null) {
+            TextButton(onClick = { showSubscriptions = true }) { Text(strings.features[FeatureText.AUTOMATION]) }
+        }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(strings.themeLabel, style = MaterialTheme.typography.labelLarge)
@@ -142,8 +170,28 @@ fun SettingsScreen(
 
                 HorizontalDivider()
 
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = settings.clipboardSuggestions, onCheckedChange = {
+                        settingsController.update(settings.copy(clipboardSuggestions = it))
+                    })
+                    Text(strings.features[FeatureText.CLIPBOARD_MONITOR])
+                }
+                Text(strings.features[FeatureText.CLIPBOARD_HINT], style = MaterialTheme.typography.bodySmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = settings.downloadNotifications, onCheckedChange = {
+                        settingsController.update(settings.copy(downloadNotifications = it))
+                    })
+                    Text(strings.features[FeatureText.NOTIFICATIONS])
+                }
+                HorizontalDivider()
+
                 Text(strings.languageLabel, style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = settings.language == AppLanguage.SYSTEM,
+                        onClick = { settingsController.setLanguage(AppLanguage.SYSTEM) },
+                        label = { Text(strings.themeSystem) },
+                    )
                     FilterChip(
                         selected = settings.language == AppLanguage.PT_BR,
                         onClick = { settingsController.setLanguage(AppLanguage.PT_BR) },
@@ -592,6 +640,8 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+    if (showSubscriptions && subscriptions != null) SubscriptionsDialog(subscriptions) { showSubscriptions = false }
+
 }
 
 @Composable

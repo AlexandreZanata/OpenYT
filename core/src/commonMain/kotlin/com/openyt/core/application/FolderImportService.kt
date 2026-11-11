@@ -32,12 +32,13 @@ class FolderImportService(
 
     suspend fun import(directory: String): FolderImportResult {
         val repo = repository ?: return FolderImportResult()
-        val existingPaths = repo.loadLibrary().map { it.filePath }.toSet()
+        val existingPaths = repo.loadLibrary().map { mediaPathKey(it.filePath) }.toMutableSet()
         val scanned = scanner.scan(directory)
         var added = 0
         var skipped = 0
         scanned.forEach { media ->
-            if (media.path in existingPaths) {
+            val pathKey = mediaPathKey(media.path)
+            if (pathKey in existingPaths) {
                 skipped++
                 return@forEach
             }
@@ -51,6 +52,7 @@ class FolderImportService(
                 source = "import",
             )
             repo.insertLibraryEntry(entry)
+            existingPaths.add(pathKey)
             added++
         }
         return FolderImportResult(added = added, skipped = skipped)

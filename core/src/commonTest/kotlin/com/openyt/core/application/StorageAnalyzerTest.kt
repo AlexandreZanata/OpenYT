@@ -8,6 +8,24 @@ import kotlin.test.assertTrue
 
 class StorageAnalyzerTest {
     @Test
+    fun windowsSeparatorsAndCaseDoNotCreateFalseOrphans() {
+        val entries = listOf(
+            LibraryEntry("a", "Curso Básico", MediaKind.VIDEO, "C:\\Users\\João\\Downloads\\Curso.mkv", 100),
+        )
+        val files = listOf(
+            ScannedMedia("c:/users/joão/downloads/curso.mkv", "Curso", MediaKind.VIDEO, 100),
+        )
+        assertTrue(StorageAnalyzer.analyze(entries, emptySet(), files).orphanFiles.isEmpty())
+    }
+
+    @Test
+    fun posixPathsRemainCaseSensitive() {
+        val entries = listOf(LibraryEntry("a", "Movie", MediaKind.VIDEO, "/media/Video.mp4", 100))
+        val files = listOf(ScannedMedia("/media/video.mp4", "Movie", MediaKind.VIDEO, 100))
+        assertEquals(1, StorageAnalyzer.analyze(entries, emptySet(), files).orphanFiles.size)
+    }
+
+    @Test
     fun summarizesTotalsLargestDuplicatesMissingAndOrphans() {
         val entries = listOf(
             LibraryEntry("a", "Movie", MediaKind.VIDEO, "/media/dup.mp4", 100),

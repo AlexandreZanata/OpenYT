@@ -104,24 +104,7 @@ class AndroidUpdateInstaller(
                 it.name.endsWith(".apk", ignoreCase = true)
             } ?: return@withContext false
             val directory = java.io.File(context.cacheDir, "updates").apply { mkdirs() }
-            val file = java.io.File(directory, asset.name)
-            val downloaded = runCatching {
-                val connection = URL(asset.url).openConnection() as HttpURLConnection
-                connection.connectTimeout = 15_000
-                connection.readTimeout = 60_000
-                connection.instanceFollowRedirects = true
-                connection.setRequestProperty("User-Agent", "OpenYT")
-                try {
-                    if (connection.responseCode !in 200..299) return@runCatching false
-                    connection.inputStream.use { input ->
-                        file.outputStream().use { output -> input.copyTo(output) }
-                    }
-                    true
-                } finally {
-                    connection.disconnect()
-                }
-            }.getOrDefault(false)
-            if (!downloaded) return@withContext false
+            val file = com.openyt.data.VerifiedReleaseDownloader().download(update, ".apk", directory) ?: return@withContext false
 
             runCatching {
                 val uri = androidx.core.content.FileProvider.getUriForFile(

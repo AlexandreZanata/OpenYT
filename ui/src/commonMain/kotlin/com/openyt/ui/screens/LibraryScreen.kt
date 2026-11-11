@@ -15,6 +15,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
@@ -81,11 +85,17 @@ import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.MediaTechnicalInfo
 import com.openyt.core.domain.ShareableMedia
 import com.openyt.ui.components.MediaThumbnail
+import com.openyt.ui.components.StorageDialog
+import com.openyt.ui.components.MediaToolsDialog
+import com.openyt.core.application.MediaProcessor
+import com.openyt.ui.i18n.FeatureText
 import com.openyt.ui.components.ProviderIcon
 import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.i18n.LocalStrings
+import com.openyt.ui.util.fileNameOf
 import com.openyt.ui.util.formatBytes
 import com.openyt.ui.util.formatDuration
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -107,8 +117,11 @@ fun LibraryScreen(
     folderImportService: FolderImportService? = null,
     bulkFileService: BulkFileService? = null,
     playbackLauncher: PlaybackLauncher? = null,
+    mediaProcessor: MediaProcessor? = null,
 ) {
     val strings = LocalStrings.current
+    val playbackScope = rememberCoroutineScope()
+    var resumeUnavailable by remember { mutableStateOf(false) }
     val entries by coordinator.library.collectAsState()
     val collections by libraryController.collections.collectAsState()
     val membership by libraryController.membership.collectAsState()
@@ -121,6 +134,7 @@ fun LibraryScreen(
     var checkToken by remember { mutableStateOf(0) }
     var missingIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var detail by remember { mutableStateOf<LibraryItem?>(null) }
+    var processingEntry by remember { mutableStateOf<LibraryEntry?>(null) }
     var sortByTitle by remember { mutableStateOf(false) }
     var confirmRemoveDuplicates by remember { mutableStateOf(false) }
     var selectedCollectionId by remember { mutableStateOf<String?>(null) }
@@ -153,6 +167,7 @@ fun LibraryScreen(
     var showStorage by remember { mutableStateOf(false) }
     var storageReport by remember { mutableStateOf<StorageReport?>(null) }
     var storageLoading by remember { mutableStateOf(false) }
+    var storageFailed by remember { mutableStateOf(false) }
     var showBulkRename by remember { mutableStateOf(false) }
     var bulkRenamePattern by remember { mutableStateOf("{title}") }
     var showBulkMove by remember { mutableStateOf(false) }
@@ -174,6 +189,27 @@ fun LibraryScreen(
     LaunchedEffect(entries, checkToken) {
         missingIds = withContext(Dispatchers.Default) {
             entries.filterNot { fileAvailability.exists(it.filePath) }.map { it.id }.toSet()
+        }
+    }
+
+    LaunchedEffect(showStorage, entries, checkToken, downloadsDirectory) {
+        if (!showStorage) return@LaunchedEffect
+        storageLoading = true
+        storageFailed = false
+        storageReport = null
+        try {
+            storageReport = withContext(Dispatchers.Default) {
+                val missing = entries.filterNot { fileAvailability.exists(it.filePath) }
+                    .map { it.id }.toSet()
+                val known = folderImportService?.scan(downloadsDirectory).orEmpty()
+                StorageAnalyzer.analyze(entries, missing, known)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            storageFailed = true
+        } finally {
+            storageLoading = false
         }
     }
 
@@ -210,11 +246,18 @@ fun LibraryScreen(
                 modifier = Modifier.semantics { heading() },
             )
 
+            if (resumeUnavailable) Text(strings.features[FeatureText.NO_PLAYBACK_SESSION], style = MaterialTheme.typography.bodySmall)
+
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (playbackLauncher?.canPlay == true) {
+                    TextButton(onClick = { playbackScope.launch { resumeUnavailable = !playbackLauncher.resumeLastSession() } }) {
+                        Text(strings.features[FeatureText.RESUME_PLAYBACK])
+                    }
+                }
                 if (archiveService != null) {
                     TextButton(
                         onClick = {
@@ -247,13 +290,8 @@ fun LibraryScreen(
                 }
                 TextButton(
                     onClick = {
-                        showStorage = true
                         storageLoading = true
-                        archiveScope.launch {
-                            val known = folderImportService?.scan(downloadsDirectory).orEmpty()
-                            storageReport = StorageAnalyzer.analyze(entries, missingIds, known)
-                            storageLoading = false
-                        }
+                        showStorage = true
                     },
                 ) {
                     Text(strings.storagePanel)
@@ -457,14 +495,16 @@ fun LibraryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
-                else -> LazyColumn(
+                else -> LazyVerticalGrid(
+                    columns = GridCells.Adaptive(480.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     itemsIndexed(sortedItems, key = { _, item -> item.entry.id }) { index, item ->
                         LibraryCard(
                             item = item,
-                            wide = wide,
+                            wide = false,
                             selectable = wide,
                             selected = item.entry.id in activeSelection,
                             onSelect = { checked ->
@@ -475,28 +515,29 @@ fun LibraryScreen(
                                 }
                             },
                             onDetails = { detail = item },
+                            onProcess = if (mediaProcessor != null && !item.missing && item.entry.kind != MediaKind.SUBTITLE) { { processingEntry = item.entry } } else null,
                             onCollections = { assigningEntry = item.entry },
                             onRemove = { coordinator.removeFromLibrary(item.entry.id) },
                             onPlay = playbackLauncher
-                                ?.takeIf { it.canPlay }
+                                ?.takeIf { it.canPlay && !item.missing && item.entry.kind != MediaKind.SUBTITLE }
                                 ?.let { launcher ->
                                     {
                                         launcher.play(
-                                            items = sortedItems.map { playable ->
+                                            items = sortedItems.filter { !it.missing && it.entry.kind != MediaKind.SUBTITLE }.map { playable ->
                                                 PlayableMedia(
                                                     path = playable.entry.filePath,
                                                     title = playable.entry.title,
                                                     kind = playable.entry.kind,
                                                 )
                                             },
-                                            startIndex = index,
+                                            startIndex = sortedItems.filter { !it.missing && it.entry.kind != MediaKind.SUBTITLE }.indexOfFirst { it.entry.id == item.entry.id },
                                         )
                                     }
                                 },
                             mediaActions = mediaActions,
                         )
                     }
-                    item {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             strings.libraryFileKeptHint,
                             style = MaterialTheme.typography.bodySmall,
@@ -870,15 +911,24 @@ fun LibraryScreen(
                     onClick = {
                         watching = true
                         archiveScope.launch {
-                            val result = folderImportService?.import(watchPath)
-                            coordinator.reloadLibrary()
-                            watchMessage = if (result != null) {
-                                "${strings.importedEntries}: ${result.added} · " +
-                                    "${strings.skippedEntries}: ${result.skipped}"
-                            } else {
-                                strings.importInvalid
+                            try {
+                                val result = folderImportService?.import(watchPath)
+                                coordinator.reloadLibrary()
+                                checkToken++
+                                watchMessage = if (result != null) {
+                                    "${strings.importedEntries}: ${result.added} · " +
+                                        "${strings.skippedEntries}: ${result.skipped}"
+                                } else {
+                                    strings.folderImportFailed
+                                }
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                coordinator.reloadLibrary()
+                                watchMessage = strings.folderImportFailed
+                            } finally {
+                                watching = false
                             }
-                            watching = false
                         }
                     },
                 ) {
@@ -893,106 +943,32 @@ fun LibraryScreen(
         )
     }
 
+    processingEntry?.let { entry ->
+        mediaProcessor?.let { processor ->
+            MediaToolsDialog(entry, processor, coordinator) { processingEntry = null }
+        }
+    }
+
     if (showStorage) {
-        AlertDialog(
-            onDismissRequest = { showStorage = false },
-            title = { Text(strings.storagePanel) },
-            text = {
-                if (storageLoading) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        CircularProgressIndicator(Modifier.size(20.dp))
-                        Text(strings.analyzing)
-                    }
-                } else {
-                    val report = storageReport
-                    Column(
-                        modifier = Modifier
-                            .heightIn(max = 420.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        if (report == null) {
-                            Text(strings.notAvailable)
-                        } else {
-                            Text(strings.storageTotals, style = MaterialTheme.typography.labelLarge)
-                            Text(
-                                "${report.totalEntries} ${strings.entriesCount} · " +
-                                    (formatBytes(report.totalBytes) ?: "0 B"),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-
-                            HorizontalDivider()
-                            Text(strings.storageLargest, style = MaterialTheme.typography.labelLarge)
-                            if (report.largest.isEmpty()) {
-                                Text(strings.notAvailable)
-                            } else {
-                                report.largest.take(5).forEach { entry ->
-                                    Text(
-                                        "${entry.title} · ${formatBytes(entry.sizeBytes)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                }
-                            }
-
-                            HorizontalDivider()
-                            Text(strings.storageDuplicates, style = MaterialTheme.typography.labelLarge)
-                            if (report.duplicateGroups.isEmpty()) {
-                                Text(strings.notAvailable)
-                            } else {
-                                Text(
-                                    "${report.duplicateGroups.size}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                                report.duplicateGroups.take(3).forEach { group ->
-                                    Text(
-                                        group.entries.joinToString(" · ") { it.title },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-
-                            HorizontalDivider()
-                            Text(strings.storageMissing, style = MaterialTheme.typography.labelLarge)
-                            if (report.missing.isEmpty()) {
-                                Text(strings.notAvailable)
-                            } else {
-                                report.missing.take(5).forEach { entry ->
-                                    Text(entry.title, style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-
-                            HorizontalDivider()
-                            Text(strings.storageOrphans, style = MaterialTheme.typography.labelLarge)
-                            if (report.orphanFiles.isEmpty()) {
-                                Text(strings.notAvailable)
-                            } else {
-                                report.orphanFiles.take(5).forEach { file ->
-                                    Text(
-                                        file.path.substringAfterLast('/'),
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                }
-                            }
-
-                            Text(
-                                strings.storageReadOnlyHint,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
+        StorageDialog(
+            report = storageReport,
+            loading = storageLoading,
+            failed = storageFailed,
+            onRetry = {
+                storageLoading = true
+                checkToken++
             },
-            confirmButton = {
-                TextButton(onClick = { showStorage = false }) {
-                    Text(strings.closeAction)
+            onImport = if (folderImportService != null) {
+                {
+                    showStorage = false
+                    watchPath = downloadsDirectory
+                    watchMessage = null
+                    showWatchImport = true
                 }
+            } else {
+                null
             },
+            onDismiss = { showStorage = false },
         )
     }
 
@@ -1175,6 +1151,7 @@ private fun LibraryCard(
     selected: Boolean,
     onSelect: (Boolean) -> Unit,
     onDetails: () -> Unit,
+    onProcess: (() -> Unit)?,
     onCollections: () -> Unit,
     onRemove: () -> Unit,
     onPlay: (() -> Unit)?,
@@ -1286,6 +1263,9 @@ private fun LibraryCard(
                         Text(strings.revealAction)
                     }
                 }
+                onProcess?.let { action ->
+                    TextButton(onClick = action) { Text(strings.features[FeatureText.PROCESSING]) }
+                }
                 TextButton(onClick = onDetails) { Text(strings.detailsAction) }
                 TextButton(onClick = onCollections) { Text(strings.assignCollections) }
                 TextButton(onClick = onRemove) { Text(strings.removeFromLibrary) }
@@ -1309,7 +1289,11 @@ private fun BulkPlanDialog(
         onDismissRequest = onClose,
         title = { Text(title) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 input()
                 Text(strings.bulkPreview, style = MaterialTheme.typography.labelLarge)
                 if (plan.changes.isEmpty()) {
@@ -1360,9 +1344,6 @@ private fun BulkPlanDialog(
         },
     )
 }
-
-private fun fileNameOf(path: String): String =
-    path.substringAfterLast('/').substringAfterLast('\\')
 
 @Composable
 private fun LibraryDetailsDialog(
@@ -1455,9 +1436,15 @@ private fun LibraryDetailsDialog(
                 }
             }
         },
-        title = { Text(if (editing) titleText else entry.title) },
+        title = {
+            Text(if (editing) titleText else entry.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 if (editing) {
                     OutlinedTextField(
                         value = titleText,
@@ -1614,5 +1601,5 @@ private fun LibraryEntry.toShareable() = ShareableMedia(
 private fun kindLabel(kind: MediaKind, strings: AppStrings): String = when (kind) {
     MediaKind.VIDEO -> strings.kindVideo
     MediaKind.AUDIO -> strings.kindAudio
-    MediaKind.SUBTITLE -> kind.name
+    MediaKind.SUBTITLE -> strings.features[FeatureText.SUBTITLES]
 }

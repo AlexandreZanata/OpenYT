@@ -683,7 +683,7 @@ scenario_gui() {
 import sqlite3, sys
 connection = sqlite3.connect(sys.argv[1])
 version = connection.execute("PRAGMA user_version").fetchone()[0]
-assert version == 13, f"user_version={version}"
+assert version == 18, f"user_version={version}"
 PY
     kill -- -"$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true

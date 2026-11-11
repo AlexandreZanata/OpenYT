@@ -37,6 +37,7 @@ class FileFolderScanner(
     private fun kindFor(extension: String): MediaKind? = when (extension) {
         "mp4", "mkv", "webm", "mov", "avi", "m4v", "ts" -> MediaKind.VIDEO
         "m4a", "mp3", "opus", "ogg", "flac", "wav", "aac", "wma" -> MediaKind.AUDIO
+        "srt", "vtt", "ass", "ttml", "lrc" -> MediaKind.SUBTITLE
         else -> null
     }
 }

@@ -1,3 +1,4 @@
+import java.security.MessageDigest
 import java.net.URI
 import java.util.zip.ZipInputStream
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
@@ -24,6 +25,8 @@ val prepareBundledTools by tasks.registering {
     group = "distribution"
     inputs.property("platform", platform)
     inputs.property("architecture", architecture)
+    inputs.property("linuxFfmpeg", "8.1.3-27-g8dca1586f4-20261031")
+    inputs.property("macFfmpeg", "9.0.2-20260920")
     outputs.dir(bundledToolsDir)
     doLast {
         val directory = bundledToolsDir.get().asFile.apply { mkdirs() }
@@ -54,8 +57,14 @@ val prepareBundledTools by tasks.registering {
         }
         val staticBase =
             "https://github.com/eugeneware/ffmpeg-static/releases/download/$FFMPEG_STATIC_VERSION"
-        download("$staticBase/ffmpeg-$staticSuffix", File(directory, ffmpegName))
-        download("$staticBase/ffprobe-$staticSuffix", File(directory, ffprobeName))
+        if (platform == "linux") {
+            prepareLinuxFfmpeg(directory, architecture)
+        } else if (platform == "macos") {
+            prepareMacFfmpeg(directory, architecture)
+        } else {
+            download("$staticBase/ffmpeg-$staticSuffix", File(directory, ffmpegName))
+            download("$staticBase/ffprobe-$staticSuffix", File(directory, ffprobeName))
+        }
 
         val denoAsset = when (platform to architecture) {
             "linux" to "x64" -> "deno-x86_64-unknown-linux-gnu.zip"
@@ -106,6 +115,7 @@ dependencies {
     implementation(project(":ui"))
     implementation(project(":core"))
     implementation(project(":engine-ytdlp"))
+    implementation(project(":media-ffmpeg"))
     implementation(project(":data"))
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutines.core)
@@ -115,11 +125,13 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(libs.junit)
     testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(compose.material3)
 }
 
 compose.desktop {
     application {
         mainClass = "com.openyt.desktop.MainKt"
+        jvmArgs += "-Dfile.encoding=UTF-8"
 
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg)
@@ -142,6 +154,13 @@ compose.desktop {
             macOS {
                 iconFile.set(project.file("packaging/icons/openyt.icns"))
                 bundleID = "com.openyt.desktop"
+                infoPlist {
+                    extraKeysRawXml = """
+                        <key>CFBundleURLTypes</key>
+                        <array><dict><key>CFBundleURLName</key><string>OpenYT</string>
+                        <key>CFBundleURLSchemes</key><array><string>openyt</string></array></dict></array>
+                    """.trimIndent()
+                }
             }
         }
     }
@@ -181,10 +200,10 @@ fun hostArchitecture(): String {
     }
 }
 
-fun download(url: String, target: File) {
+fun download(url: String, target: File, userAgent: String = "OpenYT-build") {
     target.parentFile?.mkdirs()
     val connection = URI(url).toURL().openConnection() as java.net.HttpURLConnection
-    connection.setRequestProperty("User-Agent", "OpenYT-build")
+    connection.setRequestProperty("User-Agent", userAgent)
     connection.connectTimeout = 30_000
     connection.readTimeout = 300_000
     try {
@@ -199,6 +218,34 @@ fun download(url: String, target: File) {
     }
 }
 
+/** The previous Apple Silicon build lacks DASH demuxing needed by section downloads. */
+fun prepareMacFfmpeg(directory: File, architecture: String) {
+    val arm = architecture == "arm64"
+    val cpu = if (arm) "arm64" else "amd64"
+    val build = if (arm) "1789931890_9.0.2" else "1789931006_9.0.2"
+    val checksums = if (arm) mapOf(
+        "ffmpeg" to "c8ed4c4e6978a03c485edbfe4e0a5dc2380f8a30bba5150531b31b094492d924",
+        "ffprobe" to "fcbe839537485eaee7a7a8bc5cbc0f90d53617e80943e8a5b2e31cb851197ea6",
+    ) else mapOf(
+        "ffmpeg" to "7c6b4125b191cbf773832dc51f424cf2b6bb7da43007d1e066f95909e47cacd4",
+        "ffprobe" to "2322438ed2f6319a691291b247d09c69dcaa3a982460d1f269a7e1af335cfdfd",
+    )
+    for ((name, expected) in checksums) {
+        val archive = File(directory, "$name-macos.zip")
+        try {
+            download("https://ffmpeg.martin-riedl.de/download/macos/$cpu/$build/$name.zip", archive, "Mozilla/5.0 OpenYT-build")
+            val digest = MessageDigest.getInstance("SHA-256")
+            archive.inputStream().use { input ->
+                val buffer = ByteArray(65536)
+                while (true) { val count = input.read(buffer); if (count < 0) break; digest.update(buffer, 0, count) }
+            }
+            check(digest.digest().joinToString("") { "%02x".format(it) } == expected) { "$name archive checksum mismatch" }
+            extractExecutable(archive, name, File(directory, name))
+        } finally { archive.delete() }
+    }
+    rootProject.file("LICENSE").copyTo(File(directory, "FFmpeg-LICENSE.txt"), overwrite = true)
+}
+
 fun extractExecutable(archive: File, entryName: String, target: File) {
     ZipInputStream(archive.inputStream().buffered()).use { stream ->
         var entry = stream.nextEntry
@@ -211,4 +258,27 @@ fun extractExecutable(archive: File, entryName: String, target: File) {
         }
     }
     error("$entryName not found in ${archive.name}")
+}
+
+/** The former Linux static 6.1.1 build crashes on a bounded live HLS fixture. */
+fun prepareLinuxFfmpeg(directory: File, architecture: String) {
+    val cpu = if (architecture == "arm64") "linuxarm64" else "linux64"
+    val checksum = if (architecture == "arm64")
+        "a08c0ee6e1c4e02139344b303002dcc7c37cf125d639f1fbd15dabee40fcb525"
+    else "41e9c565594c390622cf968d82fa4135d9e9a11d06c1515644288cbc844e3380"
+    val name = "ffmpeg-n8.1.3-27-g8dca1586f4-$cpu-gpl-8.1.tar.xz"
+    val archive = File(directory, "ffmpeg-upstream.tar.xz")
+    val extracted = File(directory, ".ffmpeg-unpack").apply { mkdirs() }
+    try {
+        download("https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/autobuild-2026-10-31-12-59/$name", archive)
+        val digest = MessageDigest.getInstance("SHA-256")
+        archive.inputStream().use { input ->
+            val buffer = ByteArray(65536)
+            while (true) { val count = input.read(buffer); if (count < 0) break; digest.update(buffer, 0, count) }
+        }
+        check(digest.digest().joinToString("") { "%02x".format(it) } == checksum) { "FFmpeg archive checksum mismatch" }
+        check(ProcessBuilder("tar", "-xJf", archive.absolutePath, "-C", extracted.absolutePath, "--strip-components=1").inheritIO().start().waitFor() == 0)
+        listOf("ffmpeg", "ffprobe").forEach { File(extracted, "bin/$it").copyTo(File(directory, it), overwrite = true) }
+        File(extracted, "LICENSE.txt").copyTo(File(directory, "FFmpeg-LICENSE.txt"), overwrite = true)
+    } finally { archive.delete(); extracted.deleteRecursively() }
 }

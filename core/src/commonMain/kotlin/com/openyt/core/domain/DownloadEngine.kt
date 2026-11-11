@@ -19,6 +19,8 @@ interface DownloadEngine {
         cancel(downloadId)
     }
 
+    suspend fun supportedSources(): List<String> = emptyList()
+
     suspend fun capabilities(): EngineCapabilities
 
     fun close()

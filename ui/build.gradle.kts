@@ -35,6 +35,7 @@ kotlin {
 }
 
 compose.resources {
+    publicResClass = true
     packageOfResClass = "com.openyt.ui.resources"
 }
 

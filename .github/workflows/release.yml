@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      contracts_only:
+        description: Run native media contracts without packaging or publication
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -24,6 +29,7 @@ jobs:
           echo "value=$(grep '^openyt.version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
 
   android:
+    if: inputs.contracts_only != true
     needs: version
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -53,7 +59,7 @@ jobs:
         run: ./gradlew :androidApp:assembleRelease --console=plain --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: android-release
+          name: release-android
           path: androidApp/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
@@ -64,16 +70,16 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            task: packageDeb
-            artifact: linux-deb
-            path: desktopApp/build/compose/binaries/main/deb/*.deb
+            task: packageDeb packageRpm
+            artifact: release-linux
+            path: release-linux/*
           - os: windows-latest
             task: packageMsi packageExe
-            artifact: windows-installer
+            artifact: release-windows
             path: release-windows/*
           - os: macos-latest
             task: packageDmg
-            artifact: macos-dmg
+            artifact: release-macos
             path: desktopApp/build/compose/binaries/main/dmg/*.dmg
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
@@ -85,14 +91,106 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
       - name: Install WiX Toolset
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && inputs.contracts_only != true
         shell: pwsh
         run: choco install wixtoolset --no-progress -y
+      - name: Install RPM packaging tools
+        if: runner.os == 'Linux' && inputs.contracts_only != true
+        run: sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::ForceIPv4=true update && sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::ForceIPv4=true install -y rpm flatpak flatpak-builder
       - name: Package desktop
+        if: inputs.contracts_only != true
         shell: bash
         run: ./gradlew :desktopApp:${{ matrix.task }} --console=plain --stacktrace
+      - name: Linux package smoke and inventory
+        if: runner.os == 'Linux' && inputs.contracts_only != true
+        shell: bash
+        run: |
+          mkdir -p release-linux
+          cp desktopApp/build/compose/binaries/main/deb/*.deb release-linux/
+          cp desktopApp/build/compose/binaries/main/rpm/*.rpm release-linux/
+          curl -fL https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -o "$RUNNER_TEMP/appimagetool"
+          echo "e8c1169c4af66c3184d7ee110713d4be04befe671fa358e2c1591ee840553b03  $RUNNER_TEMP/appimagetool" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          APPIMAGETOOL="$RUNNER_TEMP/appimagetool" BUILD_FLATPAK=1 ./scripts/package-linux-extra.sh desktopApp/build/compose/binaries/main/deb/*.deb release-linux
+          flatpak install --user -y release-linux/*.flatpak
+          dbus-run-session -- flatpak run com.openyt.OpenYT --cli version
+          mkdir rpm-smoke
+          cd rpm-smoke
+          rpm2cpio ../release-linux/*.rpm | cpio -id
+          ./opt/openyt/bin/OpenYT --cli version
+          cd ..
+          docker run --rm -v "$PWD/release-linux:/out" archlinux:base-devel bash -c '
+            useradd -m builder
+            mkdir -p /tmp/package
+            cp /out/PKGBUILD /out/*.deb /tmp/package/
+            chown -R builder:builder /tmp/package
+            su builder -c "cd /tmp/package && makepkg --noconfirm --nodeps"
+            pacman -U --noconfirm /tmp/package/*.pkg.tar.zst
+            /opt/openyt/bin/OpenYT --cli version
+            cp /tmp/package/*.pkg.tar.zst /out/
+          '
+          ./scripts/validate-linux.sh --scenario tools --no-build
+      - name: Native Windows install and CLI smoke
+        if: runner.os == 'Windows' && inputs.contracts_only != true
+        shell: pwsh
+        run: |
+          $msi = (Get-ChildItem desktopApp/build/compose/binaries/main/msi/*.msi)[0].FullName
+          $install = Start-Process msiexec.exe -ArgumentList @('/i', "`"$msi`"", '/qn', '/norestart') -Wait -PassThru
+          if ($install.ExitCode -notin @(0, 3010)) { throw "MSI install failed: $($install.ExitCode)" }
+          $app = Get-ChildItem 'C:/Program Files' -Filter OpenYT.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (!$app) { throw 'Installed launcher missing' }
+          $version = Start-Process $app.FullName -ArgumentList @('--cli', 'version') -Wait -PassThru -RedirectStandardOutput installed-version.txt -RedirectStandardError installed-error.log
+          if ($version.ExitCode -ne 0) { Get-Content installed-error.log; throw 'Installed app failed' }
+          Get-Content installed-version.txt
+          $sources = Start-Process $app.FullName -ArgumentList @('--cli', 'sources', '--json') -Wait -PassThru -RedirectStandardOutput native-sources.json -RedirectStandardError installed-error.log
+          if ($sources.ExitCode -ne 0) { Get-Content installed-error.log; throw 'Installed engine failed' }
+          if ((Get-Content native-sources.json -Raw | ConvertFrom-Json).Count -lt 100) { throw 'Source catalog missing' }
+      - name: Native macOS bundle smoke
+        if: runner.os == 'macOS' && inputs.contracts_only != true
+        shell: bash
+        run: |
+          printf 'Y\n' | hdiutil attach desktopApp/build/compose/binaries/main/dmg/*.dmg -mountpoint /tmp/openyt-volume
+          cp -R /tmp/openyt-volume/OpenYT.app /tmp/OpenYT.app
+          hdiutil detach /tmp/openyt-volume
+          /tmp/OpenYT.app/Contents/MacOS/OpenYT --cli version
+          /tmp/OpenYT.app/Contents/MacOS/OpenYT --cli sources --json > native-sources.json
+      - name: Native inventory
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then WITH_ANDROID=true; else WITH_ANDROID=false; fi
+          ./gradlew releaseSbom -PsbomAndroid="$WITH_ANDROID" --console=plain
+          mkdir -p release-inventory
+          cp build/release/openyt-sbom.cdx.json "release-inventory/openyt-sbom-${{ runner.os }}.cdx.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-inventory-${{ runner.os }}
+          path: release-inventory/*
+      - name: Native media engine contracts
+        shell: bash
+        env:
+          OPENYT_RUN_LOCAL_ENGINE_TESTS: "1"
+        run: |
+          ./gradlew :desktopApp:prepareBundledTools --console=plain
+          case "${{ runner.os }}" in
+            Windows) TOOLS="$(cygpath -w "$PWD/desktopApp/build/bundled-tools/windows-x64")"; SUFFIX=.exe ;;
+            macOS) if [ "$(uname -m)" = "arm64" ]; then CPU=arm64; else CPU=x64; fi; TOOLS="$PWD/desktopApp/build/bundled-tools/macos-$CPU"; SUFFIX= ;;
+            *) TOOLS="$PWD/desktopApp/build/bundled-tools/linux-x64"; SUFFIX= ;;
+          esac
+          export OPENYT_YTDLP="$TOOLS/yt-dlp$SUFFIX"
+          export OPENYT_FFMPEG="$TOOLS/ffmpeg$SUFFIX"
+          export OPENYT_FFPROBE="$TOOLS/ffprobe$SUFFIX"
+          ./gradlew :desktopApp:test --tests '*DesktopYtDlpLocalTest' --console=plain
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-native-media-${{ runner.os }}
+          path: |
+            desktopApp/build/test-results/test/
+            desktopApp/build/validation/*.err
       - name: Flatten Windows installers
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && inputs.contracts_only != true
         shell: bash
         run: |
           mkdir -p release-windows
@@ -114,33 +212,76 @@ jobs:
           done
           ls -la desktopApp/build/compose/binaries/main/app || true
       - uses: actions/upload-artifact@v4
+        if: inputs.contracts_only != true
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.path }}
           if-no-files-found: error
 
-  publish:
-    needs: [version, android, desktop]
+  browser-handoff:
+    if: inputs.contracts_only != true
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew :browserExtension:packageHandoff --console=plain
+      - run: cd browserExtension/build/dist/js/productionExecutable && zip -r ../../../../OpenYT-browser-handoff.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-browser-handoff
+          path: browserExtension/OpenYT-browser-handoff.zip
+
+  publish:
+    if: github.ref == 'refs/heads/main' && inputs.contracts_only != true
+    needs: [version, android, desktop, browser-handoff]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
       - uses: actions/download-artifact@v4
         with:
           path: release-artifacts
+          pattern: release-*
           merge-multiple: true
       - name: Generate checksums
         run: |
+          cp docs/releases/release-signing-public-key.pem release-artifacts/
           cd release-artifacts
           find . -mindepth 2 -type f -exec mv -t . {} +
           find . -mindepth 1 -type d -empty -delete
           sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
+      - name: Sign checksum manifest with the available production key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          OPENYT_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          OPENYT_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          OPENYT_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/openyt.jks"
+          export OPENYT_KEYSTORE_PATH="$RUNNER_TEMP/openyt.jks"
+          ./gradlew signReleaseManifest -PreleaseManifest=release-artifacts/SHA256SUMS.txt --console=plain
+          rm "$RUNNER_TEMP/openyt.jks"
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.version.outputs.value }}
           name: OpenYT v${{ needs.version.outputs.value }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
+          body_path: docs/releases/v${{ needs.version.outputs.value }}.md
           make_latest: true
           fail_on_unmatched_files: true
           files: release-artifacts/*

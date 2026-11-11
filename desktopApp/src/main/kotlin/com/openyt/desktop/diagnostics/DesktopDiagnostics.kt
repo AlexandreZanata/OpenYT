@@ -42,7 +42,7 @@ class DesktopDiagnosticsProvider(
                 DiagnosticTool("yt-dlp", locator.findYtDlp() != null, capabilities.engineVersion),
                 DiagnosticTool("ffmpeg", locator.findFfmpeg() != null),
                 DiagnosticTool("ffprobe", locator.findFfprobe() != null),
-                DiagnosticTool("js-runtime", jsRuntime != null, jsRuntime),
+                DiagnosticTool("js-runtime", jsRuntime != null, jsRuntime?.let { java.io.File(it).name }),
             ),
         )
     }
@@ -111,24 +111,7 @@ class DesktopUpdateInstaller : com.openyt.core.application.UpdateInstaller {
                 System.getProperty("user.home") ?: ".",
                 "Downloads/OpenYT/updates",
             ).apply { mkdirs() }
-            val file = java.io.File(directory, asset.name)
-            val downloaded = runCatching {
-                val connection = URL(asset.url).openConnection() as HttpURLConnection
-                connection.connectTimeout = 15_000
-                connection.readTimeout = 120_000
-                connection.instanceFollowRedirects = true
-                connection.setRequestProperty("User-Agent", "OpenYT")
-                try {
-                    if (connection.responseCode !in 200..299) return@runCatching false
-                    connection.inputStream.use { input ->
-                        file.outputStream().use { output -> input.copyTo(output) }
-                    }
-                    true
-                } finally {
-                    connection.disconnect()
-                }
-            }.getOrDefault(false)
-            if (!downloaded) return@withContext false
+            val file = com.openyt.data.VerifiedReleaseDownloader().download(update, suffix, directory) ?: return@withContext false
 
             val opened = runCatching {
                 if (Desktop.isDesktopSupported()) {

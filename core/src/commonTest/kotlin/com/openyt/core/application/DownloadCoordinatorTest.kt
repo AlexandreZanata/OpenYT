@@ -22,8 +22,11 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -38,6 +41,89 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DownloadCoordinatorTest {
+    @Test
+    fun observingCompletionThenFlushingPersistsTheLibraryBeforeExit() = runTest {
+        val repository = FakeRepository()
+        val coordinator = DownloadCoordinator(FakeDownloadEngine(), coordinatorScope(), repository)
+        val observer = backgroundScope.launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+            coordinator.tasks.first { tasks -> tasks.any { it.status == DownloadStatus.COMPLETED } }
+            assertTrue(coordinator.awaitPersistence())
+            assertEquals(1, repository.library.size, "Completion must enqueue every database write before observers can flush")
+        }
+        coordinator.restore()
+        coordinator.enqueue(FakeDownloadEngine.SAMPLE_MEDIA, request())
+        advanceUntilIdle()
+        observer.join()
+    }
+
+    @Test
+    fun cancelAfterAnExplicitPauseAndResumeEndsAsCanceled() = runTest {
+        val events = Channel<DownloadEvent>(Channel.UNLIMITED)
+        val engine = object : DownloadEngine by SuspendingEngine() {
+            override fun download(request: DownloadRequest, downloadId: String) = flow {
+                emit(DownloadEvent.Starting)
+                val terminal = events.receive()
+                emit(terminal)
+            }
+
+            override suspend fun pause(downloadId: String) {
+                events.send(DownloadEvent.Paused)
+            }
+
+            override suspend fun cancel(downloadId: String) {
+                events.send(DownloadEvent.Canceled)
+            }
+        }
+        val coordinator = DownloadCoordinator(engine, coordinatorScope())
+        val id = coordinator.enqueue(media("paused"), request("paused"))
+        advanceUntilIdle()
+
+        coordinator.pause(id)
+        advanceUntilIdle()
+        assertEquals(DownloadStatus.PAUSED, coordinator.tasks.value.single().status)
+
+        coordinator.resume(id)
+        advanceUntilIdle()
+        coordinator.cancel(id)
+        advanceUntilIdle()
+        assertEquals(DownloadStatus.CANCELED, coordinator.tasks.value.single().status)
+    }
+
+    @Test
+    fun clearingFinishedKeepsPausedAndQueuedWorkInMemoryAndStorage() = runTest {
+        val repository = FakeRepository(tasks = mutableListOf(
+            persistedTask("download-1", DownloadStatus.PAUSED),
+            persistedTask("download-2", DownloadStatus.FAILED),
+            persistedTask("download-3", DownloadStatus.COMPLETED),
+        ))
+        val coordinator = DownloadCoordinator(SuspendingEngine(), coordinatorScope(), repository)
+        coordinator.restore()
+        val activeId = coordinator.enqueue(media("active"), request("active"))
+        advanceUntilIdle()
+
+        coordinator.clearFinished()
+        advanceUntilIdle()
+
+        assertEquals(setOf("download-1", activeId), coordinator.tasks.value.map { it.id }.toSet())
+        assertEquals(coordinator.tasks.value.map { it.id }.toSet(), repository.tasks.map { it.id }.toSet())
+        assertEquals(DownloadStatus.PAUSED, coordinator.tasks.value.first { it.id == "download-1" }.status)
+    }
+
+    @Test
+    fun manualRetryStartsWithANewAutomaticRetryBudget() = runTest {
+        val repository = FakeRepository(tasks = mutableListOf(
+            persistedTask("download-1", DownloadStatus.FAILED).copy(attempt = 3),
+        ))
+        val coordinator = DownloadCoordinator(SuspendingEngine(), coordinatorScope(), repository)
+        coordinator.restore()
+
+        coordinator.retry("download-1")
+        advanceUntilIdle()
+
+        assertEquals(0, coordinator.tasks.value.last().attempt)
+        assertEquals(DownloadStatus.DOWNLOADING, coordinator.tasks.value.last().status)
+    }
+
     @Test
     fun marksTaskCompletedAfterEngineFinishes() = runTest {
         val coordinator = DownloadCoordinator(FakeDownloadEngine(), coordinatorScope())

@@ -47,6 +47,7 @@ jobs:
           :core:desktopTest
           :engine-ytdlp:desktopTest
           :data:desktopTest
+          :media-ffmpeg:desktopTest
           :desktopApp:test
           :androidApp:assembleDebug
           :androidApp:assembleDebugAndroidTest
@@ -60,6 +61,57 @@ jobs:
           name: openyt-debug-apk
           path: androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      - name: Upload regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-evidence
+          path: |
+            desktopApp/build/ui-regressions/*.png
+            desktopApp/build/reports/tests/test/
+            core/build/reports/tests/desktopTest/
+            data/build/reports/tests/desktopTest/
+            engine-ytdlp/build/reports/tests/desktopTest/
+          if-no-files-found: warn
+
+      - name: Local merge and conversion regression
+        env:
+          OPENYT_RUN_LOCAL_ENGINE_TESTS: "1"
+          OPENYT_YTDLP: ${{ github.workspace }}/desktopApp/build/bundled-tools/linux-x64/yt-dlp
+          OPENYT_FFMPEG: ${{ github.workspace }}/desktopApp/build/bundled-tools/linux-x64/ffmpeg
+          OPENYT_FFPROBE: ${{ github.workspace }}/desktopApp/build/bundled-tools/linux-x64/ffprobe
+        run: >
+          ./gradlew :desktopApp:test
+          --tests '*DesktopYtDlpLocalTest'
+          --console=plain --stacktrace
+
+      - name: Packaged local expansion contracts
+        run: env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE xvfb-run -a python3 scripts/validate-expansion.py desktopApp/build/compose/binaries/main/deb/*.deb
+
+      - name: Compile browser handoff contracts
+        run: |
+          ./gradlew :browserExtension:packageHandoff --console=plain
+          node scripts/validate-browser-handoff.cjs
+
+      - name: Real media processing and playback contracts
+        env:
+          OPENYT_RUN_MEDIA_TESTS: "1"
+          OPENYT_RUN_PLAYBACK_TESTS: "1"
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::ForceIPv4=true update
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::ForceIPv4=true install -y libvlc5 vlc-plugin-base vlc-plugin-video-output xvfb imagemagick
+          ./gradlew :media-ffmpeg:desktopTest --console=plain
+          env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE xvfb-run -a ./gradlew :desktopApp:test --tests '*DesktopMediaTaggerTest' --tests '*DesktopPlaybackLocalTest' --console=plain
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runtime-media-evidence
+          path: |
+            desktopApp/build/validation/
+            desktopApp/build/test-results/test/
+            media-ffmpeg/build/test-results/desktopTest/
 
       - name: Upload Linux deb
         uses: actions/upload-artifact@v4
@@ -126,3 +178,41 @@ jobs:
 
       - name: Compile desktop app
         run: ./gradlew :desktopApp:compileKotlin --console=plain --stacktrace
+
+      - name: Native download regression contracts
+        if: matrix.os != 'ubuntu-latest'
+        run: >
+          ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest
+          :desktopApp:test --tests '*DesktopYtDlpEngineTest'
+          --console=plain --stacktrace
+
+  android-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            ./gradlew :androidApp:connectedDebugAndroidTest -Popenyt.testAbi=x86_64 -Popenyt.testApplicationIdSuffix=.regression --console=plain; result=$?; adb pull /sdcard/Pictures/OpenYT-validation androidApp/build/android-visual-evidence || true; exit $result
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-instrumentation
+          path: |
+            androidApp/build/reports/androidTests/connected/
+            androidApp/build/android-visual-evidence/

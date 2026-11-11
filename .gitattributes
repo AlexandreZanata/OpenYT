@@ -1,0 +1,3 @@
+# These bytes are covered by a detached RSA signature, including on Windows.
+data/src/desktopTest/resources/release-trust/SHA256SUMS.txt -text
+*.sig binary

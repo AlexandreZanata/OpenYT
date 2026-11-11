@@ -5,6 +5,7 @@ import com.openyt.core.domain.EngineResult
 import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaFormat
 import com.openyt.core.domain.MediaInfo
+import com.openyt.core.domain.SubtitleTrack
 import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.PlaylistEntry
 import com.openyt.core.domain.PlaylistInfo
@@ -64,6 +65,14 @@ object YtDlpJsonParser {
                     webpageUrl = webpageUrl,
                     formats = formats,
                     isLive = obj.boolean("is_live") == true,
+                    subtitles = listOf("subtitles" to false, "automatic_captions" to true).flatMap { (key, automatic) ->
+                        (obj[key] as? JsonObject)?.mapNotNull { (language, values) ->
+                            val tracks = values as? JsonArray
+                            if (language == "live_chat" || !Regex("^[A-Za-z0-9_-]{1,32}$").matches(language) ||
+                                tracks.orEmpty().none { (it as? JsonObject)?.string("ext") in setOf("srt", "vtt", "ttml", "srv1", "srv2", "srv3", "json3", "ass", "lrc") }) null
+                            else SubtitleTrack(language, automatic = automatic)
+                        }.orEmpty()
+                    },
                 ),
             ),
         )

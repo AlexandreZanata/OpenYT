@@ -10,6 +10,7 @@ import com.openyt.core.domain.EngineResult
 import com.openyt.core.domain.Inspection
 import com.openyt.core.domain.MediaKind
 import com.openyt.engine.ytdlp.YtDlpErrorMapper
+import com.openyt.engine.ytdlp.YtDlpDownloadOptions
 import com.openyt.engine.ytdlp.YtDlpJsonParser
 import com.openyt.engine.ytdlp.YtDlpOutputParser
 import com.openyt.engine.ytdlp.YtDlpProgressParser
@@ -35,13 +36,20 @@ import kotlinx.coroutines.withContext
  */
 class AndroidYtDlpEngine(
     private val context: Context,
-) : DownloadEngine {
+) : DownloadEngine, com.openyt.core.application.ToolUpdater {
 
-    private val initMutex = Mutex()
+    private val initMutex get() = runtimeInitMutex
     private val paused = ConcurrentHashMap.newKeySet<String>()
 
     @Volatile
     private var initialized = false
+
+    override suspend fun update(): Boolean {
+        if (initialize() != null) return false
+        return com.openyt.data.VerifiedToolUpdate("yt-dlp") {
+            File(context.noBackupFilesDir, "youtubedl-android/yt-dlp/yt-dlp")
+        }.update()
+    }
 
     override suspend fun inspect(url: String): EngineResult<Inspection> {
         val initFailure = initialize()
@@ -50,6 +58,8 @@ class AndroidYtDlpEngine(
         return withContext(Dispatchers.IO) {
             try {
                 val request = YoutubeDLRequest(url).apply {
+                    addOption("--ignore-config")
+                    addOption("--encoding", "utf-8")
                     addOption("--dump-single-json")
                     addOption("--flat-playlist")
                     addOption("--skip-download")
@@ -71,7 +81,7 @@ class AndroidYtDlpEngine(
                 send(DownloadEvent.Failed(initFailure))
                 return@channelFlow
             }
-            if (request.kind == MediaKind.SUBTITLE) {
+            if (request.kind == MediaKind.SUBTITLE && request.options.subtitle == null) {
                 send(DownloadEvent.Failed(DownloadFailure.UnsupportedSource))
                 return@channelFlow
             }
@@ -91,6 +101,9 @@ class AndroidYtDlpEngine(
             try {
                 val response = withContext(Dispatchers.IO) {
                     val ytDlpRequest = YoutubeDLRequest(request.url).apply {
+                        addOption("--ignore-config")
+                        addOption("--encoding", "utf-8")
+                        addOption("--no-colors")
                         request.playlistItemIndex?.let {
                             addOption("--playlist-items", it.toString())
                         } ?: addOption("--no-playlist")
@@ -99,7 +112,7 @@ class AndroidYtDlpEngine(
                         addOption("-P", directory.absolutePath)
                         addOption("--paths", "temp:${tempDirectory.absolutePath}")
                         addOption("-o", request.fileNameTemplate)
-                        addOption("--print", "after_move:filepath")
+                        addOption("--print", if (request.kind == MediaKind.SUBTITLE) YtDlpOutputParser.SUBTITLE_PATH_TEMPLATE else YtDlpOutputParser.FILE_PATH_TEMPLATE)
                         addOption("--progress-template", PROGRESS_TEMPLATE)
                         request.limitBytesPerSecond?.let {
                             addOption("--limit-rate", it.toString())
@@ -107,18 +120,7 @@ class AndroidYtDlpEngine(
                         request.cookiesFilePath?.let {
                             addOption("--cookies", it)
                         }
-                        when (request.kind) {
-                            MediaKind.AUDIO -> {
-                                addOption("-f", request.formatId ?: "bestaudio/best")
-                                addOption("-x")
-                                addOption("--audio-format", "m4a")
-                            }
-
-                            MediaKind.VIDEO ->
-                                addOption("-f", request.formatId ?: "bv*+ba/b")
-
-                            MediaKind.SUBTITLE -> Unit
-                        }
+                        addCommands(YtDlpDownloadOptions.arguments(request))
                     }
                     YoutubeDL.getInstance().execute(ytDlpRequest, downloadId) { _, _, line ->
                         YtDlpProgressParser.parse(line)?.let { trySend(it) }
@@ -132,15 +134,16 @@ class AndroidYtDlpEngine(
                     }
                 }
 
-                val file = YtDlpOutputParser.extractFilePath(response.out)
-                    ?.let(::File)
-                    ?.takeIf { it.isFile && it.length() > 0 }
+                val file = com.openyt.data.confirmedEngineOutput(
+                    YtDlpOutputParser.extractFilePath(response.out), directory, tempDirectory,
+                    request.kind == MediaKind.SUBTITLE,
+                )
                 if (file != null) {
                     send(DownloadEvent.Completed(file.absolutePath, file.length()))
                 } else {
                     send(
                         DownloadEvent.Failed(
-                            DownloadFailure.ProcessingFailed("output file missing or empty"),
+                            DownloadFailure.OutputMissing,
                         ),
                     )
                 }
@@ -172,11 +175,19 @@ class AndroidYtDlpEngine(
         YoutubeDL.getInstance().destroyProcessById(downloadId)
     }
 
+    override suspend fun supportedSources(): List<String> {
+        if (initialize() != null) return emptyList()
+        return withContext(Dispatchers.IO) {
+            val request = YoutubeDLRequest("").apply { addOption("--ignore-config"); addOption("--encoding", "utf-8"); addOption("--list-extractors") }
+            runCatching { YoutubeDL.getInstance().execute(request).out.lineSequence().map { it.trim() }.filter { it.isNotBlank() }.distinct().sorted().toList() }.getOrDefault(emptyList())
+        }
+    }
+
     override suspend fun capabilities(): EngineCapabilities {
         val version = runCatching {
             initialize()
             withContext(Dispatchers.IO) {
-                YoutubeDL.getInstance().version(context) ?: runCatching {
+                runCatching {
                     val request = YoutubeDLRequest("").apply { addOption("--version") }
                     YoutubeDL.getInstance().execute(request).out
                         .trim()
@@ -189,14 +200,15 @@ class AndroidYtDlpEngine(
         return EngineCapabilities(
             engineName = "yt-dlp (Android)",
             engineVersion = version,
-            supportsPause = false,
-            supportsSubtitles = false,
+            supportsPause = true,
+            supportsSubtitles = true,
         )
     }
 
     override fun close() = Unit
 
     private companion object {
+        val runtimeInitMutex = Mutex()
         const val MAX_ID_LENGTH = 64
 
         const val PROGRESS_TEMPLATE =
@@ -213,11 +225,20 @@ class AndroidYtDlpEngine(
             if (initialized) return@withLock null
             try {
                 withContext(Dispatchers.IO) {
+                    val appVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
+                    val marker = File(context.noBackupFilesDir, "openyt-engine-app-version")
+                    if (!marker.isFile || marker.readText() != appVersion) {
+                        val cache = File(context.noBackupFilesDir, "youtubedl-android/yt-dlp")
+                        check(!cache.exists() || cache.deleteRecursively())
+                    }
                     FFmpeg.getInstance().init(context.applicationContext)
                     YoutubeDL.getInstance().init(context.applicationContext)
+                    marker.writeText(appVersion)
                 }
                 initialized = true
                 null
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 DownloadFailure.DependencyMissing("yt-dlp runtime")
             }

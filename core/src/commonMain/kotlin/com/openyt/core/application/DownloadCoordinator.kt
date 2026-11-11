@@ -11,6 +11,8 @@ import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaInfo
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -28,7 +30,7 @@ import kotlinx.coroutines.launch
  * through a channel so a slow database cannot reorder state transitions. Progress
  * is persisted at 10% intervals; terminal states are always persisted.
  *
- * [enqueue] is expected to be called from a single UI thread.
+ * [enqueue] accepts concurrent UI and local scheduler requests atomically.
  */
 class DownloadCoordinator(
     private val engine: DownloadEngine,
@@ -64,8 +66,12 @@ class DownloadCoordinator(
     private val downloadWindow = MutableStateFlow<DownloadWindow?>(null)
     private var windowWakeupJob: Job? = null
 
-    private var nextId = 0
+    private val nextId = MutableStateFlow(0)
+    private val persistenceFailed = MutableStateFlow(false)
+    private val pendingInsertions = MutableStateFlow<Set<String>>(emptySet())
     private var restored = false
+    private val _ready = MutableStateFlow(repository == null)
+    val ready: StateFlow<Boolean> = _ready.asStateFlow()
 
     init {
         scope.launch {
@@ -75,7 +81,7 @@ class DownloadCoordinator(
         }
         scope.launch {
             for (operation in persistence) {
-                runCatching { operation() }
+                runCatching { operation() }.onFailure { persistenceFailed.value = true }
             }
         }
     }
@@ -95,10 +101,12 @@ class DownloadCoordinator(
             val loadedLibrary = repo.loadLibrary()
             _tasks.value = loadedTasks
             _library.value = loadedLibrary
-            nextId = (loadedTasks.map { it.id } + loadedLibrary.map { it.id })
+            val largestId = (loadedTasks.map { it.id } + loadedLibrary.map { it.id })
                 .mapNotNull { it.removePrefix(TASK_ID_PREFIX).toIntOrNull() }
                 .maxOrNull() ?: 0
+            nextId.update { maxOf(it, largestId) }
         }
+        _ready.value = true
     }
 
     suspend fun reloadLibrary() {
@@ -127,25 +135,35 @@ class DownloadCoordinator(
         request: DownloadRequest,
         priority: DownloadPriority = DownloadPriority.NORMAL,
     ): String {
-        val duplicate = _tasks.value.firstOrNull { task ->
-            task.status.isActive &&
-                task.request.url == request.url &&
-                task.request.kind == request.kind &&
-                task.request.formatId == request.formatId &&
-                task.request.playlistItemIndex == request.playlistItemIndex
+        while (true) {
+            val current = _tasks.value
+            val duplicate = current.firstOrNull { task ->
+                if (request.options.originKey != null) {
+                    task.request.options.originKey == request.options.originKey
+                } else {
+                    task.status.isActive && task.request.url == request.url &&
+                        task.request.kind == request.kind && task.request.formatId == request.formatId &&
+                        task.request.playlistItemIndex == request.playlistItemIndex && task.request.options == request.options
+                }
+            }
+            if (duplicate != null) return duplicate.id
+            val task = DownloadTask(id = nextTaskId(), media = media, request = request, priority = priority)
+            pendingInsertions.update { it + task.id }
+            if (_tasks.compareAndSet(current, current + task)) {
+                persist { repository?.insertTask(task) }
+                pendingInsertions.update { it - task.id }
+                requestSchedule()
+                return task.id
+            }
+            pendingInsertions.update { it - task.id }
         }
-        if (duplicate != null) return duplicate.id
+    }
 
-        val task = DownloadTask(
-            id = nextTaskId(),
-            media = media,
-            request = request,
-            priority = priority,
-        )
-        _tasks.update { it + task }
-        persist { repository?.insertTask(task) }
-        requestSchedule()
-        return task.id
+    suspend fun awaitPersistence(): Boolean {
+        val barrier = CompletableDeferred<Unit>()
+        persistence.send { barrier.complete(Unit) }
+        barrier.await()
+        return !persistenceFailed.value
     }
 
     fun cancel(id: String) {
@@ -251,6 +269,7 @@ class DownloadCoordinator(
             filePath = null,
             sizeBytes = null,
             failure = null,
+            attempt = 0,
         )
         _tasks.update { it + task }
         persist { repository?.insertTask(task) }
@@ -265,8 +284,8 @@ class DownloadCoordinator(
     }
 
     fun clearFinished() {
-        val finished = _tasks.value.filter { it.status.isFinished }.map { it.id }
-        _tasks.update { tasks -> tasks.filter { it.status.isActive } }
+        val finished = _tasks.value.filter { it.status.isFinished }.map { it.id }.toSet()
+        _tasks.update { tasks -> tasks.filterNot { it.id in finished } }
         finished.forEach { id -> persist { repository?.deleteTask(id) } }
     }
 
@@ -350,7 +369,7 @@ class DownloadCoordinator(
 
     private fun nextEligibleQueuedTask(): DownloadTask? =
         _tasks.value.withIndex()
-            .filter { it.value.status == DownloadStatus.QUEUED && it.value.id !in backoffTasks.value }
+            .filter { it.value.status == DownloadStatus.QUEUED && it.value.id !in backoffTasks.value && it.value.id !in pendingInsertions.value }
             .minWithOrNull(
                 compareByDescending<IndexedValue<DownloadTask>> { it.value.priority.weight }
                     .thenBy { it.index },
@@ -388,14 +407,13 @@ class DownloadCoordinator(
     private fun applyEvent(id: String, event: DownloadEvent) {
         val previous = _tasks.value.firstOrNull { it.id == id } ?: return
         val pausing = event == DownloadEvent.Canceled && id in pausingTasks.value
-        if (pausing) {
+        if (event == DownloadEvent.Paused || event == DownloadEvent.Canceled ||
+            event is DownloadEvent.Completed || event is DownloadEvent.Failed
+        ) {
             pausingTasks.update { it - id }
         }
         val applied = if (pausing) DownloadEvent.Paused else event
-        _tasks.update { tasks ->
-            tasks.map { task -> if (task.id == id) task.apply(applied) else task }
-        }
-        val updated = _tasks.value.firstOrNull { it.id == id } ?: return
+        val updated = previous.apply(applied)
 
         val percentageBucketChanged =
             (updated.percent.toInt() / PROGRESS_BUCKET) != (previous.percent.toInt() / PROGRESS_BUCKET)
@@ -413,8 +431,8 @@ class DownloadCoordinator(
                 attempt = updated.attempt + 1,
             )
             backoffTasks.update { it + retry.id }
-            _tasks.update { tasks -> tasks.map { if (it.id == retry.id) retry else it } }
             persist { repository?.updateTask(retry) }
+            _tasks.update { tasks -> tasks.map { if (it.id == retry.id) retry else it } }
             scope.launch {
                 delay(retryDelayMillis(retry.attempt))
                 backoffTasks.update { it - retry.id }
@@ -424,9 +442,6 @@ class DownloadCoordinator(
         }
 
         if (applied is DownloadEvent.Completed) {
-            scope.launch {
-                runCatching { completedHandler?.onCompleted(updated) }
-            }
             val entry = LibraryEntry(
                 id = updated.id,
                 title = updated.media.title,
@@ -441,6 +456,13 @@ class DownloadCoordinator(
                 listOf(entry) + entries.filterNot { it.id == entry.id }
             }
             persist { repository?.insertLibraryEntry(entry) }
+        }
+
+        // Observers may flush persistence and exit immediately on a terminal state.
+        // Queue every associated write before making that state observable.
+        _tasks.update { tasks -> tasks.map { if (it.id == id) updated else it } }
+        if (applied is DownloadEvent.Completed) {
+            scope.launch { runCatching { completedHandler?.onCompleted(updated) } }
         }
     }
 
@@ -461,7 +483,7 @@ class DownloadCoordinator(
             .take(MAX_TAG_LENGTH)
             .takeIf { it.isNotBlank() }
 
-    private fun nextTaskId(): String = "$TASK_ID_PREFIX${++nextId}"
+    private fun nextTaskId(): String = "$TASK_ID_PREFIX${nextId.updateAndGet { it + 1 }}"
 
     private fun persist(operation: suspend () -> Unit) {
         persistence.trySend(operation)

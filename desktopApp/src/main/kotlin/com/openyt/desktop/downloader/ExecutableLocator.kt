@@ -30,6 +30,8 @@ class ExecutableLocator(
             if (isExecutable(candidate)) return candidate
         }
 
+        if (envVar == "OPENYT_YTDLP") RuntimeToolUpdate.verifiedPath()?.let { return it }
+
         names.firstNotNullOfOrNull(::findBundled)?.let { return it }
 
         val path = System.getenv("PATH").orEmpty()

@@ -21,6 +21,27 @@ import kotlin.test.assertTrue
 
 class SqlDelightDownloadRepositoryTest {
     @Test
+    fun playlistRequestSurvivesReopenAndRetry() = runBlocking {
+        val file = File.createTempFile("openyt-playlist-", ".db").apply { delete() }
+        try {
+            val task = sampleTask("playlist-1").let { task ->
+                task.copy(request = task.request.copy(
+                    fileNameTemplate = "%(uploader)s/07 - %(title).150B [%(id)s].%(ext)s",
+                    playlistItemIndex = 7,
+                ))
+            }
+            SqlDelightDownloadRepository(createOpenYtDatabase(file.absolutePath)).insertTask(task)
+
+            val restored = SqlDelightDownloadRepository(createOpenYtDatabase(file.absolutePath))
+                .loadTasks().single()
+
+            assertEquals(task.request, restored.request)
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
     fun persistsTasksAndLibraryAcrossReopen() = runBlocking {
         val file = File.createTempFile("openyt-test-", ".db").apply { delete() }
         try {
@@ -207,6 +228,7 @@ class SqlDelightDownloadRepositoryTest {
             DownloadFailure.PermissionDenied,
             DownloadFailure.DependencyMissing("ffmpeg"),
             DownloadFailure.ProcessingFailed("merge failed"),
+            DownloadFailure.OutputMissing,
             DownloadFailure.Unexpected("boom"),
         )
 

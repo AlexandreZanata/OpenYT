@@ -27,7 +27,8 @@ fun DownloadProgressBar(
     percent: Double,
     modifier: Modifier = Modifier,
 ) {
-    val target = (percent / 100.0).toFloat().coerceIn(0f, 1f)
+    val safePercent = percent.takeIf { it.isFinite() }?.coerceIn(0.0, 100.0) ?: 0.0
+    val target = (safePercent / 100.0).toFloat()
     val fraction by animateFloatAsState(
         targetValue = target,
         animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
@@ -41,7 +42,7 @@ fun DownloadProgressBar(
             .clip(shape)
             .background(colors.secondary.copy(alpha = 0.16f))
             .semantics {
-                contentDescription = "$title: ${percent.toInt()}%"
+                contentDescription = "$title: ${safePercent.toInt()}%"
                 progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
             },
     ) {

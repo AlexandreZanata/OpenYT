@@ -28,6 +28,11 @@ import com.openyt.data.FileBulkFileOperator
 import com.openyt.data.FileFolderScanner
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.SqlDelightSettingsRepository
+import com.openyt.data.SqlDelightPlaybackStore
+import com.openyt.data.SqlDelightSubscriptions
+import com.openyt.data.RssFeedReader
+import com.openyt.core.automation.SubscriptionController
+import com.openyt.core.application.MemoryPlaybackStore
 import com.openyt.data.createOpenYtDatabase
 import java.io.File
 import java.util.Calendar
@@ -76,13 +81,15 @@ class AppContainer(context: Context) {
 
     val repository: DownloadRepository? = database.getOrNull()?.let(::SqlDelightDownloadRepository)
 
+    val playbackStore = database.getOrNull()?.let(::SqlDelightPlaybackStore) ?: MemoryPlaybackStore()
+
     val settingsRepository: SettingsRepository? =
         database.getOrNull()?.let(::SqlDelightSettingsRepository)
 
     val settingsController: SettingsController = SettingsController(settingsRepository, appScope)
 
     val cookieRepository = EncryptedCookieRepository(File(appContext.filesDir, "cookies"))
-    val mediaTagger = AndroidMediaTagger()
+    val mediaTagger = AndroidMediaTagger(appContext)
 
     private val safExporter = AndroidSafExporter(appContext)
 
@@ -107,6 +114,12 @@ class AppContainer(context: Context) {
         },
     )
 
+    val subscriptions = database.getOrNull()?.let { database ->
+        SubscriptionController(SqlDelightSubscriptions(database), RssFeedReader(), engine, coordinator,
+            { settingsController.settings.value.downloadsDirectory ?: downloadsDirectory },
+            { System.currentTimeMillis() }, { java.util.UUID.randomUUID().toString() }, appScope)
+    }
+
     val libraryController: LibraryController = LibraryController(repository, appScope)
     val libraryArchiveService = LibraryArchiveService(repository)
     val folderImportService = FolderImportService(FileFolderScanner(), repository)
@@ -118,6 +131,8 @@ class AppContainer(context: Context) {
             coordinator.restore()
             settingsController.restore()
             libraryController.restore()
+            subscriptions?.restore()
+            subscriptions?.start()
             cleanStaleTemporaryFiles(
                 File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory),
             )
