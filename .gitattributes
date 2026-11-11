@@ -1,3 +1,5 @@
 # These bytes are covered by a detached RSA signature, including on Windows.
 data/src/desktopTest/resources/release-trust/SHA256SUMS.txt -text
 *.sig binary
+# The published manifest also covers this public certificate's exact bytes.
+docs/releases/release-signing-public-key.pem text eol=lf

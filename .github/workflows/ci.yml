@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
+    inputs:
+      infrastructure_only:
+        description: Validate native package setup without building the application
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -16,7 +21,16 @@ permissions:
   contents: read
 
 jobs:
+  infrastructure:
+    if: inputs.infrastructure_only == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/install-ci-packages.sh libvlc5 vlc-plugin-base vlc-plugin-video-output xvfb rpm flatpak flatpak-builder
+
   build:
+    if: inputs.infrastructure_only != true
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -120,7 +134,7 @@ jobs:
           if-no-files-found: error
 
   network-integration:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: inputs.infrastructure_only != true && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -155,6 +169,7 @@ jobs:
           --stacktrace
 
   desktop-compile:
+    if: inputs.infrastructure_only != true
     strategy:
       fail-fast: false
       matrix:
@@ -186,6 +201,7 @@ jobs:
           --console=plain --stacktrace
 
   android-emulator:
+    if: inputs.infrastructure_only != true
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
