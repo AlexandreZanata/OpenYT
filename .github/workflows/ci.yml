@@ -61,6 +61,30 @@ jobs:
           path: androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
+      - name: Upload regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-evidence
+          path: |
+            desktopApp/build/ui-regressions/*.png
+            desktopApp/build/reports/tests/test/
+            core/build/reports/tests/desktopTest/
+            data/build/reports/tests/desktopTest/
+            engine-ytdlp/build/reports/tests/desktopTest/
+          if-no-files-found: warn
+
+      - name: Local merge and conversion regression
+        env:
+          OPENYT_RUN_LOCAL_ENGINE_TESTS: "1"
+          OPENYT_YTDLP: ${{ github.workspace }}/desktopApp/build/bundled-tools/linux-x64/yt-dlp
+          OPENYT_FFMPEG: ${{ github.workspace }}/desktopApp/build/bundled-tools/linux-x64/ffmpeg
+          OPENYT_FFPROBE: ${{ github.workspace }}/desktopApp/build/bundled-tools/linux-x64/ffprobe
+        run: >
+          ./gradlew :desktopApp:test
+          --tests '*DesktopYtDlpLocalTest'
+          --console=plain --stacktrace
+
       - name: Upload Linux deb
         uses: actions/upload-artifact@v4
         with:
@@ -126,3 +150,10 @@ jobs:
 
       - name: Compile desktop app
         run: ./gradlew :desktopApp:compileKotlin --console=plain --stacktrace
+
+      - name: Native download regression contracts
+        if: matrix.os != 'ubuntu-latest'
+        run: >
+          ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest
+          :desktopApp:test --tests '*DesktopYtDlpEngineTest'
+          --console=plain --stacktrace

@@ -1,6 +1,22 @@
 # Project status
 
-Updated: 2026-11-09
+Updated: 2026-11-11
+
+## User video regression fixes
+
+- Final file confirmation uses UTF-8 and tagged JSON paths on both hosts, including
+  accented names and Windows network paths. Missing output has an actionable error.
+- Schema 14 retains playlist item indices and filename templates across restart;
+  legacy playlist records recover their stored entry URL.
+- Storage shows library totals separately from files outside the library, provides
+  import recovery, renders all rows lazily, and exposes retry after scan failures.
+- Download controls wrap on narrow screens, processing has an indeterminate state,
+  and long details remain scrollable. Clearing finished work preserves paused tasks.
+- Shared provider logos use XML vectors compatible with Android resource loading.
+- Deterministic, local-tool, visual, and optional Android contracts are documented
+  in [video regression contracts](../testing/VIDEO_REGRESSION_CONTRACTS.md).
+- Native Windows execution and Android device checks remain separate from local
+  Linux validation. See the contracts for executed evidence and pending checks.
 
 ## Completed
 

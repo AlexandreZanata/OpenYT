@@ -1,0 +1,8 @@
+ALTER TABLE download_task ADD COLUMN file_name_template TEXT NOT NULL DEFAULT '%(title).150B [%(id)s].%(ext)s';
+ALTER TABLE download_task ADD COLUMN playlist_item_index INTEGER;
+
+UPDATE download_task
+SET url = webpage_url
+WHERE source_id = webpage_url
+  AND url != webpage_url
+  AND (webpage_url LIKE 'https://%' OR webpage_url LIKE 'http://%');

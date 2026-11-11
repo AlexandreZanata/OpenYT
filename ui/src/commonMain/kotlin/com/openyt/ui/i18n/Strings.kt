@@ -166,13 +166,7 @@ data class AppStrings(
     val watchFolderImport: String,
     val watchFolderHint: String,
     val watchFolderPath: String,
-    val storagePanel: String,
-    val storageTotals: String,
-    val storageLargest: String,
-    val storageDuplicates: String,
-    val storageMissing: String,
-    val storageOrphans: String,
-    val storageReadOnlyHint: String,
+    val storage: StorageStrings,
     val entriesCount: String,
     val filesCount: String,
     val bulkRename: String,
@@ -247,7 +241,34 @@ data class AppStrings(
     val errorPermission: String,
     val errorDependency: String,
     val errorProcessing: String,
+    val errorOutputMissing: String,
     val errorUnexpected: String,
+) {
+    val storagePanel: String get() = storage.storagePanel
+    val storageTotals: String get() = storage.storageTotals
+    val storageLargest: String get() = storage.storageLargest
+    val storageDuplicates: String get() = storage.storageDuplicates
+    val storageMissing: String get() = storage.storageMissing
+    val storageOrphans: String get() = storage.storageOrphans
+    val storageReadOnlyHint: String get() = storage.storageReadOnlyHint
+    val storageNone: String get() = storage.storageNone
+    val storageOrphanHint: String get() = storage.storageOrphanHint
+    val storageFailed: String get() = storage.storageFailed
+    val folderImportFailed: String get() = storage.folderImportFailed
+}
+
+data class StorageStrings(
+    val storagePanel: String,
+    val storageTotals: String,
+    val storageLargest: String,
+    val storageDuplicates: String,
+    val storageMissing: String,
+    val storageOrphans: String,
+    val storageReadOnlyHint: String,
+    val storageNone: String,
+    val storageOrphanHint: String,
+    val storageFailed: String,
+    val folderImportFailed: String,
 )
 
 val PtBrStrings = AppStrings(
@@ -414,13 +435,19 @@ val PtBrStrings = AppStrings(
     watchFolderImport = "Importar pasta",
     watchFolderHint = "Importa arquivos existentes no local, sem mover ou apagar.",
     watchFolderPath = "Pasta",
-    storagePanel = "Armazenamento",
-    storageTotals = "Resumo",
-    storageLargest = "Maiores arquivos",
-    storageDuplicates = "Duplicados",
-    storageMissing = "Arquivos ausentes",
-    storageOrphans = "Órfãos na pasta",
-    storageReadOnlyHint = "Somente leitura: nenhum arquivo é apagado automaticamente.",
+    storage = StorageStrings(
+        storagePanel = "Armazenamento",
+        storageTotals = "Na biblioteca",
+        storageLargest = "Maiores arquivos",
+        storageDuplicates = "Duplicados",
+        storageMissing = "Arquivos ausentes",
+        storageOrphans = "Arquivos fora da biblioteca",
+        storageReadOnlyHint = "A análise preserva seus arquivos. A importação adiciona registros à biblioteca.",
+        storageNone = "Nenhum arquivo",
+        storageOrphanHint = "Estes arquivos já estão na pasta. Importe a pasta para adicioná-los à biblioteca sem baixar novamente.",
+        storageFailed = "Não foi possível analisar a pasta. Verifique se ela está acessível e tente novamente.",
+        folderImportFailed = "Não foi possível importar a pasta. Verifique o caminho e a permissão de leitura.",
+    ),
     entriesCount = "itens",
     filesCount = "arquivos",
     bulkRename = "Renomear",
@@ -495,6 +522,7 @@ val PtBrStrings = AppStrings(
     errorPermission = "Permissão negada para gravar o arquivo.",
     errorDependency = "Uma dependência necessária não foi encontrada.",
     errorProcessing = "O mecanismo não conseguiu processar esta mídia.",
+    errorOutputMissing = "O download terminou, mas o arquivo final não foi localizado ou está vazio. Verifique a pasta de destino. Se o arquivo estiver lá, importe a pasta na Biblioteca.",
     errorUnexpected = "Ocorreu um erro inesperado.",
 )
 
@@ -662,13 +690,19 @@ val EnStrings = AppStrings(
     watchFolderImport = "Import folder",
     watchFolderHint = "Imports existing files in place without moving or deleting them.",
     watchFolderPath = "Folder",
-    storagePanel = "Storage",
-    storageTotals = "Summary",
-    storageLargest = "Largest files",
-    storageDuplicates = "Duplicates",
-    storageMissing = "Missing files",
-    storageOrphans = "Orphans in folder",
-    storageReadOnlyHint = "Read-only: no file is deleted automatically.",
+    storage = StorageStrings(
+        storagePanel = "Storage",
+        storageTotals = "In the library",
+        storageLargest = "Largest files",
+        storageDuplicates = "Duplicates",
+        storageMissing = "Missing files",
+        storageOrphans = "Files outside the library",
+        storageReadOnlyHint = "Analysis preserves your files. Import adds records to the library.",
+        storageNone = "No files",
+        storageOrphanHint = "These files are already in the folder. Import the folder to add them to your library without downloading again.",
+        storageFailed = "Could not analyze the folder. Check that it is accessible and try again.",
+        folderImportFailed = "Could not import the folder. Check the path and read permission.",
+    ),
     entriesCount = "items",
     filesCount = "files",
     bulkRename = "Rename",
@@ -743,6 +777,7 @@ val EnStrings = AppStrings(
     errorPermission = "Permission denied while writing the file.",
     errorDependency = "A required dependency was not found.",
     errorProcessing = "The engine could not process this media.",
+    errorOutputMissing = "The download ended, but the final file could not be found or is empty. Check the destination folder. If the file is there, import the folder in Library.",
     errorUnexpected = "An unexpected error occurred.",
 )
 

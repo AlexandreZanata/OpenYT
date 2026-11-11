@@ -251,6 +251,7 @@ class DownloadCoordinator(
             filePath = null,
             sizeBytes = null,
             failure = null,
+            attempt = 0,
         )
         _tasks.update { it + task }
         persist { repository?.insertTask(task) }
@@ -265,8 +266,8 @@ class DownloadCoordinator(
     }
 
     fun clearFinished() {
-        val finished = _tasks.value.filter { it.status.isFinished }.map { it.id }
-        _tasks.update { tasks -> tasks.filter { it.status.isActive } }
+        val finished = _tasks.value.filter { it.status.isFinished }.map { it.id }.toSet()
+        _tasks.update { tasks -> tasks.filterNot { it.id in finished } }
         finished.forEach { id -> persist { repository?.deleteTask(id) } }
     }
 
@@ -388,7 +389,9 @@ class DownloadCoordinator(
     private fun applyEvent(id: String, event: DownloadEvent) {
         val previous = _tasks.value.firstOrNull { it.id == id } ?: return
         val pausing = event == DownloadEvent.Canceled && id in pausingTasks.value
-        if (pausing) {
+        if (event == DownloadEvent.Paused || event == DownloadEvent.Canceled ||
+            event is DownloadEvent.Completed || event is DownloadEvent.Failed
+        ) {
             pausingTasks.update { it - id }
         }
         val applied = if (pausing) DownloadEvent.Paused else event

@@ -14,8 +14,11 @@ fun failureMessage(failure: DownloadFailure, strings: AppStrings): String = when
     DownloadFailure.PermissionDenied -> strings.errorPermission
     is DownloadFailure.DependencyMissing -> strings.errorDependency
     is DownloadFailure.ProcessingFailed -> strings.errorProcessing
+    DownloadFailure.OutputMissing -> strings.errorOutputMissing
     is DownloadFailure.Unexpected -> strings.errorUnexpected
 }
+
+fun fileNameOf(path: String): String = path.substringAfterLast('/').substringAfterLast('\\')
 
 fun formatDuration(seconds: Long?): String? {
     if (seconds == null || seconds < 0) return null

@@ -790,6 +790,7 @@ object DesktopCli {
         DownloadFailure.PermissionDenied -> "permission denied"
         is DownloadFailure.DependencyMissing -> "missing dependency: ${failure.component}"
         is DownloadFailure.ProcessingFailed -> "processing failed: ${failure.reason.orEmpty()}"
+        DownloadFailure.OutputMissing -> "the final output file is missing or empty"
         is DownloadFailure.Unexpected -> "unexpected failure: ${failure.reason.orEmpty()}"
     }
 

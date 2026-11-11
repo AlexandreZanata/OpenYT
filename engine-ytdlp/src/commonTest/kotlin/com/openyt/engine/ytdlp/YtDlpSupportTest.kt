@@ -6,6 +6,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class YtDlpSupportTest {
     @Test
@@ -69,7 +71,7 @@ class YtDlpSupportTest {
         val stdout = """
             [download] Destination: /tmp/a.webm
             OPENYT_PROGRESS:100%|1024|1024|NA|NA
-            /tmp/a.webm
+            OPENYT_FILE:"/tmp/a.webm"
         """.trimIndent()
 
         assertEquals("/tmp/a.webm", YtDlpOutputParser.extractFilePath(stdout))
@@ -79,7 +81,48 @@ class YtDlpSupportTest {
     fun extractsWindowsPath() {
         assertEquals(
             "C:\\Users\\me\\Videos\\a.mp4",
-            YtDlpOutputParser.extractFilePath("C:\\Users\\me\\Videos\\a.mp4"),
+            YtDlpOutputParser.extractFilePath("OPENYT_FILE:" + Json.encodeToString("C:\\Users\\me\\Videos\\a.mp4")),
+        )
+    }
+
+    @Test
+    fun finalPathsPreserveUnicodeQuotesAndNetworkShares() {
+        val paths = listOf(
+            "C:\\Users\\João\\Downloads\\Curso Básico\\Aula ção.mkv",
+            "\\\\servidor\\Mídia\\Aula 1.mkv",
+            "\\\\?\\C:\\Vídeos\\Aula.mkv",
+            "/media/日本語/ação \"final\".mp4",
+        )
+        paths.forEach { path ->
+            assertEquals(path, YtDlpOutputParser.extractFilePath("OPENYT_FILE:" + Json.encodeToString(path)))
+        }
+        assertEquals(
+            "C:\\Vídeos\\Básico.mkv",
+            YtDlpOutputParser.extractFilePath("OPENYT_FILE:\"C:\\\\V\\u00eddeos\\\\B\\u00e1sico.mkv\""),
+        )
+    }
+
+    @Test
+    fun logsAndMalformedFinalRecordsNeverConfirmAFile() {
+        listOf(
+            "[Merger] Merging formats into C:\\Videos\\a.mkv",
+            "/tmp/unfinished.mp4",
+            "OPENYT_FILE:null",
+            "OPENYT_FILE:123",
+            "OPENYT_FILE:\"relative.mp4\"",
+            "OPENYT_FILE:\"unterminated",
+            "[download] OPENYT_FILE:\"/tmp/a.mp4\"",
+        ).forEach { assertNull(YtDlpOutputParser.extractFilePath(it), it) }
+    }
+
+    @Test
+    fun rejectsNonFiniteProgressAndInvalidCounters() {
+        listOf("NaN", "Infinity", "-Infinity").forEach {
+            assertNull(YtDlpProgressParser.parse("OPENYT_PROGRESS:$it|NA|NA|NA|NA"))
+        }
+        assertEquals(
+            DownloadEvent.Progress(percent = 25.0),
+            YtDlpProgressParser.parse("OPENYT_PROGRESS:25%|-1|NaN|Infinity|-Infinity"),
         )
     }
 }

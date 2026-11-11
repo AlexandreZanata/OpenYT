@@ -81,11 +81,14 @@ import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.MediaTechnicalInfo
 import com.openyt.core.domain.ShareableMedia
 import com.openyt.ui.components.MediaThumbnail
+import com.openyt.ui.components.StorageDialog
 import com.openyt.ui.components.ProviderIcon
 import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.i18n.LocalStrings
+import com.openyt.ui.util.fileNameOf
 import com.openyt.ui.util.formatBytes
 import com.openyt.ui.util.formatDuration
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -153,6 +156,7 @@ fun LibraryScreen(
     var showStorage by remember { mutableStateOf(false) }
     var storageReport by remember { mutableStateOf<StorageReport?>(null) }
     var storageLoading by remember { mutableStateOf(false) }
+    var storageFailed by remember { mutableStateOf(false) }
     var showBulkRename by remember { mutableStateOf(false) }
     var bulkRenamePattern by remember { mutableStateOf("{title}") }
     var showBulkMove by remember { mutableStateOf(false) }
@@ -174,6 +178,27 @@ fun LibraryScreen(
     LaunchedEffect(entries, checkToken) {
         missingIds = withContext(Dispatchers.Default) {
             entries.filterNot { fileAvailability.exists(it.filePath) }.map { it.id }.toSet()
+        }
+    }
+
+    LaunchedEffect(showStorage, entries, checkToken, downloadsDirectory) {
+        if (!showStorage) return@LaunchedEffect
+        storageLoading = true
+        storageFailed = false
+        storageReport = null
+        try {
+            storageReport = withContext(Dispatchers.Default) {
+                val missing = entries.filterNot { fileAvailability.exists(it.filePath) }
+                    .map { it.id }.toSet()
+                val known = folderImportService?.scan(downloadsDirectory).orEmpty()
+                StorageAnalyzer.analyze(entries, missing, known)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            storageFailed = true
+        } finally {
+            storageLoading = false
         }
     }
 
@@ -247,13 +272,8 @@ fun LibraryScreen(
                 }
                 TextButton(
                     onClick = {
-                        showStorage = true
                         storageLoading = true
-                        archiveScope.launch {
-                            val known = folderImportService?.scan(downloadsDirectory).orEmpty()
-                            storageReport = StorageAnalyzer.analyze(entries, missingIds, known)
-                            storageLoading = false
-                        }
+                        showStorage = true
                     },
                 ) {
                     Text(strings.storagePanel)
@@ -870,15 +890,24 @@ fun LibraryScreen(
                     onClick = {
                         watching = true
                         archiveScope.launch {
-                            val result = folderImportService?.import(watchPath)
-                            coordinator.reloadLibrary()
-                            watchMessage = if (result != null) {
-                                "${strings.importedEntries}: ${result.added} · " +
-                                    "${strings.skippedEntries}: ${result.skipped}"
-                            } else {
-                                strings.importInvalid
+                            try {
+                                val result = folderImportService?.import(watchPath)
+                                coordinator.reloadLibrary()
+                                checkToken++
+                                watchMessage = if (result != null) {
+                                    "${strings.importedEntries}: ${result.added} · " +
+                                        "${strings.skippedEntries}: ${result.skipped}"
+                                } else {
+                                    strings.folderImportFailed
+                                }
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                coordinator.reloadLibrary()
+                                watchMessage = strings.folderImportFailed
+                            } finally {
+                                watching = false
                             }
-                            watching = false
                         }
                     },
                 ) {
@@ -894,105 +923,25 @@ fun LibraryScreen(
     }
 
     if (showStorage) {
-        AlertDialog(
-            onDismissRequest = { showStorage = false },
-            title = { Text(strings.storagePanel) },
-            text = {
-                if (storageLoading) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        CircularProgressIndicator(Modifier.size(20.dp))
-                        Text(strings.analyzing)
-                    }
-                } else {
-                    val report = storageReport
-                    Column(
-                        modifier = Modifier
-                            .heightIn(max = 420.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        if (report == null) {
-                            Text(strings.notAvailable)
-                        } else {
-                            Text(strings.storageTotals, style = MaterialTheme.typography.labelLarge)
-                            Text(
-                                "${report.totalEntries} ${strings.entriesCount} · " +
-                                    (formatBytes(report.totalBytes) ?: "0 B"),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-
-                            HorizontalDivider()
-                            Text(strings.storageLargest, style = MaterialTheme.typography.labelLarge)
-                            if (report.largest.isEmpty()) {
-                                Text(strings.notAvailable)
-                            } else {
-                                report.largest.take(5).forEach { entry ->
-                                    Text(
-                                        "${entry.title} · ${formatBytes(entry.sizeBytes)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                }
-                            }
-
-                            HorizontalDivider()
-                            Text(strings.storageDuplicates, style = MaterialTheme.typography.labelLarge)
-                            if (report.duplicateGroups.isEmpty()) {
-                                Text(strings.notAvailable)
-                            } else {
-                                Text(
-                                    "${report.duplicateGroups.size}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                                report.duplicateGroups.take(3).forEach { group ->
-                                    Text(
-                                        group.entries.joinToString(" · ") { it.title },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-
-                            HorizontalDivider()
-                            Text(strings.storageMissing, style = MaterialTheme.typography.labelLarge)
-                            if (report.missing.isEmpty()) {
-                                Text(strings.notAvailable)
-                            } else {
-                                report.missing.take(5).forEach { entry ->
-                                    Text(entry.title, style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-
-                            HorizontalDivider()
-                            Text(strings.storageOrphans, style = MaterialTheme.typography.labelLarge)
-                            if (report.orphanFiles.isEmpty()) {
-                                Text(strings.notAvailable)
-                            } else {
-                                report.orphanFiles.take(5).forEach { file ->
-                                    Text(
-                                        file.path.substringAfterLast('/'),
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                }
-                            }
-
-                            Text(
-                                strings.storageReadOnlyHint,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
+        StorageDialog(
+            report = storageReport,
+            loading = storageLoading,
+            failed = storageFailed,
+            onRetry = {
+                storageLoading = true
+                checkToken++
             },
-            confirmButton = {
-                TextButton(onClick = { showStorage = false }) {
-                    Text(strings.closeAction)
+            onImport = if (folderImportService != null) {
+                {
+                    showStorage = false
+                    watchPath = downloadsDirectory
+                    watchMessage = null
+                    showWatchImport = true
                 }
+            } else {
+                null
             },
+            onDismiss = { showStorage = false },
         )
     }
 
@@ -1309,7 +1258,11 @@ private fun BulkPlanDialog(
         onDismissRequest = onClose,
         title = { Text(title) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 input()
                 Text(strings.bulkPreview, style = MaterialTheme.typography.labelLarge)
                 if (plan.changes.isEmpty()) {
@@ -1360,9 +1313,6 @@ private fun BulkPlanDialog(
         },
     )
 }
-
-private fun fileNameOf(path: String): String =
-    path.substringAfterLast('/').substringAfterLast('\\')
 
 @Composable
 private fun LibraryDetailsDialog(
@@ -1455,9 +1405,15 @@ private fun LibraryDetailsDialog(
                 }
             }
         },
-        title = { Text(if (editing) titleText else entry.title) },
+        title = {
+            Text(if (editing) titleText else entry.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 if (editing) {
                     OutlinedTextField(
                         value = titleText,

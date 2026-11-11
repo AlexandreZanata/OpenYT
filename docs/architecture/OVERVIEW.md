@@ -62,6 +62,11 @@ supplies native icon files to jpackage. Android supplies adaptive launcher layer
 The [brand guidelines](../branding/README.md) link to the SVG master and platform
 assets.
 
+Provider glyphs use shared XML vectors supported by Android and desktop. Storage
+messages are grouped inside `AppStrings` to keep the JVM constructor and generated
+copy methods below the platform parameter limit. Storage rows are rendered lazily
+and dialog actions remain outside the scrolling content.
+
 ## Technical metadata
 
 `MediaProbe` is a core port for local file metadata. Android implements it with
@@ -82,6 +87,11 @@ SQLDelight/SQLite stores the queue snapshot, library, and app settings
 auto-resumed. Retry creates a fresh task. Removing a library entry deletes only the
 record, never the file. Temporary directories are per task and cleaned at completion,
 cancellation, and startup. See ADR-0005.
+
+Final output confirmation uses tagged JSON paths and explicit UTF-8 on both hosts.
+Schema 14 also preserves the filename template and playlist item index so a restored
+task repeats its original request. See [ADR-0020](../adr/0020-download-completion.md)
+and the [video regression contracts](../testing/VIDEO_REGRESSION_CONTRACTS.md).
 
 ## Platform notes
 

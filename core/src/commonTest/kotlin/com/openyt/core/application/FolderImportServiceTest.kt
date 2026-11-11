@@ -12,6 +12,21 @@ import kotlin.test.assertTrue
 
 class FolderImportServiceTest {
     @Test
+    fun repeatedWindowsPathsImportOnlyOnce() = runBlocking {
+        val repository = FakeRepository()
+        val scanner = FolderScanner {
+            listOf(
+                ScannedMedia("C:\\Downloads\\Aula Básica.mkv", "Aula", MediaKind.VIDEO, 10),
+                ScannedMedia("c:/downloads/aula básica.mkv", "Aula", MediaKind.VIDEO, 10),
+            )
+        }
+        val service = FolderImportService(scanner, repository)
+        assertEquals(FolderImportResult(added = 1, skipped = 1), service.import("C:\\Downloads"))
+        assertEquals(FolderImportResult(added = 0, skipped = 2), service.import("C:\\Downloads"))
+        assertEquals(1, repository.library.size)
+    }
+
+    @Test
     fun importsScannedMediaOnceAndNeverMutatesFiles() = runBlocking {
         val repository = FakeRepository()
         val scanner = FolderScanner {

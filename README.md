@@ -246,6 +246,7 @@ secrets the APK is debug-signed. See `docs/planning/RELEASE_PIPELINE.md`.
 - Project status and limitations: `docs/planning/STATUS.md`
 - Architecture and module rules: `docs/architecture/OVERVIEW.md`
 - Decisions: `docs/adr/`
+- [User video regression contracts and verification](docs/testing/VIDEO_REGRESSION_CONTRACTS.md)
 - [Brand assets and usage guidelines](docs/branding/README.md)
 
 ## Licensing

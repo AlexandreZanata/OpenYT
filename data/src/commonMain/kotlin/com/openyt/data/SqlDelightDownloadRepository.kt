@@ -51,6 +51,8 @@ class SqlDelightDownloadRepository(
             failure_detail = failureDetail,
             priority = task.priority.name,
             attempt = task.attempt.toLong(),
+            file_name_template = task.request.fileNameTemplate,
+            playlist_item_index = task.request.playlistItemIndex?.toLong(),
         )
         Unit
     }
@@ -248,6 +250,8 @@ class SqlDelightDownloadRepository(
             kind = parseKind(row.kind),
             formatId = row.format_id,
             destinationDirectory = row.destination_directory,
+            fileNameTemplate = row.file_name_template,
+            playlistItemIndex = row.playlist_item_index?.toInt(),
         ),
         status = parseStatus(row.status),
         percent = row.percent,
@@ -279,6 +283,7 @@ class SqlDelightDownloadRepository(
         DownloadFailure.PermissionDenied -> FAILURE_PERMISSION_DENIED to null
         is DownloadFailure.DependencyMissing -> FAILURE_DEPENDENCY_MISSING to component
         is DownloadFailure.ProcessingFailed -> FAILURE_PROCESSING_FAILED to reason
+        DownloadFailure.OutputMissing -> FAILURE_OUTPUT_MISSING to null
         is DownloadFailure.Unexpected -> FAILURE_UNEXPECTED to reason
     }
 
@@ -291,7 +296,12 @@ class SqlDelightDownloadRepository(
         FAILURE_INSUFFICIENT_SPACE -> DownloadFailure.InsufficientSpace
         FAILURE_PERMISSION_DENIED -> DownloadFailure.PermissionDenied
         FAILURE_DEPENDENCY_MISSING -> DownloadFailure.DependencyMissing(detail.orEmpty())
-        FAILURE_PROCESSING_FAILED -> DownloadFailure.ProcessingFailed(detail)
+        FAILURE_PROCESSING_FAILED -> if (detail == "output file missing or empty") {
+            DownloadFailure.OutputMissing
+        } else {
+            DownloadFailure.ProcessingFailed(detail)
+        }
+        FAILURE_OUTPUT_MISSING -> DownloadFailure.OutputMissing
         else -> DownloadFailure.Unexpected(detail)
     }
 
@@ -304,6 +314,7 @@ class SqlDelightDownloadRepository(
         const val FAILURE_PERMISSION_DENIED = "PERMISSION_DENIED"
         const val FAILURE_DEPENDENCY_MISSING = "DEPENDENCY_MISSING"
         const val FAILURE_PROCESSING_FAILED = "PROCESSING_FAILED"
+        const val FAILURE_OUTPUT_MISSING = "OUTPUT_MISSING"
         const val FAILURE_UNEXPECTED = "UNEXPECTED"
     }
 }

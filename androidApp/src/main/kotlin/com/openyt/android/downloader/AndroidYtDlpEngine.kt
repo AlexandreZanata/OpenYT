@@ -50,6 +50,8 @@ class AndroidYtDlpEngine(
         return withContext(Dispatchers.IO) {
             try {
                 val request = YoutubeDLRequest(url).apply {
+                    addOption("--ignore-config")
+                    addOption("--encoding", "utf-8")
                     addOption("--dump-single-json")
                     addOption("--flat-playlist")
                     addOption("--skip-download")
@@ -91,6 +93,9 @@ class AndroidYtDlpEngine(
             try {
                 val response = withContext(Dispatchers.IO) {
                     val ytDlpRequest = YoutubeDLRequest(request.url).apply {
+                        addOption("--ignore-config")
+                        addOption("--encoding", "utf-8")
+                        addOption("--no-colors")
                         request.playlistItemIndex?.let {
                             addOption("--playlist-items", it.toString())
                         } ?: addOption("--no-playlist")
@@ -99,7 +104,7 @@ class AndroidYtDlpEngine(
                         addOption("-P", directory.absolutePath)
                         addOption("--paths", "temp:${tempDirectory.absolutePath}")
                         addOption("-o", request.fileNameTemplate)
-                        addOption("--print", "after_move:filepath")
+                        addOption("--print", YtDlpOutputParser.FILE_PATH_TEMPLATE)
                         addOption("--progress-template", PROGRESS_TEMPLATE)
                         request.limitBytesPerSecond?.let {
                             addOption("--limit-rate", it.toString())
@@ -140,7 +145,7 @@ class AndroidYtDlpEngine(
                 } else {
                     send(
                         DownloadEvent.Failed(
-                            DownloadFailure.ProcessingFailed("output file missing or empty"),
+                            DownloadFailure.OutputMissing,
                         ),
                     )
                 }
@@ -189,7 +194,7 @@ class AndroidYtDlpEngine(
         return EngineCapabilities(
             engineName = "yt-dlp (Android)",
             engineVersion = version,
-            supportsPause = false,
+            supportsPause = true,
             supportsSubtitles = false,
         )
     }

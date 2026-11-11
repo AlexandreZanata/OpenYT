@@ -22,7 +22,9 @@ CREATE TABLE download_task (
     failure_detail TEXT,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
     priority TEXT NOT NULL DEFAULT 'NORMAL',
-    attempt INTEGER NOT NULL DEFAULT 0
+    attempt INTEGER NOT NULL DEFAULT 0,
+    file_name_template TEXT NOT NULL DEFAULT '%(title).150B [%(id)s].%(ext)s',
+    playlist_item_index INTEGER
 );
 
 CREATE TABLE library_entry (
@@ -86,12 +88,12 @@ INSERT OR REPLACE INTO download_task(
     id, source_id, title, author, source, url, webpage_url, duration_seconds,
     thumbnail_url, kind, format_id, destination_directory, status, percent,
     speed_bytes_per_second, eta_seconds, file_path, size_bytes,
-    failure_kind, failure_detail, priority, attempt
+    failure_kind, failure_detail, priority, attempt, file_name_template, playlist_item_index
 ) VALUES (
     :id, :source_id, :title, :author, :source, :url, :webpage_url, :duration_seconds,
     :thumbnail_url, :kind, :format_id, :destination_directory, :status, :percent,
     :speed_bytes_per_second, :eta_seconds, :file_path, :size_bytes,
-    :failure_kind, :failure_detail, :priority, :attempt
+    :failure_kind, :failure_detail, :priority, :attempt, :file_name_template, :playlist_item_index
 );
 
 updateTask:

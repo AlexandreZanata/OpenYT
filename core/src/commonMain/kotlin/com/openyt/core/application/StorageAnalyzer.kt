@@ -45,7 +45,7 @@ object StorageAnalyzer {
             )
         }
         entries.filter { it.filePath.isNotBlank() }
-            .groupBy { it.filePath }
+            .groupBy { mediaPathKey(it.filePath) }
             .values
             .forEach(::addGroup)
         entries.filter { it.sizeBytes != null }
@@ -53,14 +53,15 @@ object StorageAnalyzer {
             .values
             .forEach(::addGroup)
 
-        val libraryPaths = entries.map { it.filePath }.toSet()
+        val libraryPaths = entries.map { mediaPathKey(it.filePath) }.toSet()
         return StorageReport(
             totalEntries = entries.size,
             totalBytes = totalBytes,
             largest = largest,
             duplicateGroups = groups.sortedByDescending { it.totalBytes },
             missing = entries.filter { it.id in missingIds },
-            orphanFiles = knownFiles.filter { it.path !in libraryPaths },
+            orphanFiles = knownFiles.distinctBy { mediaPathKey(it.path) }
+                .filter { mediaPathKey(it.path) !in libraryPaths },
         )
     }
 }
