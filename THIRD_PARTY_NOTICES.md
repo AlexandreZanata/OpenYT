@@ -8,7 +8,7 @@ in `gradle/libs.versions.toml` and documented in the relevant ADRs.
 | yt-dlp | 2026.10.26 (desktop bundle), 2025.11.12 (Android bundle) | Unlicense | Media extraction/download engine |
 | youtubedl-android | 0.18.1 | GPL-3.0 | Android wrapper bundling Python, yt-dlp, FFmpeg, QuickJS |
 | Python for Android | 3.12.11 (bundled) | PSF-2.0 | Runtime required by yt-dlp |
-| FFmpeg / FFprobe | 7.1.1 (Android bundle), 8.1.3-27-g8dca1586f4 GPL static (Linux), b6.1.1 (Windows/macOS) | LGPL-2.1+/GPL | Merge/convert and probe media |
+| FFmpeg / FFprobe | 7.1.1 (Android bundle), 8.1.3-27-g8dca1586f4 GPL static (Linux), 9.0.2 GPL static (macOS), b6.1.1 distribution (Windows) | LGPL-2.1+/GPL | Merge/convert and probe media |
 | Deno | 2.9.8 (desktop bundle) | MIT | JavaScript runtime required by yt-dlp EJS |
 | QuickJS | bundled with wrapper | MIT | JavaScript runtime required by yt-dlp EJS |
 | AndroidX / Compose | see version catalog | Apache-2.0 | UI and platform integration |
@@ -27,7 +27,8 @@ names and logos are trademarks of their respective owners and are used only to
 identify the source of the requested media.
 
 Desktop packages embed yt-dlp, FFmpeg/FFprobe (static builds from
-`FFmpeg-Builds/FFmpeg-Builds` on Linux and `eugeneware/ffmpeg-static` on Windows/macOS), and Deno at build time. The Gradle packaging task
+`FFmpeg-Builds/FFmpeg-Builds` on Linux, Martin Riedl on macOS and
+`eugeneware/ffmpeg-static` on Windows), and Deno at build time. The Gradle packaging task
 downloads the pinned versions and includes their license files and this notice in
 the application resources. An explicit Settings action can update yt-dlp from the official stable release after SHA-256 verification. Other tools stay pinned until an application release.
 
@@ -43,3 +44,13 @@ The nonfree variant is not used. The upstream GPL-3.0 license accompanies the
 binaries. Linux requires glibc >= 2.28 and kernel >= 4.18, as specified by upstream.
 This replaces the Linux 6.1.1 static binary after a real HLS capture crash.
 Sources: https://github.com/FFmpeg-Builds/FFmpeg-Builds and https://github.com/FFmpeg/FFmpeg
+
+macOS FFmpeg/FFprobe are the 9.0.2 release builds from
+[Martin Riedl's build server](https://ffmpeg.martin-riedl.de/), pinned to build
+directories `1789931890_9.0.2` (arm64) and `1789931006_9.0.2` (amd64).
+Each archive SHA-256 is checked before extracting the named executable. Their
+[published build configuration](https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/versions.txt)
+enables GPL/version3 and libxml2, without enabling nonfree components. This is
+compatible with OpenYT's GPL-3.0 distribution; the GPL license is included beside
+the tools. DASH demuxing is required for section downloads and was absent from the
+previous Apple Silicon binary. Native release CI exercises this exact contract.

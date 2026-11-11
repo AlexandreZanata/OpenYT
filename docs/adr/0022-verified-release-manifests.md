@@ -41,5 +41,10 @@ packaging jobs succeed.
 Linux FFmpeg is updated to the checksum-pinned retained monthly GPL 8.1.3 build
 from FFmpeg-Builds, after the previous static 6.1.1 binary crashed on the real HLS
 fixture. The replacement passed the same capture and conversion tests. Windows
-and macOS retain their existing pinned builds and run the same native media
-contracts in release CI. Per-host CycloneDX inventories include native artifacts.
+retains its existing pinned build. macOS uses checksum-pinned GPL 9.0.2 static
+builds from Martin Riedl, after the previous Apple Silicon binary failed DASH
+section downloads. The published configuration enables libxml2/DASH and contains
+no nonfree switch; notices record the source and GPL compatibility check.
+All three hosts run the same native media contracts in release CI. Per-host
+CycloneDX inventories probe actual executable versions rather than assuming that
+a distribution tag matches each platform's binary.

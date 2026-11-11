@@ -27,6 +27,10 @@ class AndroidMediaToolsTest {
         instrumentation.context.assets.open("media-tools-fixture.mp4").use { input -> source.outputStream().use { input.copyTo(it) } }
         val bytes = source.readBytes()
         try {
+            val process = ProcessBuilder(com.openyt.android.downloader.androidFfmpegExecutable(context)!!, "-version")
+                .redirectErrorStream(true).apply { environment().putAll(com.openyt.android.downloader.androidFfmpegEnvironment(context)) }.start()
+            val version = process.inputStream.bufferedReader().readText()
+            assertEquals("Bundled FFmpeg startup: $version", 0, process.waitFor())
             val processor = androidMediaProcessor(context)
             val trimmed = processor.process(MediaProcessingRequest(source.absolutePath, "Ação", MediaKind.VIDEO, MediaOperation.TRIM, MediaSegment(1000, 3000)))
             assertTrue("trim=$trimmed", trimmed is EngineResult.Success)
