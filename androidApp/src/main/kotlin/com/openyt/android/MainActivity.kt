@@ -92,6 +92,8 @@ class MainActivity : ComponentActivity() {
                 subtitleImportService = container.subtitleImportService,
                 artworkFetchService = container.artworkFetchService,
                 renderingCacheBytes = container.renderingCacheBytes,
+                timedSearchUseCase = container.timedSearchUseCase,
+                subtitleIndexRepository = container.subtitleIndexRepository,
             )
         }
     }

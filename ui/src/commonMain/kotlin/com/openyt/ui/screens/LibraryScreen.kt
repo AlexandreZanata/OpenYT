@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -52,6 +53,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.semantics.contentDescription
@@ -112,9 +114,23 @@ import com.openyt.ui.util.fileNameOf
 import com.openyt.ui.util.formatBytes
 import com.openyt.ui.util.formatDuration
 import kotlinx.coroutines.CancellationException
+import com.openyt.core.application.SubtitleIndexRepository
+import com.openyt.core.application.TimedSearchUseCase
+import com.openyt.core.domain.IndexUnavailableReason
+import com.openyt.core.domain.TimedSearchFilter
+import com.openyt.core.domain.TimedSearchResult
+import com.openyt.core.domain.TimedSearchScope
+import com.openyt.ui.components.TimedSearchMatchCard
+import com.openyt.ui.components.TimedSearchScopeIndicator
+import com.openyt.ui.components.TimedSearchStateView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+enum class LibrarySearchMode {
+    METADATA,
+    SUBTITLES,
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -141,6 +157,8 @@ fun LibraryScreen(
     subtitleImportService: SubtitleImportService? = null,
     artworkFetchService: ArtworkFetchService? = null,
     renderingCacheBytes: () -> Long = { 0L },
+    timedSearchUseCase: TimedSearchUseCase? = null,
+    subtitleIndexRepository: SubtitleIndexRepository? = null,
 ) {
     val strings = LocalStrings.current
     val playbackScope = rememberCoroutineScope()
@@ -151,6 +169,10 @@ fun LibraryScreen(
     val smartCollections by libraryController.smartCollections.collectAsState()
 
     var query by rememberSaveable { mutableStateOf("") }
+    var searchMode by rememberSaveable { mutableStateOf(LibrarySearchMode.METADATA) }
+    var timedSearchResult by remember { mutableStateOf<TimedSearchResult?>(null) }
+    var timedSearchLoading by remember { mutableStateOf(false) }
+    var timedSearchLanguage by remember { mutableStateOf<String?>(null) }
     var kind by remember { mutableStateOf<MediaKind?>(null) }
     var missingOnly by remember { mutableStateOf(false) }
     var duplicatesOnly by remember { mutableStateOf(false) }
@@ -222,6 +244,39 @@ fun LibraryScreen(
     LaunchedEffect(entries, checkToken) {
         missingIds = withContext(Dispatchers.Default) {
             entries.filterNot { fileAvailability.exists(it.filePath) }.map { it.id }.toSet()
+        }
+    }
+
+    LaunchedEffect(query, searchMode, activeCollectionId, timedSearchLanguage, timedSearchUseCase) {
+        if (searchMode != LibrarySearchMode.SUBTITLES || timedSearchUseCase == null) {
+            timedSearchResult = null
+            timedSearchLoading = false
+            return@LaunchedEffect
+        }
+        if (query.isBlank()) {
+            timedSearchResult = null
+            timedSearchLoading = false
+            return@LaunchedEffect
+        }
+        timedSearchLoading = true
+        try {
+            kotlinx.coroutines.delay(200)
+            val scope = when {
+                activeCollectionId != null -> TimedSearchScope.Collection(activeCollectionId)
+                else -> TimedSearchScope.Library
+            }
+            val searchFilter = TimedSearchFilter(language = timedSearchLanguage)
+            val res = timedSearchUseCase.execute(query.trim(), scope, searchFilter)
+            timedSearchResult = res
+        } catch (e: CancellationException) {
+            // Cancelled by superseded query
+        } catch (t: Throwable) {
+            timedSearchResult = TimedSearchResult.IndexUnavailable(
+                reason = IndexUnavailableReason.INDEX_FAILED,
+                message = t.message ?: "Search failed",
+            )
+        } finally {
+            timedSearchLoading = false
         }
     }
 
@@ -442,11 +497,97 @@ fun LibraryScreen(
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                label = { Text(strings.searchLabel) },
+                label = { Text(if (searchMode == LibrarySearchMode.SUBTITLES) strings.timedSearch.searchModeSubtitles else strings.searchLabel) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("library-search-field"),
             )
 
+            if (timedSearchUseCase != null) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    FilterChip(
+                        selected = searchMode == LibrarySearchMode.METADATA,
+                        onClick = { searchMode = LibrarySearchMode.METADATA },
+                        label = { Text(strings.timedSearch.searchModeMetadata) },
+                        modifier = Modifier.testTag("search-mode-metadata"),
+                    )
+                    FilterChip(
+                        selected = searchMode == LibrarySearchMode.SUBTITLES,
+                        onClick = { searchMode = LibrarySearchMode.SUBTITLES },
+                        label = { Text(strings.timedSearch.searchModeSubtitles) },
+                        modifier = Modifier.testTag("search-mode-subtitles"),
+                    )
+                }
+            }
+
+            if (searchMode == LibrarySearchMode.SUBTITLES) {
+                val indexStatus = (timedSearchResult as? TimedSearchResult.Success)?.indexStatus
+                val activeCollection = collections.firstOrNull { it.id == activeCollectionId }
+                TimedSearchScopeIndicator(
+                    scope = when {
+                        activeCollectionId != null -> TimedSearchScope.Collection(activeCollectionId)
+                        else -> TimedSearchScope.Library
+                    },
+                    indexStatus = indexStatus,
+                    selectedLanguage = timedSearchLanguage,
+                    availableLanguages = listOf("pt", "en"),
+                    onSelectLanguage = { timedSearchLanguage = it },
+                    collectionName = activeCollection?.name,
+                )
+
+                val successResult = timedSearchResult as? TimedSearchResult.Success
+                if (successResult != null && successResult.items.isNotEmpty()) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(420.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(successResult.items, key = { it.matchId }) { match ->
+                            TimedSearchMatchCard(
+                                match = match,
+                                onPlay = {
+                                    val entry = entries.firstOrNull { it.id == match.entryId }
+                                    if (entry != null && playbackLauncher?.canPlay == true) {
+                                        val media = PlayableMedia(
+                                            path = entry.filePath,
+                                            title = entry.title,
+                                            kind = entry.kind,
+                                            entryId = entry.id,
+                                        )
+                                        val targetPosition = (match.startMs + match.timebaseOffsetMs).coerceAtLeast(0L)
+                                        playbackLauncher.playAt(
+                                            items = listOf(media),
+                                            startIndex = 0,
+                                            startPositionMillis = targetPosition,
+                                        )
+                                    }
+                                },
+                            )
+                        }
+                    }
+                } else {
+                    TimedSearchStateView(
+                        result = timedSearchResult,
+                        isLoading = timedSearchLoading,
+                        onImportSubtitle = if (subtitlePicker?.canPick == true) {
+                            {
+                                subtitlePicker.pickSubtitle { picked ->
+                                    if (picked != null) {
+                                        // Picked subtitle ready for import
+                                    }
+                                }
+                            }
+                        } else null,
+                        onReindex = {
+                            // Reindex trigger
+                        },
+                    )
+                }
+            } else {
             Text(
                 strings.collectionsLabel,
                 style = MaterialTheme.typography.labelLarge,
@@ -603,6 +744,7 @@ fun LibraryScreen(
                                                     path = playable.entry.filePath,
                                                     title = playable.entry.title,
                                                     kind = playable.entry.kind,
+                                                    entryId = playable.entry.id,
                                                 )
                                             },
                                             startIndex = sortedItems.filter { !it.missing && it.entry.kind != MediaKind.SUBTITLE }.indexOfFirst { it.entry.id == item.entry.id },
@@ -621,6 +763,7 @@ fun LibraryScreen(
                         )
                     }
                 }
+            }
             }
         }
     }

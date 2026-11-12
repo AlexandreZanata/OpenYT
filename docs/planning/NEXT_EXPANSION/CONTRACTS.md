@@ -255,6 +255,16 @@ Suggested groups: `SubtitleParserTest`, `TimedSearchRepositoryTest`,
     - Clean lifecycle & native teardown: closing the desktop player flushes playback checkpoint and queue, resets session state to `IDLE`, and releases the native VLC component synchronously before disposing native frame surfaces.
   - Status: **VERIFIED**.
 - **NX-S06:** missing-index vs no-match UI and correct accessible timestamp action.
+  - Invariants:
+    - Scope and index status badges: `TimedSearchScopeIndicator` renders scoped navigation (Library, Collection, Entry), index availability badges (`READY`, `PARTIALLY_INDEXED`), and explicit language filter chips;
+    - Plain-text excerpt highlighting: `TimedSearchExcerptText` applies styled highlighted spans with character offsets and preserves screen-reader accessibility semantics;
+    - Distinct missing-index vs empty result: `TimedSearchStateView` differentiates `IndexUnavailable` (explains missing subtitle tracks, pending/stale index, indexing failures, and surfaces actionable import/reindex buttons) from genuine empty search results `Success(items = emptyList(), totalMatches = 0)` which clearly states no matches were found without false error banners;
+    - Source time offset in playback: Activating a result timestamp seeks to `(startMs + timebaseOffsetMs).coerceAtLeast(0L)` and plays strictly the intended entry ID in isolation;
+    - Stale query cancellation: Superseded queries are debounced and cancelled, discarding obsolete pending searches so only fresh results are presented;
+    - Keyboard navigation: Timestamp action button and cards are focusable and respond to Enter and Spacebar activations;
+    - Accessibility semantics: Content description on the timestamp button formats title, time, and excerpt text (`$title aos $time: $excerpt` / `$title at $time: $excerpt`);
+    - Responsive layout & multi-language localization: Rendered cleanly under 320dp width and 1.5x font scale across pt-BR and en strings without clipping or truncation.
+  - Status: **VERIFIED**.
 - **NX-S07:** offline search phrase to real player time and native close/reopen.
 
 ### Study — NX-T

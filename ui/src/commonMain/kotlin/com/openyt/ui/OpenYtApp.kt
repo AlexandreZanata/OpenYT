@@ -132,6 +132,8 @@ fun OpenYtApp(
     subtitleImportService: com.openyt.core.application.SubtitleImportService? = null,
     artworkFetchService: com.openyt.core.application.ArtworkFetchService? = null,
     renderingCacheBytes: () -> Long = { 0L },
+    timedSearchUseCase: com.openyt.core.application.TimedSearchUseCase? = null,
+    subtitleIndexRepository: com.openyt.core.application.SubtitleIndexRepository? = null,
 ) {
     val ready by coordinator.ready.collectAsState()
     val settings by settingsController.settings.collectAsState()
@@ -282,6 +284,8 @@ private fun AppShell(
     subtitleImportService: com.openyt.core.application.SubtitleImportService? = null,
     artworkFetchService: com.openyt.core.application.ArtworkFetchService? = null,
     renderingCacheBytes: () -> Long = { 0L },
+    timedSearchUseCase: com.openyt.core.application.TimedSearchUseCase? = null,
+    subtitleIndexRepository: com.openyt.core.application.SubtitleIndexRepository? = null,
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -392,6 +396,8 @@ private fun AppShell(
                         subtitleImportService = subtitleImportService,
                         artworkFetchService = artworkFetchService,
                         renderingCacheBytes = renderingCacheBytes,
+                        timedSearchUseCase = timedSearchUseCase,
+                        subtitleIndexRepository = subtitleIndexRepository,
                     )
                     else -> SettingsScreen(
                         toolUpdater = toolUpdater,

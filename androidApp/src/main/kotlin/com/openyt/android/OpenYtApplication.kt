@@ -38,9 +38,14 @@ import com.openyt.data.JvmMediaFileInspector
 import com.openyt.data.JvmArtworkFetchPort
 import com.openyt.core.application.ArtworkFetchService
 import com.openyt.core.application.SubtitleImportService
+import com.openyt.core.application.SubtitleIndexRepository
+import com.openyt.core.application.TimedSearchRepository
+import com.openyt.core.application.TimedSearchUseCase
 import com.openyt.core.application.OfflineAssetRepository
 import com.openyt.data.SqlDelightPlaybackStore
 import com.openyt.data.SqlDelightSubscriptions
+import com.openyt.data.SqlDelightSubtitleIndexRepository
+import com.openyt.data.search.SqlDelightTimedSearchRepository
 import com.openyt.data.RssFeedReader
 import com.openyt.core.automation.SubscriptionController
 import com.openyt.core.application.MemoryPlaybackStore
@@ -127,6 +132,12 @@ class AppContainer(context: Context) {
             fileInspector = JvmMediaFileInspector(),
         )
     }
+    val subtitleIndexRepository: SubtitleIndexRepository? =
+        database.getOrNull()?.let(::SqlDelightSubtitleIndexRepository)
+    val timedSearchRepository: TimedSearchRepository? =
+        database.getOrNull()?.let(::SqlDelightTimedSearchRepository)
+    val timedSearchUseCase: TimedSearchUseCase? =
+        timedSearchRepository?.let(::TimedSearchUseCase)
     val renderingCacheBytes: () -> Long = { appContext.cacheDir.directorySize() }
 
     val playbackStore = database.getOrNull()?.let(::SqlDelightPlaybackStore) ?: MemoryPlaybackStore()

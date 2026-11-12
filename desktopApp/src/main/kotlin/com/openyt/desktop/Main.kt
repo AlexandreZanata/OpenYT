@@ -36,9 +36,14 @@ import com.openyt.data.JvmMediaFileInspector
 import com.openyt.data.JvmArtworkFetchPort
 import com.openyt.core.application.ArtworkFetchService
 import com.openyt.core.application.SubtitleImportService
+import com.openyt.core.application.SubtitleIndexRepository
+import com.openyt.core.application.TimedSearchRepository
+import com.openyt.core.application.TimedSearchUseCase
 import com.openyt.data.SqlDelightSettingsRepository
 import com.openyt.data.SqlDelightPlaybackStore
 import com.openyt.data.SqlDelightSubscriptions
+import com.openyt.data.SqlDelightSubtitleIndexRepository
+import com.openyt.data.search.SqlDelightTimedSearchRepository
 import com.openyt.data.RssFeedReader
 import com.openyt.core.application.MemoryDownloadProfileRepository
 import com.openyt.core.automation.SubscriptionController
@@ -148,6 +153,15 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
         } else {
             null
         }
+    }
+    val subtitleIndexRepository = remember(database) {
+        database?.let(::SqlDelightSubtitleIndexRepository)
+    }
+    val timedSearchRepository = remember(database) {
+        database?.let(::SqlDelightTimedSearchRepository)
+    }
+    val timedSearchUseCase = remember(timedSearchRepository) {
+        timedSearchRepository?.let(::TimedSearchUseCase)
     }
     val previewsDirectory = remember {
         File(System.getProperty("java.io.tmpdir"), "openyt-previews").apply { mkdirs() }
@@ -353,6 +367,8 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
             subtitleImportService = subtitleImportService,
             artworkFetchService = artworkFetchService,
             renderingCacheBytes = { previewsDirectory.directorySize() },
+            timedSearchUseCase = timedSearchUseCase,
+            subtitleIndexRepository = subtitleIndexRepository,
         )
     }
 }

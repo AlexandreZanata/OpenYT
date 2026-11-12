@@ -247,6 +247,7 @@ data class AppStrings(
     val errorOutputMissing: String,
     val errorUnexpected: String,
     val offline: OfflineStrings,
+    val timedSearch: TimedSearchStrings,
 ) {
     val storagePanel: String get() = storage.storagePanel
     val storageTotals: String get() = storage.storageTotals
@@ -296,6 +297,81 @@ data class OfflineStrings(
     val actionReverify: String,
     val actionRetry: String,
     val actionCleanup: String,
+)
+
+data class TimedSearchStrings(
+    val searchModeMetadata: String,
+    val searchModeSubtitles: String,
+    val searchScopeLibrary: String,
+    val searchScopeCollection: String,
+    val searchScopeEntry: String,
+    val loading: String,
+    val indexStatusReady: String,
+    val indexStatusPartiallyIndexed: String,
+    val noMatches: String,
+    val noSubtitleTracks: String,
+    val indexPendingOrStale: String,
+    val indexFailed: String,
+    val entryNotFound: String,
+    val collectionEmpty: String,
+    val importSubtitleAction: String,
+    val reindexAction: String,
+    val playAtTimestamp: String,
+    val timestampAccessibilityLabel: (title: String, time: String, excerpt: String) -> String,
+    val queryTooLong: String,
+    val queryTooManyTerms: String,
+    val enterQueryPrompt: String,
+    val allLanguages: String,
+)
+
+val PtBrTimedSearchStrings = TimedSearchStrings(
+    searchModeMetadata = "Metadados",
+    searchModeSubtitles = "Nas legendas",
+    searchScopeLibrary = "Toda a biblioteca",
+    searchScopeCollection = "Na coleção",
+    searchScopeEntry = "Neste item",
+    loading = "Buscando nas legendas…",
+    indexStatusReady = "Índice pronto",
+    indexStatusPartiallyIndexed = "Índice parcial",
+    noMatches = "Nenhum trecho de legenda encontrado para a busca.",
+    noSubtitleTracks = "Nenhuma legenda indexada para este conteúdo. Importe ou extraia legendas para buscar por falas.",
+    indexPendingOrStale = "A indexação de legendas está pendente ou desatualizada.",
+    indexFailed = "A indexação das legendas falhou.",
+    entryNotFound = "O item da biblioteca não foi encontrado.",
+    collectionEmpty = "A coleção está vazia.",
+    importSubtitleAction = "Importar legenda",
+    reindexAction = "Indexar novamente",
+    playAtTimestamp = "Reproduzir no ponto",
+    timestampAccessibilityLabel = { title, time, excerpt -> "$title aos $time: $excerpt" },
+    queryTooLong = "A busca deve ter no máximo 256 caracteres.",
+    queryTooManyTerms = "A busca deve ter no máximo 8 termos.",
+    enterQueryPrompt = "Digite termos para buscar falas dentro das mídias salvas.",
+    allLanguages = "Todos os idiomas",
+)
+
+val EnTimedSearchStrings = TimedSearchStrings(
+    searchModeMetadata = "Metadata",
+    searchModeSubtitles = "In subtitles",
+    searchScopeLibrary = "Entire library",
+    searchScopeCollection = "In collection",
+    searchScopeEntry = "In this item",
+    loading = "Searching subtitles…",
+    indexStatusReady = "Index ready",
+    indexStatusPartiallyIndexed = "Partial index",
+    noMatches = "No subtitle matches found for query.",
+    noSubtitleTracks = "No subtitles indexed for this content. Import or extract subtitles to search spoken dialogue.",
+    indexPendingOrStale = "Subtitle index is pending or stale.",
+    indexFailed = "Subtitle indexing failed.",
+    entryNotFound = "Library item not found.",
+    collectionEmpty = "Collection is empty.",
+    importSubtitleAction = "Import subtitle",
+    reindexAction = "Reindex",
+    playAtTimestamp = "Play from timestamp",
+    timestampAccessibilityLabel = { title, time, excerpt -> "$title at $time: $excerpt" },
+    queryTooLong = "Query must not exceed 256 characters.",
+    queryTooManyTerms = "Query must not exceed 8 terms.",
+    enterQueryPrompt = "Type terms to search spoken dialogue in saved media.",
+    allLanguages = "All languages",
 )
 
 data class StorageStrings(
@@ -602,6 +678,7 @@ val PtBrStrings = AppStrings(
         actionRetry = "Tentar novamente",
         actionCleanup = "Limpar",
     ),
+    timedSearch = PtBrTimedSearchStrings,
 )
 
 val EnStrings = AppStrings(
@@ -894,6 +971,7 @@ val EnStrings = AppStrings(
         actionRetry = "Retry",
         actionCleanup = "Clean",
     ),
+    timedSearch = EnTimedSearchStrings,
 )
 
 val LocalStrings = staticCompositionLocalOf { PtBrStrings }
