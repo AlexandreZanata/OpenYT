@@ -1,0 +1,3 @@
+OpenYT Synthetic Media Item without subtitles.
+Duration: 10000ms.
+Subtitles: None.

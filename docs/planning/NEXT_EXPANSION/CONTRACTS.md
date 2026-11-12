@@ -50,6 +50,20 @@ proof of a correct backup hash, migration or crash recovery.
   authority, record-only removal, PiP/mini-player and native open/reveal remain
   working. Rerun the relevant existing contracts when those paths change.
 
+### Baseline test task mapping to common invariants
+
+| Contract Family | Baseline Gradle Tasks & Test Classes | Status |
+|---|---|---|
+| **NX-C01 (Layering/Deps)** | `:core:desktopTest`, `:engine-ytdlp:desktopTest`, `:data:desktopTest`, `:media-ffmpeg:desktopTest`, `:desktopApp:test`, `:androidApp:assembleDebug` | **VERIFIED (Linux/Android)** |
+| **NX-C02 (Preservation)** | `FfmpegProcessorTest` (trim args, real trim/convert), `DesktopMediaTaggerTest`, `FileBulkFileOperatorTest` | **VERIFIED (Linux)** |
+| **NX-C03 (Persistence)** | `DatabaseMigrationTest` (schema v6->v13, backfill), `SqlDelightDownloadRepositoryTest`, `SettingsRepositoryTest`, `PlaybackStoreTest` | **VERIFIED (Linux)** |
+| **NX-C04 (File/DB Boundary)** | `ConfirmedEngineOutputTest`, `FileFolderScannerTest`, `FileBulkFileOperatorTest` | **VERIFIED (Linux)** |
+| **NX-C05 (Error/Privacy)** | `FfmpegProcessorTest` (dependency error), `EncryptedCookieRepositoryTest`, `UrlValidatorTest`, `DiagnosticsTest` | **VERIFIED (Linux)** |
+| **NX-C06 (Usability/i18n)** | `SystemLanguageTest`, `StorageUiTest`, `FileActionsUiTest`, `ProviderIconsUiTest`, `DownloadsUiTest`, `HomePlaylistUiTest` | **VERIFIED (Linux)** |
+| **NX-C07 (Truthful Caps)** | `ExecutableLocatorTest`, `BundledToolsTest`, `FfprobeJsonParserTest`, `DesktopMediaProbeTest`, `DesktopInstanceTest` | **VERIFIED (Linux)** |
+| **NX-C08 (Regressions)** | `DownloadCoordinatorTest` (34 tests), `LibraryControllerTest`, `LibraryArchiveServiceTest`, `DesktopPlaybackLocalTest`, `DesktopMediaActionsTest`, `ExternalPlaybackTest`, `DesktopYtDlpLocalTest` | **VERIFIED (Linux)** |
+| **NX-F01 (Synthetic Fixtures)** | `SyntheticTimelineFixturesTest` (7 tests: pt/en cues, accents, overlapping intervals, deduplication, distinct equal-size files, Unicode filenames, inert security fixtures) | **VERIFIED (Pure KMP)** |
+
 Use the existing [video regressions](../../testing/VIDEO_REGRESSION_CONTRACTS.md),
 [expansion contracts](../../testing/EXPANSION_CONTRACTS.md) and
 [Windows contracts](../../testing/WINDOWS_DESKTOP_CONTRACTS.md) as regression

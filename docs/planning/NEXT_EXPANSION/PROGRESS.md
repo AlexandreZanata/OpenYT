@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX0.1 VERIFIED on Linux x86_64; remaining tasks PENDING.**
+Updated: 2026-11-12. **NX0 Phase Foundation VERIFIED; Milestone 1 PENDING.**
 
-Baseline: OpenYT 4.0.1; checkout `18fa90cd86c9072582c6fbc65329c7a0e6203856` (branch `codex/nx0-1-baseline`).
-Actual baseline inspected and executed in NX0.1.
+Baseline: OpenYT 4.0.1; checkout `18fa90cd86c9072582c6fbc65329c7a0e6203856` (branch `codex/nx0-foundation`).
+Actual baseline inspected, validated, and fixture foundation completed.
 
-Current task: NX0.1 completed. First ready task: **NX0.2**.
+Current task: Phase NX0 completed (NX0.1, NX0.2, NX0.3 VERIFIED). First ready task: **NX1.1**.
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -19,8 +19,8 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 ## NX0 — execution foundation
 
 - [x] [NX0.1 — establish the actual baseline](00_FOUNDATION.md#nx0-1) — VERIFIED (Linux x86_64; Android compilation verified; native Android device tests and Windows VM blocked).
-- [ ] [NX0.2 — establish small, redistributable fixtures](00_FOUNDATION.md#nx0-2) — PENDING.
-- [ ] [NX0.3 — wire the verification and handoff process](00_FOUNDATION.md#nx0-3) — PENDING.
+- [x] [NX0.2 — establish small, redistributable fixtures](00_FOUNDATION.md#nx0-2) — VERIFIED (Pure KMP + resources; 7 smoke tests passing).
+- [x] [NX0.3 — wire the verification and handoff process](00_FOUNDATION.md#nx0-3) — VERIFIED (Task mapping, native matrix and regression gate documented).
 
 ## NX1 — complete download profiles
 
@@ -182,8 +182,94 @@ Next ready task and why its prerequisites are satisfied:
 - NX0.2 — establish small, redistributable fixtures: NX0.1 baseline is VERIFIED on Linux x86_64. The test suites, build targets, schema version, and local tool harnesses are cataloged with reproducible evidence.
 ```
 
+### NX0.2 — establish small, redistributable fixtures
+
+```text
+Task: NX0.2 — establish small, redistributable fixtures
+Status: VERIFIED (Pure KMP fixtures and resources with deterministic offline smoke verification)
+Branch and commit (or uncommitted diff): codex/nx0-foundation
+Behavior changed: None in product runtime. Added synthetic timeline models, cue timing contracts, SRT/VTT test resources, deduplication/size binary pairs, Unicode filename tests, and inert security fixtures.
+Files and ADRs changed:
+- core/src/commonTest/kotlin/com/openyt/core/testing/SyntheticTimelineFixtures.kt
+- core/src/commonTest/kotlin/com/openyt/core/testing/SyntheticTimelineFixturesTest.kt
+- core/src/commonTest/resources/fixtures/timeline/PROVENANCE.md
+- core/src/commonTest/resources/fixtures/timeline/timeline_pt.srt
+- core/src/commonTest/resources/fixtures/timeline/timeline_pt.vtt
+- core/src/commonTest/resources/fixtures/timeline/timeline_en.srt
+- core/src/commonTest/resources/fixtures/timeline/timeline_en.vtt
+- core/src/commonTest/resources/fixtures/timeline/timeline_nosubs.txt
+- core/src/commonTest/resources/fixtures/timeline/identical_a.bin
+- core/src/commonTest/resources/fixtures/timeline/identical_b.bin
+- core/src/commonTest/resources/fixtures/timeline/distinct_size64_a.bin
+- core/src/commonTest/resources/fixtures/timeline/distinct_size64_b.bin
+- core/src/commonTest/resources/fixtures/timeline/inert_malformed.srt
+- core/src/commonTest/resources/fixtures/timeline/inert_traversal.vtt
+- core/src/commonTest/resources/fixtures/timeline/inert_oversized.srt
+- docs/planning/NEXT_EXPANSION/PROGRESS.md
+Contracts added/updated (IDs and exact test methods):
+- NX-F01 (Synthetic Fixtures Smoke):
+  - SyntheticTimelineFixturesTest.timelinePtHasCorrectCuesAccentsAndOverlaps[desktop]
+  - SyntheticTimelineFixturesTest.timelineEnHasMatchingCuesAndOverlaps[desktop]
+  - SyntheticTimelineFixturesTest.subtitleFreeItemIsDocumentedWithoutCues[desktop]
+  - SyntheticTimelineFixturesTest.identicalFilesHaveDifferentNamesIdenticalBytesAndEqualHash[desktop]
+  - SyntheticTimelineFixturesTest.distinctFilesHaveEqualSizeAndDifferentHashes[desktop]
+  - SyntheticTimelineFixturesTest.complexUnicodeFilenamePreservesSpecialCharacters[desktop]
+  - SyntheticTimelineFixturesTest.inertSecurityFixturesAreInertStrings[desktop]
+Commands actually executed and results:
+1. ./gradlew :core:desktopTest --tests '*SyntheticTimelineFixturesTest' --console=plain -> exit 0 (7 tests completed, 0 failed, 0 errors in 1s)
+2. ./gradlew :core:testDebugUnitTest --console=plain -> exit 0 (Android unit test execution passed)
+Native environment / device / tool versions:
+- Pure Kotlin Multiplatform (JVM desktop and Android unit targets), offline execution without network or user media.
+Failure-path and migration evidence:
+- Tested inert malformed (`inert_malformed.srt`), oversized (`inert_oversized.srt`), and traversal (`inert_traversal.vtt`) files are pure inert test strings that do not trigger path escapes or corrupt scanners.
+Known limits / blocked checks / decisions needed:
+- Fixtures are small and redistributable; larger media or corpus files must be synthesized at test runtime by the tests that require them (as specified in NX0.2).
+Next ready task and why its prerequisites are satisfied:
+- NX0.3 — wire the verification and handoff process: NX0.2 synthetic fixtures are checked in and verified offline.
+```
+
+### NX0.3 — wire the verification and handoff process
+
+```text
+Task: NX0.3 — wire the verification and handoff process
+Status: VERIFIED (Contract family mapping established; native matrix documented; baseline regression gate green)
+Branch and commit (or uncommitted diff): codex/nx0-foundation
+Behavior changed: None. Wired test task mappings to contract families NX-C01 through NX-C08 and NX-F01 in CONTRACTS.md. Documented the native execution matrix and verified existing baseline contracts pass.
+Files and ADRs changed:
+- docs/planning/NEXT_EXPANSION/CONTRACTS.md
+- docs/planning/NEXT_EXPANSION/PROGRESS.md
+Contracts added/updated (IDs and exact test methods):
+- Baseline regression gate:
+  - NX-C01 through NX-C08 verified across :core:desktopTest, :engine-ytdlp:desktopTest, :data:desktopTest, :media-ffmpeg:desktopTest, :desktopApp:test (223 tests total across desktop targets, 0 failures).
+  - NX-F01 verified via SyntheticTimelineFixturesTest (7 tests).
+Commands actually executed and results:
+1. ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :desktopApp:test --console=plain -> exit 0 (BUILD SUCCESSFUL in 1s)
+2. ./gradlew :core:testDebugUnitTest --console=plain -> exit 0 (BUILD SUCCESSFUL in 1s)
+Native environment / device / tool versions:
+- Pop!_OS 24.04 LTS (noble) x86_64, OpenJDK 21 LTS, Gradle 8.14.4.
+Failure-path and migration evidence:
+- Existing DatabaseMigrationTest, FfmpegProcessorTest failure paths, and ConfirmedEngineOutputTest remain verified on baseline.
+Known limits / blocked checks / decisions needed:
+- Windows native installer/shell harness remains BLOCKED (requires Windows VM).
+- Android connected device instrumentation remains BLOCKED (requires manual USB debugging install permission on HyperOS).
+Next ready task and why its prerequisites are satisfied:
+- NX1.1 — model profiles and deterministic resolution: Phase NX0 gate is closed. Baseline environment, small fixtures, contract mappings, and handoff protocols are VERIFIED.
+```
+
+## Native Matrix
+
+| Target / Environment | Capabilities Tested | Requirements & Tools | Current Baseline Status | Notes / Blockers |
+|---|---|---|---|---|
+| **Linux x86_64** | Pure KMP, SQLite, Compose UI, VLCJ playback, FFmpeg processing, loopback yt-dlp, deb packaging | Pop!_OS 24.04 LTS, JDK 21, libvlc5, xvfb-run, bundled tools | **VERIFIED / ACTIVE** | Primary automated desktop test and packaging environment. |
+| **Android (Unit/Build)** | Core/Data KMP Android targets, AAR packaging, Debug & Test APK assembly | Android SDK 34–37, build-tools 34–37 | **VERIFIED / ACTIVE** | `:androidApp:assembleDebug` and `:androidApp:assembleDebugAndroidTest` pass. |
+| **Android (Device)** | Connected instrumentation (`connectedDebugAndroidTest`) | Xiaomi 2311DRK48G (API 36, arm64-v8a) | **BLOCKED** | OEM HyperOS USB security restriction (`INSTALL_FAILED_USER_RESTRICTED`). Requires emulator or SIM/Mi Account unlock. |
+| **Windows x64** | MSI/EXE installer, JNA shell/Explorer integration, native VLC/FFmpeg | Windows 10/11 VM, PowerShell, JNA | **BLOCKED** | No Windows VM or runner configured on current Linux host. |
+| **macOS (x64/arm64)** | DMG/Bundle packaging, native playback | macOS runner / Xcode / notary | **BLOCKED** | No macOS host available. |
+
 ## Decisions and blockers
 
+- **Phase NX0 Gate: PASSED.** Baseline measurements, redistributable synthetic timeline fixtures, and contract family mappings are verified offline.
+- Milestone 1 (NX1: Download Profiles, NX2: Offline Library) is ready to begin with task **NX1.1**.
 - Planning assumptions and proposed budgets are in each phase; none are measured
   implementation results. Native availability is established by NX0.1:
   - Linux x86_64 host: baseline fully operational for deterministic tests, local loopback engine, libvlc playback, deb packaging, and validation harness.
