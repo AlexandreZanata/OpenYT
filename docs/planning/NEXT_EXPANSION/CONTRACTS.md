@@ -98,6 +98,16 @@ Suggested groups: `DownloadProfileResolverTest`, `DownloadProfileRepositoryTest`
   - Covers: real local-tool downloads with each compatible profile (Study, Audio only, Save space, Watch on TV); actual stream and container probe confirming codecs and height ceilings; absent subtitle handling (video download remains uncorrupted, subtitle-only download fails with structured `OutputMissing` rather than inferring success from exit code 0); source format disappearance mapping to structured `ProcessingFailed("requested format is not available")` without raw tracebacks; safe arguments passing for Unicode, spaces and punctuation; output extension confirmation matching the approved plan; and preservation of existing manual format selection.
   - Status: **VERIFIED**.
 - **NX-P05:** accessible preview/editor and explicit download action.
+  - Implemented by `com.openyt.desktop.ui.DownloadProfileUiTest` (20 parameterized tests in `:desktopApp:test` across 4 screen/density/locale scenarios: `mobile-light-pt`, `mobile-large-dark-pt`, `desktop-dark-pt`, `desktop-light-en`).
+  - Covers:
+    - Profile selection and plan preview card rendered across narrow (320px/360px) and wide (1024px/1280px) widths with enlarged font scales (1.0f, 1.3f, 1.5f) under Portuguese and English;
+    - Selection chips for Study, Audio only, Save space, Watch on TV, custom profiles, and manual selection;
+    - Changing selected profile updates preview state and warnings without starting download (coordinator tasks count strictly remains 0);
+    - Explicit "Download with profile" button click initiates download, snapshotting approved plan and profile provenance into immutable request;
+    - Incompatible profiles render structured reason and actionable alternatives (e.g. switch to audio profile), ensuring no dead/disabled buttons;
+    - Custom profile editor dialog validates profile name (disabling save when blank) and captures kind, maxHeight, audio preset, subtitle preference, and strict TV compatibility;
+    - Visual regression screenshots captured to `desktopApp/build/ui-regressions/profile-preview-*.png`.
+  - Status: **VERIFIED**.
 - **NX-P06:** native combined flow and existing manual format selection survive.
 
 ### Offline assets — NX-O

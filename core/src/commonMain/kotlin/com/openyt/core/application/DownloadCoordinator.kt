@@ -165,12 +165,14 @@ class DownloadCoordinator(
         media: MediaInfo,
         plan: ResolvedDownloadPlan,
         destinationDirectory: String,
+        fileNameTemplate: String? = null,
         exportTargetUri: String? = null,
         priority: DownloadPriority = DownloadPriority.NORMAL,
     ): String {
         val request = plan.toDownloadRequest(
             url = media.webpageUrl,
             destinationDirectory = destinationDirectory,
+            fileNameTemplate = fileNameTemplate ?: "%(title)s.%(ext)s",
             exportTargetUri = exportTargetUri,
         )
         return enqueue(media = media, request = request, priority = priority)

@@ -12,6 +12,7 @@ import com.openyt.android.saf.AndroidSafExporter
 import com.openyt.core.application.CompletedDownloadHandler
 import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.DownloadProfileRepository
 import com.openyt.core.application.DownloadRepository
 import com.openyt.core.application.SafExportRouter
 import com.openyt.core.application.LibraryArchiveService
@@ -28,6 +29,7 @@ import com.openyt.data.EncryptedCookieRepository
 import com.openyt.data.FileBulkFileOperator
 import com.openyt.data.FileFolderScanner
 import com.openyt.data.SqlDelightDownloadRepository
+import com.openyt.data.SqlDelightDownloadProfileRepository
 import com.openyt.data.SqlDelightSettingsRepository
 import com.openyt.data.SqlDelightPlaybackStore
 import com.openyt.data.SqlDelightSubscriptions
@@ -81,6 +83,8 @@ class AppContainer(context: Context) {
         .onFailure { android.util.Log.e("OpenYT", "database initialization failed: ${'$'}{it.message}") }
 
     val repository: DownloadRepository? = database.getOrNull()?.let(::SqlDelightDownloadRepository)
+    val profileRepository: DownloadProfileRepository? =
+        database.getOrNull()?.let(::SqlDelightDownloadProfileRepository)
 
     val playbackStore = database.getOrNull()?.let(::SqlDelightPlaybackStore) ?: MemoryPlaybackStore()
 

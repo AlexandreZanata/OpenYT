@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX1.4 VERIFIED; remaining NX1 tasks PENDING.**
+Updated: 2026-11-12. **NX1.5 VERIFIED; remaining NX1 tasks PENDING.**
 
-Baseline: OpenYT 4.0.1; checkout `codex/nx1-4-engine-adapters`.
-Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, and host/engine adapters connected with real output container/stream probing.
+Baseline: OpenYT 4.0.1; checkout `codex/nx1-5-profile-ui`.
+Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, and profile selection, preview, and editing UI implemented and verified.
 
-Current task: NX1.4 completed. First ready task: **NX1.5**.
+Current task: NX1.5 completed. First ready task: **NX1.6**.
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -28,7 +28,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 - [x] [NX1.2 — persist custom profiles and local bindings](01_DOWNLOAD_PROFILES.md#nx1-2) — VERIFIED (SQLDelight schema 18->19 migration, profile repository, separate local bindings & versioned serialization; 8 contract tests passing).
 - [x] [NX1.3 — snapshot profiles into queued requests](01_DOWNLOAD_PROFILES.md#nx1-3) — VERIFIED (Immutable profile provenance, per-task SAF export target isolation, retry snapshot preservation, and revalidation on format expiration; 11 contract tests passing).
 - [x] [NX1.4 — connect the host/engine adapters](01_DOWNLOAD_PROFILES.md#nx1-4) — VERIFIED (Host and engine options updated with merge/remux container flags, confirmed output validation against approved plan, structured format disappearance errors, and real local probing; 7 local contract tests passing).
-- [ ] [NX1.5 — add profile selection, preview and editing UI](01_DOWNLOAD_PROFILES.md#nx1-5) — PENDING.
+- [x] [NX1.5 — add profile selection, preview and editing UI](01_DOWNLOAD_PROFILES.md#nx1-5) — VERIFIED (Accessible selection, preview card across mobile/desktop widths, enlarged text, changing profile does not start download, explicit download action snapshots approved plan, actionable alternatives for incompatible profiles, and custom profile editor dialog; 20 contract tests passing).
 - [ ] [NX1.6 — milestone evidence and documentation](01_DOWNLOAD_PROFILES.md#nx1-6) — PENDING.
 
 ## NX2 — durable offline library
@@ -448,6 +448,36 @@ Known limits / blocked checks / decisions needed:
 - Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
 Next ready task and why its prerequisites are satisfied:
 - NX1.5 — add profile selection, preview and editing UI: Engine adapters (NX1.4), profile snapshots (NX1.3), persistence (NX1.2), and resolution domain models (NX1.1) are VERIFIED.
+```
+
+```
+Task: NX1.5 — add profile selection, preview and editing UI
+Date: 2026-11-12
+Host: Linux 6.17.7-76061707-generic x86_64, Pop!_OS 24.04 LTS
+Git branch: codex/nx1-5-profile-ui
+Status: VERIFIED
+Commands executed:
+- ./gradlew :desktopApp:test --tests '*DownloadProfileUiTest*' --console=plain
+- ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --console=plain
+- ./scripts/validate-linux.sh --scenario all --no-build --offline
+Result:
+- 20 parameterized Compose UI tests passed in DownloadProfileUiTest across mobile (320px fontScale=1.5, 360px fontScale=1.0) and desktop (1024px fontScale=1.3, 1280px fontScale=1.0) widths in pt and en.
+- Full regression suite passed (212 actionable tasks, BUILD SUCCESSFUL).
+- Linux validation suite passed (all offline scenarios: prepare, tests, metadata, cookies, library, archive, watch, storage, bulk, playback, gui).
+Behavior changed:
+- Added accessible DownloadProfileSelector chip row supporting built-in profiles (Study, Audio only, Save space, Watch on TV), custom profiles, and manual format selection with screen-reader labels and management triggers.
+- Added ProfilePlanPreviewCard displaying target container badges, effective height/preset, subtitle preferences, estimated sizes, destination directories, warnings, and explicit "Download with profile" button.
+- Incompatible profiles display clear explanations and actionable alternative buttons (e.g. "Mudar para perfil de áudio") that dynamically switch profiles or manual mode rather than leaving dead/disabled buttons.
+- Profile selection state is preserved across navigation via rememberSaveable without prematurely enqueueing tasks.
+- Selecting or changing profile chips never initiates download; downloads strictly require explicit user confirmation via the preview card button.
+- Implemented ProfileEditorDialog allowing users to create, configure (kind, max height, audio preset, subtitle language, strict TV compatibility), edit, export, and delete custom profiles with input validation (blank names disable saving).
+- Updated SettingsScreen with a dedicated "Perfis de download" section allowing users to choose the default profile for new links and manage custom profiles.
+- Added MemoryDownloadProfileRepository in core for fast in-memory fallbacks and testing.
+- Visual regression screenshots automatically saved to desktopApp/build/ui-regressions/profile-preview-*.png.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
+Next ready task and why its prerequisites are satisfied:
+- NX1.6 — milestone evidence and documentation: Profile selection, preview, and editing UI (NX1.5) and all underlying engine adapters and contracts are VERIFIED.
 ```
 
 ## Native Matrix

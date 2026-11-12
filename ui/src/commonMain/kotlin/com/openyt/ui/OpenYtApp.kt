@@ -52,6 +52,7 @@ import com.openyt.core.application.BulkFileService
 import com.openyt.core.application.CookieRepository
 import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.DownloadProfileRepository
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderImportService
 import com.openyt.core.application.FolderPicker
@@ -123,6 +124,7 @@ fun OpenYtApp(
     mediaProcessor: MediaProcessor? = null,
     mediaPreview: MediaPreview? = null,
     subscriptions: SubscriptionController? = null,
+    profileRepository: DownloadProfileRepository? = null,
 ) {
     val ready by coordinator.ready.collectAsState()
     val settings by settingsController.settings.collectAsState()
@@ -213,6 +215,8 @@ fun OpenYtApp(
                     subscriptions = subscriptions,
                     isAppActive = isAppActive,
                     toolUpdater = toolUpdater,
+                    profileRepository = profileRepository,
+                    systemLanguageTag = systemLanguageTag,
                 )
             }
         }
@@ -255,6 +259,8 @@ private fun AppShell(
     subscriptions: SubscriptionController?,
     isAppActive: Boolean,
     toolUpdater: com.openyt.core.application.ToolUpdater?,
+    profileRepository: DownloadProfileRepository? = null,
+    systemLanguageTag: String = "en",
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -334,6 +340,8 @@ private fun AppShell(
                         onSharedUrlConsumed = { clipboardUrl = null; onSharedUrlConsumed() },
                         showBrand = !wide,
                         mediaPreview = mediaPreview,
+                        profileRepository = profileRepository,
+                        systemLanguageTag = systemLanguageTag,
                     )
 
                     1 -> DownloadsScreen(
@@ -372,6 +380,7 @@ private fun AppShell(
                         folderPicker = folderPicker,
                         cookieRepository = cookieRepository,
                         subscriptions = subscriptions,
+                        profileRepository = profileRepository,
                     )
                 }
                 }

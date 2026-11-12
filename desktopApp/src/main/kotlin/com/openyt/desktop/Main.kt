@@ -28,10 +28,12 @@ import com.openyt.data.EncryptedCookieRepository
 import com.openyt.data.FileBulkFileOperator
 import com.openyt.data.FileFolderScanner
 import com.openyt.data.SqlDelightDownloadRepository
+import com.openyt.data.SqlDelightDownloadProfileRepository
 import com.openyt.data.SqlDelightSettingsRepository
 import com.openyt.data.SqlDelightPlaybackStore
 import com.openyt.data.SqlDelightSubscriptions
 import com.openyt.data.RssFeedReader
+import com.openyt.core.application.MemoryDownloadProfileRepository
 import com.openyt.core.automation.SubscriptionController
 import com.openyt.core.application.MemoryPlaybackStore
 import com.openyt.ui.i18n.stringsFor
@@ -94,6 +96,9 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
             .getOrNull()
     }
     val repository = remember(database) { database?.let(::SqlDelightDownloadRepository) }
+    val profileRepository = remember(database) {
+        database?.let(::SqlDelightDownloadProfileRepository) ?: MemoryDownloadProfileRepository()
+    }
     val settingsController = remember(database) {
         SettingsController(database?.let(::SqlDelightSettingsRepository), scope)
     }
@@ -276,6 +281,7 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
             playbackLauncher = playbackLauncher,
             mediaProcessor = remember { FfmpegMediaProcessor({ ExecutableLocator().findFfmpeg() }) },
             mediaPreview = remember { EngineMediaPreview(engine, playbackLauncher, File(System.getProperty("java.io.tmpdir"), "openyt-previews").apply { mkdirs() }.absolutePath, { java.util.UUID.randomUUID().toString() }) },
+            profileRepository = profileRepository,
         )
     }
 }
