@@ -680,10 +680,13 @@ scenario_gui() {
     local db="$XDG_DATA_HOME/OpenYT/openyt.db"
     [[ -f "$db" ]] || { kill -- -"$pid" 2>/dev/null || true; fail "database was not created"; return 1; }
     python3 - "$db" <<'PY' || { kill -- -"$pid" 2>/dev/null || true; fail "database schema not migrated"; return 1; }
-import sqlite3, sys
+import pathlib, sqlite3, sys
+db_dir = pathlib.Path("data/src/commonMain/sqldelight/com/openyt/data/db")
+sqm_versions = [int(p.stem) for p in db_dir.glob("*.sqm") if p.stem.isdigit()]
+expected = (max(sqm_versions) + 1) if sqm_versions else 24
 connection = sqlite3.connect(sys.argv[1])
 version = connection.execute("PRAGMA user_version").fetchone()[0]
-assert version == 18, f"user_version={version}"
+assert version == expected, f"user_version={version}, expected={expected}"
 PY
     kill -- -"$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true

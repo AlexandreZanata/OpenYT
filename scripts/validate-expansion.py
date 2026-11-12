@@ -16,6 +16,12 @@ import tempfile
 import threading
 
 
+def expected_schema_version() -> int:
+    db_dir = Path("data/src/commonMain/sqldelight/com/openyt/data/db")
+    versions = [int(p.stem) for p in db_dir.glob("*.sqm") if p.stem.isdigit()]
+    return (max(versions) + 1) if versions else 24
+
+
 def main():
     package = Path(sys.argv[1]).resolve()
     previous = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else None
@@ -47,7 +53,7 @@ def main():
             cli("library", "--list", "--json")
             print("PASS in-place package upgrade preserves the library")
         with sqlite3.connect(db) as connection:
-            assert connection.execute("PRAGMA user_version").fetchone()[0] == 18
+            assert connection.execute("PRAGMA user_version").fetchone()[0] == expected_schema_version()
             assert connection.execute("SELECT COUNT(*) FROM library_entry").fetchone()[0] == 1
         visible = [p for p in prefix.glob("opt/openyt/lib/*.desktop") if "NoDisplay=true" not in p.read_text()]
         assert len(visible) == 1, visible

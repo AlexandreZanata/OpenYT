@@ -140,7 +140,13 @@ class JvmOfflineAssetStoreTest {
                 fileInspector = JvmMediaFileInspector(),
             )
 
-            val unicodeFile = File(taskDir, "Curso \"Kotlin\" [Ação] #1.pt.vtt").apply {
+            val isWindows = System.getProperty("os.name").orEmpty().contains("Windows", ignoreCase = true)
+            val fileName = if (isWindows) {
+                "Curso 'Kotlin' [Ação] #1.pt.vtt"
+            } else {
+                "Curso \"Kotlin\" [Ação] #1.pt.vtt"
+            }
+            val unicodeFile = File(taskDir, fileName).apply {
                 writeText("WEBVTT\n\n00:00.000 --> 00:02.000\nTeste Unicode e Aspas")
             }
 

@@ -206,12 +206,25 @@ class DesktopYtDlpEngine(
                         )
                         if (file != null) {
                             val inspector = com.openyt.data.JvmMediaFileInspector()
+                            val allowedArtifactRoots = listOf(
+                                directory.canonicalPath,
+                                tempDirectory.canonicalPath,
+                                directory.absolutePath,
+                                tempDirectory.absolutePath,
+                            ).distinct()
                             val confirmedArtifacts = artifactReceipts.mapNotNull { receipt ->
                                 val candidate = File(receipt.filePath)
                                 val resolvedPath = when {
                                     candidate.exists() -> candidate.canonicalPath
-                                    receipt.filePath.startsWith(tempDirectory.absolutePath) -> {
+                                    com.openyt.core.application.CompanionArtifactValidator.isPathWithinRoot(
+                                        receipt.filePath,
+                                        tempDirectory.canonicalPath,
+                                    ) || com.openyt.core.application.CompanionArtifactValidator.isPathWithinRoot(
+                                        receipt.filePath,
+                                        tempDirectory.absolutePath,
+                                    ) -> {
                                         val rel = candidate.relativeToOrNull(tempDirectory)
+                                            ?: runCatching { candidate.canonicalFile.relativeToOrNull(tempDirectory.canonicalFile) }.getOrNull()
                                         if (rel != null) File(directory, rel.path).takeIf { it.exists() }?.canonicalPath ?: receipt.filePath
                                         else receipt.filePath
                                     }
@@ -220,7 +233,7 @@ class DesktopYtDlpEngine(
                                 val resolvedReceipt = receipt.copy(filePath = resolvedPath)
                                 val validation = com.openyt.core.application.CompanionArtifactValidator.validateReceipt(
                                     receipt = resolvedReceipt,
-                                    allowedRoots = listOf(directory.absolutePath, tempDirectory.absolutePath),
+                                    allowedRoots = allowedArtifactRoots,
                                     fileInspector = inspector,
                                 )
                                 if (validation is com.openyt.core.application.ArtifactValidationResult.Valid) {

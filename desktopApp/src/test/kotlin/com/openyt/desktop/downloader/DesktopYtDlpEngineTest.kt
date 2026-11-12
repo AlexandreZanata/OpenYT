@@ -182,13 +182,13 @@ class DesktopYtDlpEngineTest {
             .download(request(directory), "artifacts-test").toList()
 
         val completed = assertIs<DownloadEvent.Completed>(events.last())
-        assertEquals(mediaFile.canonicalPath, completed.filePath)
+        assertEquals(mediaFile.canonicalPath, File(completed.filePath).canonicalPath)
         assertEquals(4L, completed.sizeBytes)
 
         // Only the explicitly emitted, valid, in-root, existing artifact is confirmed
         assertEquals(1, completed.artifacts.size)
         val artifact = completed.artifacts.first()
-        assertEquals(subtitleFile.canonicalPath, artifact.filePath)
+        assertEquals(subtitleFile.canonicalPath, File(artifact.filePath).canonicalPath)
         assertEquals("pt", artifact.language)
         assertEquals(com.openyt.core.domain.AssetKind.SUBTITLE, artifact.kind)
 
