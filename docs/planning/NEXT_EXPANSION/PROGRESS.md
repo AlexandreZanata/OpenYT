@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX0 Phase Foundation VERIFIED; Milestone 1 PENDING.**
+Updated: 2026-11-12. **NX1.1 VERIFIED; remaining NX1 tasks PENDING.**
 
-Baseline: OpenYT 4.0.1; checkout `18fa90cd86c9072582c6fbc65329c7a0e6203856` (branch `codex/nx0-foundation`).
-Actual baseline inspected, validated, and fixture foundation completed.
+Baseline: OpenYT 4.0.1; checkout `18fa90cd86c9072582c6fbc65329c7a0e6203856` (branch `codex/nx1-1-profiles-model`).
+Actual baseline inspected, validated, and profile resolution models implemented.
 
-Current task: Phase NX0 completed (NX0.1, NX0.2, NX0.3 VERIFIED). First ready task: **NX1.1**.
+Current task: NX1.1 completed. First ready task: **NX1.2**.
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -24,7 +24,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 
 ## NX1 — complete download profiles
 
-- [ ] [NX1.1 — model profiles and deterministic resolution](01_DOWNLOAD_PROFILES.md#nx1-1) — PENDING.
+- [x] [NX1.1 — model profiles and deterministic resolution](01_DOWNLOAD_PROFILES.md#nx1-1) — VERIFIED (Pure KMP domain models & resolver; 13 tests passing).
 - [ ] [NX1.2 — persist custom profiles and local bindings](01_DOWNLOAD_PROFILES.md#nx1-2) — PENDING.
 - [ ] [NX1.3 — snapshot profiles into queued requests](01_DOWNLOAD_PROFILES.md#nx1-3) — PENDING.
 - [ ] [NX1.4 — connect the host/engine adapters](01_DOWNLOAD_PROFILES.md#nx1-4) — PENDING.
@@ -254,6 +254,49 @@ Known limits / blocked checks / decisions needed:
 - Android connected device instrumentation remains BLOCKED (requires manual USB debugging install permission on HyperOS).
 Next ready task and why its prerequisites are satisfied:
 - NX1.1 — model profiles and deterministic resolution: Phase NX0 gate is closed. Baseline environment, small fixtures, contract mappings, and handoff protocols are VERIFIED.
+```
+
+### NX1.1 — model profiles and deterministic resolution
+
+```text
+Task: NX1.1 — model profiles and deterministic resolution
+Status: VERIFIED (Pure KMP domain models, built-ins, and resolver with 13 deterministic tests)
+Branch and commit (or uncommitted diff): codex/nx1-1-profiles-model
+Behavior changed: Added pure domain models (DownloadProfile, ProfileResolution, ResolvedDownloadPlan, ProfileWarning, IncompatibilityReason, ActionableAlternative) and deterministic resolver (DownloadProfileResolver) implementing rules for the four built-in profiles (Study offline, Audio only, Save space, Watch on TV).
+Files and ADRs changed:
+- core/src/commonMain/kotlin/com/openyt/core/domain/DownloadProfile.kt
+- core/src/commonMain/kotlin/com/openyt/core/domain/DownloadProfileResolver.kt
+- core/src/commonTest/kotlin/com/openyt/core/domain/DownloadProfileResolverTest.kt
+- docs/planning/NEXT_EXPANSION/CONTRACTS.md
+- docs/planning/NEXT_EXPANSION/PROGRESS.md
+Contracts added/updated (IDs and exact test methods):
+- NX-P01 (Profile Resolution):
+  - DownloadProfileResolverTest.studyProfilePrefersMp4AvcAndHumanSubtitles[desktop]
+  - DownloadProfileResolverTest.studyProfileEmitsWarningsWhenSubtitlesOrThumbnailMissing[desktop]
+  - DownloadProfileResolverTest.humanVsAutomaticSubtitleMatchingBehavior[desktop]
+  - DownloadProfileResolverTest.audioOnlySourceReturnsIncompatibleForVideoProfilesAndSucceedsForAudioProfile[desktop]
+  - DownloadProfileResolverTest.saveSpaceProfileRespects480pCeilingAndEmitsEstimateNotice[desktop]
+  - DownloadProfileResolverTest.tvStrictProfileRejectsSourceWithoutNativeMp4AvcAac[desktop]
+  - DownloadProfileResolverTest.tvStrictProfileSucceedsWhenNativeMp4AvcAacIsPresent[desktop]
+  - DownloadProfileResolverTest.combinedStreamFormatPickedWithoutCompanionAudio[desktop]
+  - DownloadProfileResolverTest.unknownCodecEmitsWarningAndResolvesSafely[desktop]
+  - DownloadProfileResolverTest.absentResolutionHandledWithoutCrashing[desktop]
+  - DownloadProfileResolverTest.deterministicTieBreakingPicksEarlierFormatId[desktop]
+  - DownloadProfileResolverTest.emptyFormatsReturnsIncompatibleNoFormats[desktop]
+  - DownloadProfileResolverTest.fallbackWarningWhenAllFormatsExceedMaxHeight[desktop]
+Commands actually executed and results:
+1. ./gradlew :core:desktopTest --tests '*DownloadProfileResolverTest' --console=plain -> exit 0 (13 tests completed, 0 failed, 0 errors in 4s)
+2. ./gradlew :core:testDebugUnitTest --console=plain -> exit 0 (Android unit test execution passed in 4s)
+3. ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --console=plain -> exit 0 (212 actionable tasks executed/up-to-date in 9s)
+Native environment / device / tool versions:
+- Pure Kotlin Multiplatform domain logic in core, zero external platform dependencies.
+Failure-path and migration evidence:
+- Tested incompatible paths: empty formats (NO_FORMATS_AVAILABLE), audio-only source with video profile (AUDIO_ONLY_SOURCE), and strict TV incompatible source (NO_COMPATIBLE_TV_FORMAT) producing structured actionable alternatives.
+- Tested warning emissions: missing subtitles, missing thumbnails, estimated size notices, unknown codecs, and fallback resolution.
+Known limits / blocked checks / decisions needed:
+- Persistence of custom profiles and local bindings is scheduled for NX1.2.
+Next ready task and why its prerequisites are satisfied:
+- NX1.2 — persist custom profiles and local bindings: NX1.1 domain models and resolution logic are VERIFIED.
 ```
 
 ## Native Matrix

@@ -83,6 +83,8 @@ Suggested groups: `DownloadProfileResolverTest`, `DownloadProfileRepositoryTest`
 `DownloadProfileUiTest`, host `DownloadProfileLocalTest`.
 
 - **NX-P01:** built-in rules, compatible formats, explicit fallback and subtitles.
+  - Implemented by `com.openyt.core.domain.DownloadProfileResolverTest` (13 tests in `:core:desktopTest` and `:core:testDebugUnitTest`).
+  - Status: **VERIFIED**.
 - **NX-P02:** custom profile persistence/migration and separate local bindings.
 - **NX-P03:** immutable request/SAF snapshot through editing, retry and restart.
 - **NX-P04:** real output matches resolved container/streams/track choices.
