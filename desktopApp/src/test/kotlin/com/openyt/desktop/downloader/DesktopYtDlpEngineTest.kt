@@ -164,6 +164,38 @@ class DesktopYtDlpEngineTest {
         assertTrue(File(directory, ".openyt-tmp-startup-pause").isDirectory)
     }
 
+    @Test
+    fun confirmsExplicitCompanionArtifactsAndFiltersOutOfRootOrMissing() = runBlocking {
+        val directory = temporary.newFolder()
+        val mediaFile = File(directory, "video.mp4").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
+        val subtitleFile = File(directory, "video.pt.vtt").apply { writeText("WEBVTT\n00:00.000 --> 00:01.000\nTeste") }
+        val unrelatedSibling = File(directory, "unrelated.srt").apply { writeText("ignorado") }
+
+        val stdout = buildString {
+            append(finalRecord(mediaFile))
+            appendLine("OPENYT_SUBTITLES:{\"pt\": {\"filepath\": ${Json.encodeToString(subtitleFile.absolutePath)}, \"ext\": \"vtt\"}}")
+            appendLine("OPENYT_ARTIFACT:{\"kind\": \"SUBTITLE\", \"filepath\": \"/etc/passwd\"}")
+            appendLine("OPENYT_ARTIFACT:{\"kind\": \"SUBTITLE\", \"filepath\": ${Json.encodeToString(File(directory, "missing.vtt").absolutePath)}}")
+        }
+
+        val events = engine { MemoryProcess(stdout.toByteArray()) }
+            .download(request(directory), "artifacts-test").toList()
+
+        val completed = assertIs<DownloadEvent.Completed>(events.last())
+        assertEquals(mediaFile.canonicalPath, completed.filePath)
+        assertEquals(4L, completed.sizeBytes)
+
+        // Only the explicitly emitted, valid, in-root, existing artifact is confirmed
+        assertEquals(1, completed.artifacts.size)
+        val artifact = completed.artifacts.first()
+        assertEquals(subtitleFile.canonicalPath, artifact.filePath)
+        assertEquals("pt", artifact.language)
+        assertEquals(com.openyt.core.domain.AssetKind.SUBTITLE, artifact.kind)
+
+        // Unrelated sibling was never attached by guessing
+        assertTrue(completed.artifacts.none { it.filePath == unrelatedSibling.canonicalPath })
+    }
+
     private fun engine(start: (List<String>) -> Process): DesktopYtDlpEngine {
         val tools = temporary.newFolder()
         File(tools, "yt-dlp").apply {

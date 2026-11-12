@@ -47,6 +47,17 @@ data class DownloadRequest(
     val options: DownloadOptions = DownloadOptions(),
 )
 
+@Serializable
+data class CompanionArtifactReceipt(
+    val kind: AssetKind,
+    val filePath: String,
+    val language: String? = null,
+    val sourceType: String? = null,
+    val timelineBasis: String? = null,
+    val isRequired: Boolean = false,
+    val byteCount: Long = 0L,
+)
+
 sealed interface DownloadEvent {
     data object Starting : DownloadEvent
 
@@ -63,6 +74,7 @@ sealed interface DownloadEvent {
     data class Completed(
         val filePath: String,
         val sizeBytes: Long? = null,
+        val artifacts: List<CompanionArtifactReceipt> = emptyList(),
     ) : DownloadEvent
 
     data class Failed(val failure: DownloadFailure) : DownloadEvent

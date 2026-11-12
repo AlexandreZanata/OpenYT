@@ -110,8 +110,17 @@ class DesktopYtDlpEngine(
                 add("temp:${tempDirectory.absolutePath}")
                 add("-o")
                 add(request.fileNameTemplate)
-                add("--print")
-                add(if (request.kind == MediaKind.SUBTITLE) YtDlpOutputParser.SUBTITLE_PATH_TEMPLATE else YtDlpOutputParser.FILE_PATH_TEMPLATE)
+                if (request.kind == MediaKind.SUBTITLE) {
+                    add("--print")
+                    add(YtDlpOutputParser.SUBTITLE_PATH_TEMPLATE)
+                } else {
+                    add("--print")
+                    add(YtDlpOutputParser.FILE_PATH_TEMPLATE)
+                    if (request.options.subtitle != null) {
+                        add("--print")
+                        add(YtDlpOutputParser.SUBTITLE_PATH_TEMPLATE)
+                    }
+                }
                 add("--progress-template")
                 add(PROGRESS_TEMPLATE)
                 addAll(YtDlpDownloadOptions.arguments(request))
@@ -156,6 +165,7 @@ class DesktopYtDlpEngine(
             }
 
             var finalPath: String? = null
+            val artifactReceipts = Collections.synchronizedList(mutableListOf<com.openyt.core.domain.CompanionArtifactReceipt>())
             var pausedByUser = false
             try {
                 process.inputStream.bufferedReader(Charsets.UTF_8).forEachLine { line ->
@@ -165,7 +175,11 @@ class DesktopYtDlpEngine(
                     ) {
                         trySend(DownloadEvent.Processing)
                     }
-                    YtDlpOutputParser.extractFilePath(line)?.let { finalPath = it }
+                    YtDlpOutputParser.extractFilePath(line, allowSubtitlesAsPrimary = request.kind == MediaKind.SUBTITLE)?.let { finalPath = it }
+                    val artifacts = YtDlpOutputParser.extractArtifactReceipts(line)
+                    if (artifacts.isNotEmpty()) {
+                        artifactReceipts.addAll(artifacts)
+                    }
                 }
 
                 val exitCode = process.waitFor()
@@ -191,10 +205,35 @@ class DesktopYtDlpEngine(
                             expectedContainer,
                         )
                         if (file != null) {
+                            val inspector = com.openyt.data.JvmMediaFileInspector()
+                            val confirmedArtifacts = artifactReceipts.mapNotNull { receipt ->
+                                val candidate = File(receipt.filePath)
+                                val resolvedPath = when {
+                                    candidate.exists() -> candidate.canonicalPath
+                                    receipt.filePath.startsWith(tempDirectory.absolutePath) -> {
+                                        val rel = candidate.relativeToOrNull(tempDirectory)
+                                        if (rel != null) File(directory, rel.path).takeIf { it.exists() }?.canonicalPath ?: receipt.filePath
+                                        else receipt.filePath
+                                    }
+                                    else -> receipt.filePath
+                                }
+                                val resolvedReceipt = receipt.copy(filePath = resolvedPath)
+                                val validation = com.openyt.core.application.CompanionArtifactValidator.validateReceipt(
+                                    receipt = resolvedReceipt,
+                                    allowedRoots = listOf(directory.absolutePath, tempDirectory.absolutePath),
+                                    fileInspector = inspector,
+                                )
+                                if (validation is com.openyt.core.application.ArtifactValidationResult.Valid) {
+                                    validation.receipt.copy(byteCount = validation.sizeBytes)
+                                } else {
+                                    null
+                                }
+                            }
                             send(
                                 DownloadEvent.Completed(
                                     filePath = file.absolutePath,
                                     sizeBytes = file.length(),
+                                    artifacts = confirmedArtifacts,
                                 ),
                             )
                         } else {

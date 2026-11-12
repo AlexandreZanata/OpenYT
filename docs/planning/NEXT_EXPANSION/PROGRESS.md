@@ -34,7 +34,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 ## NX2 — durable offline library
 
 - [x] [NX2.1 — model assets, revisions and readiness](02_OFFLINE_LIBRARY.md#nx2-1) — VERIFIED (Pure KMP domain models & readiness calculator, SQLDelight schema 19->20 migration, asset repository with cascade deletion, and off-UI thread digest inspection; 17 contract tests passing).
-- [ ] [NX2.2 — confirm engine-produced companion artifacts](02_OFFLINE_LIBRARY.md#nx2-2) — PENDING.
+- [x] [NX2.2 — confirm engine-produced companion artifacts](02_OFFLINE_LIBRARY.md#nx2-2) — VERIFIED (Backward-compatible receipt contract, strict path containment, safe asset store copy, multi-track extraction, and coordinator resilience; 34 contract tests passing).
 - [ ] [NX2.3 — implement owned storage and durable local operations](02_OFFLINE_LIBRARY.md#nx2-3) — PENDING.
 - [ ] [NX2.4 — fetch artwork and import subtitle assets safely](02_OFFLINE_LIBRARY.md#nx2-4) — PENDING.
 - [ ] [NX2.5 — show offline readiness and storage actions](02_OFFLINE_LIBRARY.md#nx2-5) — PENDING.
@@ -533,6 +533,34 @@ Known limits / blocked checks / decisions needed:
 - Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
 Next ready task and why its prerequisites are satisfied:
 - NX2.2 — confirm engine-produced companion artifacts: Offline asset models, revisions, and persistence (NX2.1) are complete and VERIFIED; engine completion artifact receipt handling can begin.
+```
+
+```
+Task: NX2.2 — confirm engine-produced companion artifacts
+Date: 2026-11-12
+Host: Linux x86_64 (Pop!_OS 24.04 LTS), JDK 21.0.8, Android SDK 34-37
+Command: ./gradlew :core:desktopTest --tests '*CompanionArtifact*' :data:desktopTest --tests '*JvmOfflineAssetStore*' :engine-ytdlp:desktopTest --tests '*YtDlpSupport*' :desktopApp:test --tests '*DesktopYtDlpEngineTest*' --console=plain
+Result: VERIFIED (34 contract tests passed; receipts validation, asset copy, SHA-256 verification, and coordinator resilience verified; Android and desktop compilation successful)
+Evidence:
+- CompanionArtifactConfirmationTest: 8 tests passed covering Unicode and quoted output paths normalization and validation, strict rejection of forged out-of-root receipts (POSIX /etc/passwd, traversal ../, prefix collisions, and Windows drives/traversal), rejection of absent or empty (0-byte) files, legacy Completed events without artifacts succeeding normally, interrupted or canceled completions never storing artifacts, confirmed artifacts safely stored via assetStore on completion, truthful primary media library completion even if optional artwork fails, and missing required asset leaving offline readiness INCOMPLETE with FETCH_ARTWORK recovery action.
+- JvmOfflineAssetStoreTest: 4 tests passed covering confirmed artifact file copying to app-owned storage (<assetsDirectory>/<entryId>/<assetId>.<ext>), streaming SHA-256 computation and database persistence, strict rejection of out-of-root receipts without writing files, handling of Unicode and quotes in source paths, and structured failure on missing source files.
+- YtDlpSupportTest: 12 tests passed covering extraction of multi-track language subtitle dicts (en, pt, es), artwork receipts, structured custom artifacts, output paths preserving quotes/Unicode/network shares, and strict verification that output without artifact markers never attaches unrelated neighboring files.
+- DesktopYtDlpEngineTest: 10 tests passed covering explicit companion artifacts confirmation, filtering out-of-root or missing receipts, and verifying unrelated neighboring files in directory are never attached.
+- Regression: :core:desktopTest, :engine-ytdlp:desktopTest, :data:desktopTest, :media-ffmpeg:desktopTest, :desktopApp:test, :androidApp:assembleDebug, :androidApp:assembleDebugAndroidTest (BUILD SUCCESSFUL, 218 tasks).
+- Linux offline validation: ./scripts/validate-linux.sh --scenario all --no-build --offline (validation passed, 4 skipped).
+Behavior changed:
+- Added CompanionArtifactReceipt data class to MediaModels.kt.
+- Updated DownloadEvent.Completed with optional default parameter artifacts: List<CompanionArtifactReceipt> = emptyList() ensuring binary and source compatibility.
+- Implemented CompanionArtifactValidator with isPathWithinRoot (handling POSIX/Windows separators, case rules, UNC, and traversal detection) and validateReceipt.
+- Defined OfflineAssetStore interface and implemented MemoryOfflineAssetStore (unit testing) and JvmOfflineAssetStore (production app-owned copying and SHA-256 registration).
+- Added OPENYT_SUBTITLES, OPENYT_THUMBNAIL, and OPENYT_ARTIFACT markers and extractArtifactReceipts to YtDlpSupport.kt.
+- Fixed extractFilePath to strictly prioritize OPENYT_FILE as the primary media file, treating subtitles as primary only when request kind is SUBTITLE.
+- Updated DesktopYtDlpEngine and AndroidYtDlpEngine to parse artifact receipts from engine stdout, relocate files if moved by engine between temporary and final output roots, validate containment within task roots, and emit confirmed receipts in DownloadEvent.Completed.
+- Updated DownloadCoordinator to asynchronously persist confirmed companion artifacts into OfflineAssetStore without compromising primary media library completion if optional artifacts fail.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
+Next ready task and why its prerequisites are satisfied:
+- NX2.3 — implement owned storage and durable local operations: Engine-produced companion artifact receipts and validation (NX2.2) are complete and VERIFIED; durable local operations and journaled asset staging can begin.
 ```
 
 ## Native Matrix

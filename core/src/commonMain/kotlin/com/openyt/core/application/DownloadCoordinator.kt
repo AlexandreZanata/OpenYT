@@ -44,6 +44,7 @@ class DownloadCoordinator(
     private val retryDelayMillis: (Int) -> Long = ::defaultRetryDelayMillis,
     private val timeOfDayMinutes: () -> Int = { 0 },
     private val cookieRepository: CookieRepository? = null,
+    private val assetStore: OfflineAssetStore? = null,
 ) {
     init {
         require(initialMaxConcurrentDownloads > 0) { "initialMaxConcurrentDownloads must be positive" }
@@ -475,6 +476,26 @@ class DownloadCoordinator(
                 listOf(entry) + entries.filterNot { it.id == entry.id }
             }
             persist { repository?.insertLibraryEntry(entry) }
+
+            if (applied.artifacts.isNotEmpty() && assetStore != null) {
+                val mediaRevision = com.openyt.core.domain.MediaRevision(
+                    sizeBytes = applied.sizeBytes ?: 0L,
+                    lastModifiedEpochMillis = 0L,
+                )
+                val allowedRoots = listOf(updated.request.destinationDirectory)
+                for (artifact in applied.artifacts) {
+                    scope.launch {
+                        runCatching {
+                            assetStore.storeConfirmedArtifact(
+                                entryId = entry.id,
+                                receipt = artifact,
+                                mediaRevision = mediaRevision,
+                                allowedRoots = allowedRoots,
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // Observers may flush persistence and exit immediately on a terminal state.

@@ -141,6 +141,20 @@ Suggested groups: `OfflineReadinessTest`, `AssetRepositoryTest`,
     - Asynchronous file inspection and streaming SHA-256 digest computation off the UI thread via `JvmMediaFileInspector`.
   - Status: **VERIFIED**.
 - **NX-O02:** confirmed bounded artifact receipts, no unrelated file attachment.
+  - Implemented by `com.openyt.core.application.CompanionArtifactConfirmationTest` (8 tests in `:core:desktopTest`), `com.openyt.data.JvmOfflineAssetStoreTest` (4 tests in `:data:desktopTest`), `com.openyt.engine.ytdlp.YtDlpSupportTest` (12 tests in `:engine-ytdlp:desktopTest`), and `com.openyt.desktop.downloader.DesktopYtDlpEngineTest` (10 tests in `:desktopApp:test`).
+  - Covers:
+    - Backward-compatible optional artifact receipts on `DownloadEvent.Completed(filePath, sizeBytes, artifacts = emptyList())`;
+    - Extraction and parsing of engine output receipts for subtitles (`OPENYT_SUBTITLES:`), artwork (`OPENYT_THUMBNAIL:`), and structured artifacts (`OPENYT_ARTIFACT:`), capturing language, format, and timeline basis (`SOURCE`);
+    - Output paths containing quotes, Unicode characters, and spaces are preserved and sanitized across POSIX and Windows formats;
+    - Strict path containment via `CompanionArtifactValidator.isPathWithinRoot`, rejecting directory traversal (`..`), prefix collisions, and forged out-of-root files (e.g. `/etc/passwd`);
+    - Rejection of missing or empty (0-byte) artifact receipts via `CompanionArtifactValidator.validateReceipt`;
+    - Multi-track language subtitle dict extraction (`en`, `pt`, `es`) and explicit artwork tagging;
+    - Unrelated neighboring subtitles or images in the output folder are never attached by directory guessing;
+    - Canceled or interrupted downloads never store unconfirmed artifacts;
+    - Primary media completion remains truthful in library and persistence even if optional companion artifact storage fails;
+    - Missing required companion artifacts leave offline readiness as `INCOMPLETE` with actionable recovery (`FETCH_ARTWORK`) and retry available;
+    - Safe copying into application-owned asset store via `JvmOfflineAssetStore`, streaming SHA-256 digest computation, and SQLite metadata registration in `offline_asset`.
+  - Status: **VERIFIED**.
 - **NX-O03:** staging/journal/cancel/crash/disk-full, source preservation.
 - **NX-O04:** bounded artwork fetch/subtitle import and verified local preference.
 - **NX-O05:** accurate storage categories, pinning and explicit cleanup UI.
