@@ -445,3 +445,180 @@ DELETE FROM asset_operation WHERE id = :id;
 deleteOperationsForEntry:
 DELETE FROM asset_operation WHERE entry_id = :entry_id;
 
+CREATE TABLE subtitle_track_index (
+    track_id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    language TEXT,
+    media_revision_token TEXT NOT NULL,
+    track_revision TEXT NOT NULL,
+    active_revision INTEGER NOT NULL DEFAULT 0,
+    state TEXT NOT NULL DEFAULT 'PENDING',
+    total_cues INTEGER NOT NULL DEFAULT 0,
+    timebase_offset_ms INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+);
+
+CREATE INDEX subtitle_track_index_entry_idx ON subtitle_track_index(entry_id);
+CREATE INDEX subtitle_track_index_state_idx ON subtitle_track_index(state);
+
+CREATE TABLE subtitle_cue (
+    id TEXT NOT NULL PRIMARY KEY,
+    track_id TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    cue_id TEXT NOT NULL,
+    start_ms INTEGER NOT NULL,
+    end_ms INTEGER NOT NULL,
+    display_text TEXT NOT NULL,
+    plain_text TEXT NOT NULL,
+    speaker TEXT,
+    original_index INTEGER NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+);
+
+CREATE INDEX subtitle_cue_track_rev_idx ON subtitle_cue(track_id, revision);
+CREATE INDEX subtitle_cue_entry_idx ON subtitle_cue(entry_id);
+CREATE INDEX subtitle_cue_start_time_idx ON subtitle_cue(track_id, start_ms);
+
+CREATE VIRTUAL TABLE subtitle_cue_fts USING fts4(
+    cue_id,
+    track_id,
+    entry_id,
+    revision,
+    start_ms,
+    end_ms,
+    plain_text,
+    tokenize=unicode61
+);
+
+selectSubtitleTrackIndex:
+SELECT * FROM subtitle_track_index WHERE track_id = :track_id;
+
+selectSubtitleTrackIndexesForEntry:
+SELECT * FROM subtitle_track_index WHERE entry_id = :entry_id ORDER BY created_at ASC;
+
+selectAllSubtitleTrackIndexes:
+SELECT * FROM subtitle_track_index ORDER BY created_at ASC;
+
+selectActiveIndexingTrackIndexes:
+SELECT * FROM subtitle_track_index WHERE state = 'INDEXING';
+
+upsertSubtitleTrackIndex:
+INSERT OR REPLACE INTO subtitle_track_index (
+    track_id, entry_id, language, media_revision_token, track_revision,
+    active_revision, state, total_cues, timebase_offset_ms, error_message,
+    created_at, updated_at
+) VALUES (
+    :track_id, :entry_id, :language, :media_revision_token, :track_revision,
+    :active_revision, :state, :total_cues, :timebase_offset_ms, :error_message,
+    :created_at, :updated_at
+);
+
+updateSubtitleTrackIndexState:
+UPDATE subtitle_track_index
+SET state = :state,
+    error_message = :error_message,
+    updated_at = :updated_at
+WHERE track_id = :track_id;
+
+updateSubtitleTrackIndexCommittedRevision:
+UPDATE subtitle_track_index
+SET active_revision = :active_revision,
+    state = :state,
+    total_cues = :total_cues,
+    timebase_offset_ms = :timebase_offset_ms,
+    error_message = NULL,
+    updated_at = :updated_at
+WHERE track_id = :track_id;
+
+deleteSubtitleTrackIndex:
+DELETE FROM subtitle_track_index WHERE track_id = :track_id;
+
+deleteSubtitleTrackIndexesForEntry:
+DELETE FROM subtitle_track_index WHERE entry_id = :entry_id;
+
+invalidateSubtitleIndexesForEntry:
+UPDATE subtitle_track_index
+SET state = :state,
+    updated_at = :updated_at
+WHERE entry_id = :entry_id;
+
+insertSubtitleCue:
+INSERT OR REPLACE INTO subtitle_cue (
+    id, track_id, entry_id, revision, cue_id,
+    start_ms, end_ms, display_text, plain_text,
+    speaker, original_index, created_at
+) VALUES (
+    :id, :track_id, :entry_id, :revision, :cue_id,
+    :start_ms, :end_ms, :display_text, :plain_text,
+    :speaker, :original_index, :created_at
+);
+
+selectCuesForTrackAndRevision:
+SELECT * FROM subtitle_cue
+WHERE track_id = :track_id AND revision = :revision
+ORDER BY start_ms ASC, original_index ASC;
+
+selectActiveCuesForTrack:
+SELECT c.* FROM subtitle_cue c
+INNER JOIN subtitle_track_index i ON c.track_id = i.track_id
+WHERE c.track_id = :track_id AND c.revision = i.active_revision AND i.active_revision > 0
+ORDER BY c.start_ms ASC, c.original_index ASC;
+
+countCuesForTrackAndRevision:
+SELECT count(*) FROM subtitle_cue WHERE track_id = :track_id AND revision = :revision;
+
+deleteCuesForTrackAndRevision:
+DELETE FROM subtitle_cue WHERE track_id = :track_id AND revision = :revision;
+
+deleteCuesForTrackExceptRevision:
+DELETE FROM subtitle_cue WHERE track_id = :track_id AND revision != :active_revision;
+
+deleteCuesForTrack:
+DELETE FROM subtitle_cue WHERE track_id = :track_id;
+
+deleteCuesForEntry:
+DELETE FROM subtitle_cue WHERE entry_id = :entry_id;
+
+insertSubtitleCueFts:
+INSERT INTO subtitle_cue_fts(cue_id, track_id, entry_id, revision, start_ms, end_ms, plain_text)
+VALUES (:cue_id, :track_id, :entry_id, :revision, :start_ms, :end_ms, :plain_text);
+
+countFtsCuesForTrackAndRevision:
+SELECT count(*) FROM subtitle_cue_fts WHERE track_id = :track_id AND revision = :revision;
+
+deleteFtsCuesForTrackAndRevision:
+DELETE FROM subtitle_cue_fts WHERE track_id = :track_id AND revision = :revision;
+
+deleteFtsCuesForTrackExceptRevision:
+DELETE FROM subtitle_cue_fts WHERE track_id = :track_id AND revision != :active_revision;
+
+deleteFtsCuesForTrack:
+DELETE FROM subtitle_cue_fts WHERE track_id = :track_id;
+
+deleteFtsCuesForEntry:
+DELETE FROM subtitle_cue_fts WHERE entry_id = :entry_id;
+
+countCuesForTrackExceptRevision:
+SELECT count(*) FROM subtitle_cue WHERE track_id = :track_id AND revision != :active_revision;
+
+countFtsCuesForTrackExceptRevision:
+SELECT count(*) FROM subtitle_cue_fts WHERE track_id = :track_id AND revision != :active_revision;
+
+deleteOrphanedSubtitleCues:
+DELETE FROM subtitle_cue WHERE track_id NOT IN (SELECT track_id FROM subtitle_track_index);
+
+deleteOrphanedSubtitleFtsCues:
+DELETE FROM subtitle_cue_fts WHERE track_id NOT IN (SELECT track_id FROM subtitle_track_index);
+
+countOrphanedSubtitleCues:
+SELECT count(*) FROM subtitle_cue WHERE track_id NOT IN (SELECT track_id FROM subtitle_track_index);
+
+countOrphanedSubtitleFtsCues:
+SELECT count(*) FROM subtitle_cue_fts WHERE track_id NOT IN (SELECT track_id FROM subtitle_track_index);
+
+
+
+

@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX3.2 VERIFIED; pure Kotlin bounded SRT/VTT parser and normalization complete with 9 contract tests.**
+Updated: 2026-11-12. **NX3.3 VERIFIED; subtitle cue persistence, atomic index revision rebuild, FTS4 synchronization, and crash recovery complete with 15 contract tests.**
 
 Baseline: OpenYT 4.0.1; checkout `codex/nx2-3-owned-storage`.
-Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, SQLDelight schema 21 migration verified, FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms, and pure Kotlin bounded SRT/VTT parser with safe markup stripping, speaker extraction, and timebase offset shifting verified.
+Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, SQLDelight schema 21 migration verified, FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms, pure Kotlin bounded SRT/VTT parser with safe markup stripping, speaker extraction, and timebase offset shifting verified, and subtitle cue persistence with atomic revision rebuild, FTS4 virtual table synchronization, and crash recovery verified.
 
-Current task: NX3.2 verified; pure Kotlin bounded SRT/VTT parser, deterministic sorting, markup stripping, speaker extraction, and timebase shifting implemented. Next ready task is NX3.3 (persist cues and atomically rebuild an index revision).
+Current task: NX3.3 verified; subtitle cue persistence, atomic index revision rebuild, FTS4 virtual table synchronization, and crash recovery complete. Next ready task is NX3.4 (expose bounded text search).
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -44,7 +44,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 
 - [x] [NX3.1 — prove indexing capability on the shipped databases](03_TIMED_SEARCH.md#nx3-1) — VERIFIED (Pure KMP FtsCapabilityReport, SQLDelight SqliteFtsCapabilityProbe, FTS4 + unicode61 creation, binding, accent folding, CRUD, Android driver factory support, and measured 100,000-cue synthetic corpus p95 budget passed at 0.899 ms; 13 tests passing).
 - [x] [NX3.2 — parse and normalize timed subtitle tracks](03_TIMED_SEARCH.md#nx3-2) — VERIFIED (Pure Kotlin TimedSubtitleParser, TimedCue/ParsedSubtitleTrack domain models, bounded 10 MiB/100k cue limits, safe markup stripping, speaker extraction, and timebase offset shifting; 9 contract tests passing).
-- [ ] [NX3.3 — persist cues and atomically rebuild an index revision](03_TIMED_SEARCH.md#nx3-3) — PENDING.
+- [x] [NX3.3 — persist cues and atomically rebuild an index revision](03_TIMED_SEARCH.md#nx3-3) — VERIFIED (SQLDelight schema 21->22 migration, SqlDelightSubtitleIndexRepository, SubtitleIndexRebuilder, atomic revision swap, 1:1 B-tree and FTS count reconciliation, journaled crash recovery, and cancellation cleanup; 15 contract tests passing).
 - [ ] [NX3.4 — expose bounded text search](03_TIMED_SEARCH.md#nx3-4) — PENDING.
 - [ ] [NX3.5 — add entry-aware timed playback without losing history](03_TIMED_SEARCH.md#nx3-5) — PENDING.
 - [ ] [NX3.6 — deliver result navigation and empty/error states](03_TIMED_SEARCH.md#nx3-6) — PENDING.
@@ -735,6 +735,48 @@ Known limits / blocked checks / decisions needed:
 - Windows x64 and macOS native offline runs remain BLOCKED by unavailable native hosts.
 Next ready task and why its prerequisites are satisfied:
 - NX3.3 — persist cues and atomically rebuild an index revision: Parsed subtitle tracks and normalized cues (NX3.2) are complete and VERIFIED; database persistence and atomic index revisions can begin.
+```
+
+```
+Task: NX3.3 — persist cues and atomically rebuild an index revision
+Branch: codex/nx3-3-index-persistence
+Status: VERIFIED
+Evidence:
+- Tests:
+  - com.openyt.data.search.SqlDelightSubtitleIndexRepositoryTest (7 tests in :data:desktopTest, all passed):
+    - schemaUpgradeFromV21ToV22PreservesExistingDataAndCreatesSubtitleIndexTables
+    - atomicRevisionCommitRetainsUsableOldIndexUntilCommit
+    - reconcileCuesAndFtsRowCountsMatchExactly
+    - crashMidReindexCleansAbandonedRevisionRowsWithoutTouchingMedia
+    - deleteTrackCleansCueAndFtsRowsWithoutTouchingMediaFile
+    - deleteTrackIndexesForEntryCleansAllAssociatedTracks
+    - entryInvalidationTransitionsAllTracksToStale
+    - reopenDatabasePreservesIndexRevisionsAndCues
+  - com.openyt.core.application.SubtitleIndexRebuilderTest (8 tests in :core:desktopTest, all passed):
+    - buildsInitialIndexRevisionAtomicallyAndPersistsCues
+    - retainsUsableOldRevisionWhileBuildingNewRevision
+    - duplicateRetryForIdenticalMediaAndTrackRevisionShortCircuits
+    - cancellationLeavesOldRevisionIntactAndCleansPartialRows
+    - malformedSubtitleFormatReportsParseFailureAndCleansStaging
+    - fileExceedingMaxSizeReportsFailure
+    - missingFileFailsGracefully
+    - mediaInvalidationAndRemovalOperateCorrectly
+- Commands:
+  - ./gradlew :core:desktopTest :data:desktopTest (BUILD SUCCESSFUL, 13 actionable tasks)
+  - ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest (BUILD SUCCESSFUL, 212 actionable tasks)
+  - ./scripts/validate-linux.sh --scenario all --no-build --offline (validation passed, 4 skipped)
+Behavior changed:
+- Added SQLDelight migration 21 (21.sqm) creating tables subtitle_track_index, subtitle_cue, and virtual FTS4 table subtitle_cue_fts with unicode61 tokenizer, upgrading database user_version from 21 to 22 while preserving existing library_entry, download_task, download_profile, offline_asset, and asset_operation rows.
+- Added pure KMP domain models SubtitleTrackIndexRecord, SubtitleIndexState, and IndexReconcileSummary in core/domain.
+- Added SubtitleIndexRepository and SubtitleContentPort interfaces in core/application.
+- Added SubtitleIndexRebuilder in core/application implementing bounded (10 MiB / 100,000 cues), transactional, cancellable cue persistence and atomic revision commits without advertising partial results as complete indexes.
+- Added SqlDelightSubtitleIndexRepository in data/ implementing cue persistence, atomic revision swap (retaining older usable revision active until new revision commits), 1:1 B-tree and FTS count reconciliation, crash recovery journal reconciliation (cleanAbandonedRevisions), and track/entry cascade cleanup without touching source media files.
+- Added JvmSubtitleContentAdapter in data/src/jvmSharedMain implementing SubtitleContentPort using standard file IO on Dispatchers.IO.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device (Xiaomi 2311DRK48G); APK and test APK assembly pass.
+- Windows x64 and macOS native offline runs remain BLOCKED by unavailable native hosts.
+Next ready task and why its prerequisites are satisfied:
+- NX3.4 — expose bounded text search: Subtitle cue persistence and atomic index revisions (NX3.3) are complete and VERIFIED; query validation, FTS token escaping, pagination, and scoped search can begin.
 ```
 
 ## Native Matrix

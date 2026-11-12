@@ -211,6 +211,22 @@ Suggested groups: `SubtitleParserTest`, `TimedSearchRepositoryTest`,
     - Documented nonfatal error recovery: out-of-order sequence numbers, missing blank line separators between cues, empty text cues, and end times preceding start times (clamped with warning).
   - Status: **VERIFIED**.
 - **NX-S03:** atomic index revisions, invalidation and crash/restart behavior.
+  - Implemented by `com.openyt.data.search.SqlDelightSubtitleIndexRepositoryTest` (7 tests in `:data:desktopTest`) and `com.openyt.core.application.SubtitleIndexRebuilderTest` (8 tests in `:core:desktopTest`).
+  - Covers:
+    - Pure KMP domain models `SubtitleTrackIndexRecord`, `SubtitleIndexState` (`PENDING`, `INDEXING`, `READY`, `STALE`, `FAILED`), and `IndexReconcileSummary`;
+    - Core persistence port `SubtitleIndexRepository`, file check port `SubtitleContentPort`, and `JvmSubtitleContentAdapter` file reader;
+    - Cancellable, bounded reindex engine `SubtitleIndexRebuilder` enforcing 10 MiB / 100,000 cues limits, batch transactional cue persistence, and cooperative cancellation;
+    - SQLDelight migration 21 (`21.sqm`) creating tables `subtitle_track_index`, `subtitle_cue`, and virtual table `subtitle_cue_fts USING fts4(..., tokenize=unicode61)`, upgrading schema version from 21 to 22;
+    - Schema upgrade from v21 to v22 preserves existing `library_entry`, `download_task`, `download_profile`, `offline_asset`, and `asset_operation` rows;
+    - Atomic revision commit retaining usable old index while new revision stages: `loadActiveCues` strictly returns committed active revision cues, preventing partial results from being advertised as a complete current index;
+    - 1:1 count reconciliation between B-tree `subtitle_cue` and virtual table `subtitle_cue_fts` verified via `countCuesAndFts`;
+    - Cancellation mid-reindex cleans all staging cues and FTS rows via `abortRevision`, restoring previous usable revision intact;
+    - Crash recovery and journal reconciliation (`cleanAbandonedRevisions()`): recovers interrupted `INDEXING` tracks to `STALE` (if prior usable revision exists) or `FAILED`, purging all abandoned revision rows and orphaned cues without touching source media;
+    - Duplicate retry short-circuits without re-parsing when media revision token and track digest match existing `READY` record;
+    - Primary media invalidation (`invalidateForMediaChange` / `invalidateEntry`) transitions track indexes to `STALE`, retaining queryability of existing cues until a new revision commits;
+    - Track deletion (`deleteTrackIndex`) and entry deletion (`deleteTrackIndexesForEntry`) cleanly remove track records, cues, and FTS rows without touching source media files;
+    - Database reopen across restarts verifies persistence fidelity of track index records, cues, and FTS virtual tables.
+  - Status: **VERIFIED**.
 - **NX-S04:** literal bounded query/pagination/cancellation and scoped results.
 - **NX-S05:** actual prepared-player seek, entry identity and legacy queue bridge.
 - **NX-S06:** missing-index vs no-match UI and correct accessible timestamp action.
