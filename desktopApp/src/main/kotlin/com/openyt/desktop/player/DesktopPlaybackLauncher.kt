@@ -5,6 +5,7 @@ import com.openyt.core.application.PlayableMedia
 import com.openyt.core.application.PlaybackCapabilities
 import com.openyt.core.application.PlaybackCheckpoint
 import com.openyt.core.application.PlaybackLauncher
+import com.openyt.core.application.PlaybackPositionSnapshot
 import com.openyt.core.application.PlaybackQueue
 import com.openyt.core.application.PlaybackSessionControl
 import com.openyt.core.application.PlaybackSessionState
@@ -75,8 +76,12 @@ class DesktopPlaybackLauncher(
     private var vlcChecked = false
     private var vlcAvailable = false
     private val sessionGeneration = AtomicLong(0L)
+    private val snapshotLock = Any()
     @Volatile private var pendingSeekMillis: Long? = null
     private val writes = Channel<suspend () -> Unit>(Channel.UNLIMITED)
+
+    override val currentSessionGeneration: Long
+        get() = sessionGeneration.get()
 
     override val capabilities: PlaybackCapabilities
         get() = if (isVlcAvailable()) {
@@ -102,6 +107,42 @@ class DesktopPlaybackLauncher(
 
     override val durationMillis: Long
         get() = component?.mediaPlayer()?.status()?.length()?.coerceAtLeast(0L) ?: 0L
+
+    override fun captureSnapshot(): PlaybackPositionSnapshot? {
+        val activeComponent = component
+        if (activeComponent != null) {
+            return runOnEdt {
+                val media = loadedMedia ?: return@runOnEdt null
+                val player = component?.mediaPlayer()
+                val status = player?.status()
+                val position = status?.time()?.takeIf { it >= 0L } ?: lastSavedTime
+                val duration = status?.length()?.coerceAtLeast(0L) ?: 0L
+                PlaybackPositionSnapshot(
+                    entryId = media.entryId,
+                    mediaPath = media.path,
+                    title = media.title,
+                    state = state,
+                    capabilities = capabilities,
+                    positionMillis = position.coerceAtLeast(0L),
+                    durationMillis = duration,
+                    sessionGeneration = sessionGeneration.get(),
+                )
+            }
+        }
+        return synchronized(snapshotLock) {
+            val media = loadedMedia ?: return@synchronized null
+            PlaybackPositionSnapshot(
+                entryId = media.entryId,
+                mediaPath = media.path,
+                title = media.title,
+                state = state,
+                capabilities = capabilities,
+                positionMillis = lastSavedTime.coerceAtLeast(0L),
+                durationMillis = 0L,
+                sessionGeneration = sessionGeneration.get(),
+            )
+        }
+    }
 
     init {
         scope.launch { for (write in writes) runCatching { write() } }
@@ -166,15 +207,21 @@ class DesktopPlaybackLauncher(
     ): Boolean {
         val item = items.getOrNull(startIndex) ?: return false
         if (!File(item.path).isFile) {
-            state = PlaybackSessionState.ERROR
-            loadedMedia = null
+            synchronized(snapshotLock) {
+                state = PlaybackSessionState.ERROR
+                loadedMedia = null
+                sessionGeneration.incrementAndGet()
+            }
             SwingUtilities.invokeLater { showPlaybackError() }
             return false
         }
         if (!isVlcAvailable()) {
             val position = startPositionMillis ?: store.position(item.path, item.entryId)?.resumeMillis ?: 0L
-            lastSavedTime = clampSeekPosition(position, 0L)
-            queue = PlaybackQueue.of(items, startIndex)
+            synchronized(snapshotLock) {
+                lastSavedTime = clampSeekPosition(position, 0L)
+                queue = PlaybackQueue.of(items, startIndex)
+                sessionGeneration.incrementAndGet()
+            }
             val checkpoint = PlaybackCheckpoint(
                 positionMillis = lastSavedTime,
                 durationMillis = 0L,
@@ -206,11 +253,12 @@ class DesktopPlaybackLauncher(
 
     override suspend fun seekTo(positionMillis: Long): Boolean {
         if (!capabilities.canSeek) return false
-        if (loadedMedia == null && state != PlaybackSessionState.PREPARING) return false
         val player = component?.mediaPlayer() ?: return false
         return runOnEdt {
+            if (loadedMedia == null && state != PlaybackSessionState.PREPARING) return@runOnEdt false
             val duration = player.status().length()
             val clamped = clampSeekPosition(positionMillis, duration)
+            lastSavedTime = clamped
             if (state == PlaybackSessionState.PREPARING) {
                 pendingSeekMillis = clamped
                 true
@@ -279,12 +327,14 @@ class DesktopPlaybackLauncher(
             checkpoint()
             val frame = window
             val player = component
-            component = null
-            window = null
-            loadedMedia = null
-            state = PlaybackSessionState.IDLE
-            pendingSeekMillis = null
-            sessionGeneration.incrementAndGet()
+            synchronized(snapshotLock) {
+                component = null
+                window = null
+                loadedMedia = null
+                state = PlaybackSessionState.IDLE
+                pendingSeekMillis = null
+                sessionGeneration.incrementAndGet()
+            }
             mini = false
             fullBounds = null
             seekSlider = null
@@ -530,13 +580,19 @@ class DesktopPlaybackLauncher(
             runCatching { mediaActions.open(ShareableMedia(item.path, item.title, item.kind)) }.getOrDefault(false)
         }
         if (!opened) {
-            state = PlaybackSessionState.ERROR
-            loadedMedia = null
+            synchronized(snapshotLock) {
+                state = PlaybackSessionState.ERROR
+                loadedMedia = null
+                sessionGeneration.incrementAndGet()
+            }
             SwingUtilities.invokeLater { showPlaybackError() }
             return false
         } else {
-            state = PlaybackSessionState.PLAYING
-            loadedMedia = item
+            synchronized(snapshotLock) {
+                state = PlaybackSessionState.PLAYING
+                loadedMedia = item
+                sessionGeneration.incrementAndGet()
+            }
             return true
         }
     }

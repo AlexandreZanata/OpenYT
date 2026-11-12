@@ -1,12 +1,22 @@
 package com.openyt.desktop.player
 
+import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.MediaActions
 import com.openyt.core.application.MemoryPlaybackStore
+import com.openyt.core.application.MemoryStudyRepository
 import com.openyt.core.application.PlayableMedia
 import com.openyt.core.application.PlaybackCheckpoint
 import com.openyt.core.application.PlaybackSessionState
+import com.openyt.core.application.StudyCaptureAndNavigationService
+import com.openyt.core.application.StudyService
+import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.ShareableMedia
+import com.openyt.core.domain.StudyCaptureFailure
+import com.openyt.core.domain.StudyCaptureResult
+import com.openyt.core.domain.StudyNavigationResult
+import com.openyt.core.domain.StudyNote
+import com.openyt.core.domain.StudyResult
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.CountDownLatch
@@ -120,13 +130,78 @@ class DesktopPlaybackSessionTest {
 
         try {
             val item = PlayableMedia(file.absolutePath, "Close Test", MediaKind.VIDEO, "close-1")
+            assertNull(launcher.captureSnapshot())
             launcher.openAt(listOf(item), 0)
             assertEquals(item, launcher.loadedMedia)
+            val snap = launcher.captureSnapshot()
+            assertNotNull(snap)
+            assertEquals("close-1", snap.entryId)
+            assertTrue(snap.sessionGeneration > 0L)
 
             launcher.close()
             assertEquals(PlaybackSessionState.IDLE, launcher.state)
             assertNull(launcher.loadedMedia)
+            assertNull(launcher.captureSnapshot())
             assertEquals(0L, launcher.currentPositionMillis)
+        } finally {
+            launcher.close()
+            scope.cancel()
+            file.delete()
+        }
+    }
+
+    @Test
+    fun externalDesktopLauncherRejectsStudyCaptureAndTimestampNavigationCleanly() = runBlocking {
+        val file = Files.createTempFile("openyt-study-fallback-", ".mp4").toFile()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val actions = object : MediaActions {
+            override val canOpen = true
+            override val canShare = false
+            override val canReveal = false
+            override fun share(media: List<ShareableMedia>, chooserTitle: String) = Unit
+            override fun reveal(media: ShareableMedia) = false
+            override fun open(media: ShareableMedia): Boolean = true
+        }
+        val launcher = DesktopPlaybackLauncher(
+            store = MemoryPlaybackStore(),
+            scope = scope,
+            mediaActions = actions,
+            runtimeAvailable = { false },
+        )
+        val studyRepo = MemoryStudyRepository()
+        val entry = LibraryEntry(
+            id = "entry-desk-1",
+            title = "Desktop Sample",
+            kind = MediaKind.VIDEO,
+            filePath = file.absolutePath,
+            sizeBytes = file.length(),
+        )
+        studyRepo.putLibraryEntry(entry)
+        val studyService = StudyService(studyRepo, nowEpochMillis = { 10_000L }, nextId = { "n-desk-1" })
+        val navService = StudyCaptureAndNavigationService(
+            studyService = studyService,
+            playbackLauncher = launcher,
+            playbackStore = MemoryPlaybackStore(),
+            entryProvider = { listOf(entry) },
+            fileAvailability = FileAvailability { File(it).isFile },
+        )
+
+        try {
+            // Stopped session refuses capture
+            val stoppedCapture = navService.captureAndCreateNote("Stopped test")
+            assertTrue(stoppedCapture is StudyCaptureResult.Failure)
+            assertTrue(stoppedCapture.failure is StudyCaptureFailure.PlayerStopped)
+
+            // Playing via external fallback still refuses live capture and timestamp navigation
+            val item = PlayableMedia(entry.filePath, entry.title, entry.kind, entry.id)
+            assertTrue(launcher.openAt(listOf(item), 0, startPositionMillis = 12_000L))
+            val fallbackCapture = navService.captureAndCreateNote("Fallback test")
+            assertTrue(fallbackCapture is StudyCaptureResult.Failure)
+            assertTrue(fallbackCapture.failure is StudyCaptureFailure.CapabilityUnsupported)
+
+            val savedNote = (studyService.createNote(entry.id, 12_000L, "Saved desktop note") as StudyResult.Success<StudyNote>).value
+            val navResult = navService.openNoteTimestamp(savedNote.id)
+            assertTrue(navResult is StudyNavigationResult.CapabilityUnsupported)
         } finally {
             launcher.close()
             scope.cancel()

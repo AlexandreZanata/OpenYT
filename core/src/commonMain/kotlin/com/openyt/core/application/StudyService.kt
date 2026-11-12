@@ -293,6 +293,15 @@ class StudyService(
         return StudyResult.Success(state)
     }
 
+    suspend fun getNoteById(noteId: String): StudyNote? =
+        repository.getNoteById(noteId)
+
+    suspend fun getBookmarkById(bookmarkId: String): StudyBookmark? =
+        repository.getBookmarkById(bookmarkId)
+
+    suspend fun getSavedRangeById(rangeId: String): SavedStudyRange? =
+        repository.getSavedRangeById(rangeId)
+
     suspend fun loadEntryStudyBundle(entryId: String): EntryStudyBundle =
         repository.loadEntryStudyBundle(entryId)
 

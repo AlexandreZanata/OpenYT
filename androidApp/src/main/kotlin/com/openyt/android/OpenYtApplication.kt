@@ -42,7 +42,14 @@ import com.openyt.core.application.SubtitleIndexRepository
 import com.openyt.core.application.TimedSearchRepository
 import com.openyt.core.application.TimedSearchUseCase
 import com.openyt.core.application.OfflineAssetRepository
+import com.openyt.core.application.FileAvailability
+import com.openyt.core.application.PlaybackLauncher
+import com.openyt.core.application.StudyCaptureAndNavigationService
+import com.openyt.core.application.StudyEditorCoordinator
+import com.openyt.core.application.StudyRepository
+import com.openyt.core.application.StudyService
 import com.openyt.data.SqlDelightPlaybackStore
+import com.openyt.data.SqlDelightStudyRepository
 import com.openyt.data.SqlDelightSubscriptions
 import com.openyt.data.SqlDelightSubtitleIndexRepository
 import com.openyt.data.search.SqlDelightTimedSearchRepository
@@ -141,6 +148,33 @@ class AppContainer(context: Context) {
     val renderingCacheBytes: () -> Long = { appContext.cacheDir.directorySize() }
 
     val playbackStore = database.getOrNull()?.let(::SqlDelightPlaybackStore) ?: MemoryPlaybackStore()
+
+    val studyRepository: StudyRepository? =
+        database.getOrNull()?.let(::SqlDelightStudyRepository)
+    val studyService: StudyService? =
+        studyRepository?.let { repo ->
+            StudyService(
+                repository = repo,
+                nowEpochMillis = { System.currentTimeMillis() },
+                nextId = { java.util.UUID.randomUUID().toString() },
+            )
+        }
+    val studyEditorCoordinator: StudyEditorCoordinator = StudyEditorCoordinator()
+
+    fun createStudyCaptureAndNavigationService(
+        playbackLauncher: PlaybackLauncher?,
+    ): StudyCaptureAndNavigationService? {
+        val service = studyService ?: return null
+        return StudyCaptureAndNavigationService(
+            studyService = service,
+            playbackLauncher = playbackLauncher,
+            playbackStore = playbackStore,
+            entryProvider = { coordinator.library.value },
+            fileAvailability = FileAvailability { File(it).isFile },
+            mediaProbe = mediaProbe,
+            nowEpochMillis = { System.currentTimeMillis() },
+        )
+    }
 
     val settingsRepository: SettingsRepository? =
         database.getOrNull()?.let(::SqlDelightSettingsRepository)

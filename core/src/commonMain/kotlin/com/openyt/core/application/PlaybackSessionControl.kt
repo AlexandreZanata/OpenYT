@@ -21,6 +21,25 @@ data class PlaybackCapabilities(
 )
 
 /**
+ * Immutable atomic snapshot of the currently loaded playback item and its
+ * timing/capabilities, captured together to prevent torn reads across queue switches.
+ */
+@Serializable
+data class PlaybackPositionSnapshot(
+    val entryId: String?,
+    val mediaPath: String,
+    val title: String,
+    val state: PlaybackSessionState,
+    val capabilities: PlaybackCapabilities,
+    val positionMillis: Long,
+    val durationMillis: Long,
+    val sessionGeneration: Long = 0L,
+) {
+    val knownDurationMillis: Long?
+        get() = durationMillis.takeIf { it > 0L }
+}
+
+/**
  * Clamps seek positions to valid ranges: non-negative and bounded by duration if positive.
  */
 fun clampSeekPosition(requestedMillis: Long, durationMillis: Long = 0L): Long {
@@ -37,6 +56,26 @@ interface PlaybackSessionControl {
     val capabilities: PlaybackCapabilities
     val currentPositionMillis: Long
     val durationMillis: Long
+    val currentSessionGeneration: Long
+        get() = 0L
+
+    /**
+     * Atomically captures the loaded media identity, state, capabilities, position,
+     * duration, and session generation, or returns null when nothing is loaded.
+     */
+    fun captureSnapshot(): PlaybackPositionSnapshot? {
+        val media = loadedMedia ?: return null
+        return PlaybackPositionSnapshot(
+            entryId = media.entryId,
+            mediaPath = media.path,
+            title = media.title,
+            state = state,
+            capabilities = capabilities,
+            positionMillis = currentPositionMillis.coerceAtLeast(0L),
+            durationMillis = durationMillis.coerceAtLeast(0L),
+            sessionGeneration = currentSessionGeneration,
+        )
+    }
 
     suspend fun openAt(
         items: List<PlayableMedia>,

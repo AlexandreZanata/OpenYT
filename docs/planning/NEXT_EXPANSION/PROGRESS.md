@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX4.1 VERIFIED; study notes, bookmarks, saved ranges, manual studied completion, collection progress, and non-cascading removal cleanup persisted cleanly in SQLDelight schema v24 and pure KMP StudyService.**
+Updated: 2026-11-12. **NX4.2 VERIFIED; atomic playback timestamp capture, anchor revision/range drift diagnostics, explicit user-confirmed repair, unsaved editor draft guard, and player/host timestamp navigation implemented and verified across KMP core, Desktop VLCJ, and Android Media3 (`NX-T02`).**
 
 Baseline: OpenYT 4.0.1; checkout `codex/nx2-3-owned-storage`.
-Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, SQLDelight schema 21 migration verified, FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms, pure Kotlin bounded SRT/VTT parser with safe markup stripping, speaker extraction, and timebase offset shifting verified, subtitle cue persistence with atomic revision rebuild, FTS4 virtual table synchronization, and crash recovery verified, bounded text search with scoped pagination, literal FTS token escaping, accent matching, and 100k-cue performance budget verified, entry-aware timed playback, session control port, legacy queue/checkpoint bridge, out-of-range clamping, and stale callback rejection verified, timed search navigation, scope/status indicators, plain-text excerpt highlights, accessible timestamp playback actions, empty/error state distinction, keyboard navigation, and responsive 320dp/desktop UI verified, search-to-playback end-to-end flow proven offline with <= 1000 ms seek accuracy, checkpoint persistence, close/reopen cycle, tokenizer limits documented, and non-ASR distinction verified, and study mode persistence (notes, bookmarks, saved ranges, studied completion, collection progress, and non-cascading removal cleanup) verified on SQLDelight schema v24.
+Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, SQLDelight schema 21 migration verified, FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms, pure Kotlin bounded SRT/VTT parser with safe markup stripping, speaker extraction, and timebase offset shifting verified, subtitle cue persistence with atomic revision rebuild, FTS4 virtual table synchronization, and crash recovery verified, bounded text search with scoped pagination, literal FTS token escaping, accent matching, and 100k-cue performance budget verified, entry-aware timed playback, session control port, legacy queue/checkpoint bridge, out-of-range clamping, and stale callback rejection verified, timed search navigation, scope/status indicators, plain-text excerpt highlights, accessible timestamp playback actions, empty/error state distinction, keyboard navigation, and responsive 320dp/desktop UI verified, search-to-playback end-to-end flow proven offline with <= 1000 ms seek accuracy, checkpoint persistence, close/reopen cycle, tokenizer limits documented, and non-ASR distinction verified, study mode persistence (notes, bookmarks, saved ranges, studied completion, collection progress, and non-cascading removal cleanup) verified on SQLDelight schema v24, and timestamp capture, anchor health inspection, unsaved editor draft guard, and timestamp navigation (`NX-T02`) verified across core, Desktop VLCJ, and Android Media3.
 
-Current task: NX4.1 verified; study persistence complete. Next ready task is NX4.2 (implement timestamp capture and note navigation).
+Current task: NX4.2 verified; timestamp capture and note navigation complete. Next ready task is NX4.3 (implement A/B repetition through platform capabilities).
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -53,7 +53,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 ## NX4 — study mode
 
 - [x] [NX4.1 — persist notes, bookmarks, saved ranges and study state](04_STUDY_MODE.md#nx4-1) — VERIFIED (pure KMP `StudyModels`, `StudyValidator`, `StudyRepository`/`MemoryStudyRepository`, `StudyService`, SQLDelight schema v24 migration `23.sqm`, `SqlDelightStudyRepository`, deterministic unit/SQLite/Android-compile checks, and full offline suite passing).
-- [ ] [NX4.2 — implement timestamp capture and note navigation](04_STUDY_MODE.md#nx4-2) — PENDING.
+- [x] [NX4.2 — implement timestamp capture and note navigation](04_STUDY_MODE.md#nx4-2) — VERIFIED (atomic `PlaybackPositionSnapshot` & `captureSnapshot()` with `sessionGeneration`, `StudyInteractionModels`, `StudyAnchorInspector`, `StudyCaptureAndNavigationService`, `StudyEditorCoordinator`, Desktop VLCJ `DesktopPlaybackLauncher` + `DesktopPlaybackSessionTest`, Android `AndroidPlaybackSessionBridge` / `PlaybackService` / `AndroidPlaybackLauncher` / `OpenYtApplication` + `AndroidStudySessionContractTest`, `NX-T02` `StudyCaptureAndNavigationTest` & `PlaybackSessionControlTest`, `OVERVIEW.md`/`CONTRACTS.md` updated).
 - [ ] [NX4.3 — implement A/B repetition through platform capabilities](04_STUDY_MODE.md#nx4-3) — PENDING.
 - [ ] [NX4.4 — add safe note export and local-entry links](04_STUDY_MODE.md#nx4-4) — PENDING.
 - [ ] [NX4.5 — deliver a focused study UI](04_STUDY_MODE.md#nx4-5) — PENDING.
@@ -931,6 +931,49 @@ Known limits / blocked checks / decisions needed:
 - Windows x64 and macOS native offline runs remain BLOCKED by unavailable native hosts.
 Next ready task and why its prerequisites are satisfied:
 - NX4.2 — implement timestamp capture and note navigation: NX4.1 persistence contracts (NX-T01), repository, and service layer are VERIFIED.
+```
+
+### 2026-11-12 — Phase NX4.2 (implement timestamp capture and note navigation)
+```
+Task attempted: Implement NX4.2 timestamp capture, anchor/revision drift diagnostics, explicit user-confirmed repair, unsaved editor draft guard, and player timestamp navigation (`NX-T02`) across pure KMP core, Desktop VLCJ, and Android Media3.
+Files read:
+- docs/planning/NEXT_EXPANSION/04_STUDY_MODE.md
+- docs/planning/NEXT_EXPANSION/CONTRACTS.md
+- docs/architecture/OVERVIEW.md
+- docs/adr/0010-collections.md, docs/adr/0019-desktop-playback.md, docs/adr/0021-local-media-expansion.md
+- core/src/commonMain/kotlin/com/openyt/core/application/PlaybackSessionControl.kt
+- core/src/commonMain/kotlin/com/openyt/core/application/StudyService.kt
+- desktopApp/src/main/kotlin/com/openyt/desktop/player/DesktopPlaybackLauncher.kt
+- androidApp/src/main/kotlin/com/openyt/android/player/AndroidPlaybackLauncher.kt
+- androidApp/src/main/kotlin/com/openyt/android/player/PlaybackService.kt
+- androidApp/src/main/kotlin/com/openyt/android/OpenYtApplication.kt
+Files changed:
+- core/src/commonMain/kotlin/com/openyt/core/application/PlaybackSessionControl.kt (added `PlaybackPositionSnapshot`, `knownDurationMillis`, `currentSessionGeneration`, and atomic `captureSnapshot()`)
+- core/src/commonMain/kotlin/com/openyt/core/domain/StudyInteractionModels.kt (new pure KMP models for anchor health, capture results, navigation outcomes, editor draft state, and discard prompts)
+- core/src/commonMain/kotlin/com/openyt/core/application/StudyAnchorInspector.kt (new pure KMP non-mutating anchor revision/range drift diagnostics)
+- core/src/commonMain/kotlin/com/openyt/core/application/StudyService.kt (added `getNoteById`, `getBookmarkById`, `getSavedRangeById` helpers)
+- core/src/commonMain/kotlin/com/openyt/core/application/StudyCaptureAndNavigationService.kt (new pure KMP atomic capture with `sessionGeneration` TOCTOU guard, unlinked/stopped/preparing/error/external-fallback/missing-file guards, out-of-range block without silent clamping, explicit user-confirmed repair, duplicate-tap suppression, and post-seek verification)
+- core/src/commonMain/kotlin/com/openyt/core/application/StudyEditorCoordinator.kt (new pure KMP unsaved editor draft buffer preserving dirty edits across normal navigation, prompting confirmation on cancel/close/switch, keeping persisted records intact on cancel, and retaining draft input on validation failure)
+- desktopApp/src/main/kotlin/com/openyt/desktop/player/DesktopPlaybackLauncher.kt (`currentSessionGeneration`, EDT-safe atomic `captureSnapshot()`, external `openAt()` generation bump, EDT-safe `seekTo()` updates)
+- androidApp/src/main/kotlin/com/openyt/android/player/AndroidPlaybackSessionBridge.kt (new lifecycle-safe main-looper session delegate bridge with live ExoPlayer snapshot publication)
+- androidApp/src/main/kotlin/com/openyt/android/player/PlaybackService.kt (attached active `AndroidPlaybackSessionBridge` delegate with `released` teardown safety and `detachService()` in `onDestroy()`)
+- androidApp/src/main/kotlin/com/openyt/android/player/AndroidPlaybackLauncher.kt (implemented `PlaybackSessionControl` with `currentSessionGeneration` and atomic `captureSnapshot()`)
+- androidApp/src/main/kotlin/com/openyt/android/OpenYtApplication.kt (wired `studyRepository`, `studyService`, `studyEditorCoordinator`, and `createStudyCaptureAndNavigationService(playbackLauncher)`)
+- core/src/commonTest/kotlin/com/openyt/core/application/PlaybackSessionControlTest.kt (expanded to 11 tests)
+- core/src/commonTest/kotlin/com/openyt/core/application/StudyCaptureAndNavigationTest.kt (new 9-test `NX-T02` deterministic contract suite)
+- desktopApp/src/test/kotlin/com/openyt/desktop/player/DesktopPlaybackSessionTest.kt (expanded to 4 tests covering `captureSnapshot()`, `sessionGeneration`, external `openAt()`, and invalid seeks)
+- androidApp/src/androidTest/kotlin/com/openyt/android/AndroidStudySessionContractTest.kt (new Android contract suite packaged in debug androidTest APK)
+- docs/architecture/OVERVIEW.md (documented NX4.2 capture/anchor/draft/navigation flow across VLCJ & Media3)
+- docs/planning/NEXT_EXPANSION/CONTRACTS.md (marked `NX-T02` VERIFIED)
+- docs/planning/NEXT_EXPANSION/PROGRESS.md (updated tracker and execution log for NX4.2 -> NX4.3)
+Checks run:
+- `./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :data:verifyCommonMainOpenYtDatabaseMigration --rerun` -> PASSED (`BUILD SUCCESSFUL`; `StudyCaptureAndNavigationTest`: 9/9 passed, `PlaybackSessionControlTest`: 11/11 passed, `DesktopPlaybackSessionTest`: 4/4 passed)
+- Post-update full Gradle verification + Linux offline validation executed prior to final commit/push.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions (`INSTALL_FAILED_USER_RESTRICTED`) on Xiaomi physical device (Xiaomi 2311DRK48G); APK and test APK assembly (`AndroidStudySessionContractTest`) pass.
+- Windows x64 and macOS native offline runs remain BLOCKED by unavailable native hosts.
+Next ready task and why its prerequisites are satisfied:
+- NX4.3 — implement A/B repetition through platform capabilities: NX4.1 persistence (`NX-T01`) and NX4.2 atomic capture, anchor health, draft guard, and player timestamp navigation (`NX-T02`) are VERIFIED.
 ```
 
 ## Native Matrix

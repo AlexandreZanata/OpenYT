@@ -212,7 +212,33 @@ class PlaybackSessionControlTest {
         harness.close()
         assertEquals(PlaybackSessionState.IDLE, harness.state)
         assertNull(harness.loadedMedia)
+        assertNull(harness.captureSnapshot())
         assertEquals(0L, harness.currentPositionMillis)
+    }
+
+    @Test
+    fun captureSnapshotReturnsAtomicEntryTimingAndGeneration() = runBlocking {
+        val harness = FakePlaybackSessionHarness()
+        assertNull(harness.captureSnapshot())
+
+        val item1 = PlayableMedia("/path/item1.mp4", "Item 1", MediaKind.VIDEO, "entry-1")
+        harness.openAt(listOf(item1), 0, startPositionMillis = 14_250L)
+        val preparingSnap = harness.captureSnapshot()
+        assertNotNull(preparingSnap)
+        assertEquals("entry-1", preparingSnap.entryId)
+        assertEquals(PlaybackSessionState.PREPARING, preparingSnap.state)
+
+        harness.simulatePrepareComplete(durationMillis = 60_000L)
+        val playingSnap = harness.captureSnapshot()
+        assertNotNull(playingSnap)
+        assertEquals("entry-1", playingSnap.entryId)
+        assertEquals(14_250L, playingSnap.positionMillis)
+        assertEquals(60_000L, playingSnap.durationMillis)
+        assertEquals(60_000L, playingSnap.knownDurationMillis)
+        assertEquals(harness.currentSessionGeneration, playingSnap.sessionGeneration)
+
+        harness.stop()
+        assertNull(harness.captureSnapshot())
     }
 }
 
@@ -234,6 +260,8 @@ private class FakePlaybackSessionHarness(
         private set
     override var durationMillis: Long = 0L
         private set
+    override val currentSessionGeneration: Long
+        get() = generation
 
     var generation: Long = 0L
         private set

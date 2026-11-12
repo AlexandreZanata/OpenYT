@@ -3,21 +3,84 @@ package com.openyt.android.player
 import android.content.Context
 import android.content.Intent
 import com.openyt.core.application.PlayableMedia
+import com.openyt.core.application.PlaybackCapabilities
 import com.openyt.core.application.PlaybackLauncher
+import com.openyt.core.application.PlaybackPositionSnapshot
+import com.openyt.core.application.PlaybackSessionControl
+import com.openyt.core.application.PlaybackSessionState
+import com.openyt.core.application.clampSeekPosition
+import java.io.File
 
 class AndroidPlaybackLauncher(
     private val context: Context,
     private val store: com.openyt.core.application.PlaybackStore? = null,
-) : PlaybackLauncher {
+) : PlaybackLauncher, PlaybackSessionControl {
     override val canPlay: Boolean = true
+
+    override val loadedMedia: PlayableMedia?
+        get() = AndroidPlaybackSessionBridge.currentBridgeState().media
+
+    override val state: PlaybackSessionState
+        get() = AndroidPlaybackSessionBridge.currentBridgeState().state
+
+    override val capabilities: PlaybackCapabilities
+        get() = AndroidPlaybackSessionBridge.defaultCapabilities
+
+    override val currentPositionMillis: Long
+        get() = AndroidPlaybackSessionBridge.currentBridgeState().snapshot?.positionMillis ?: 0L
+
+    override val durationMillis: Long
+        get() = AndroidPlaybackSessionBridge.currentBridgeState().snapshot?.durationMillis ?: 0L
+
+    override val currentSessionGeneration: Long
+        get() = AndroidPlaybackSessionBridge.currentGeneration()
+
+    override fun captureSnapshot(): PlaybackPositionSnapshot? =
+        AndroidPlaybackSessionBridge.currentBridgeState().snapshot
 
     override suspend fun resumeLastSession(): Boolean {
         val queue = store?.loadQueue() ?: return false
-        val items = queue.items.filter { java.io.File(it.path).isFile }
+        val items = queue.items.filter { File(it.path).isFile }
         if (items.isEmpty()) return false
         val index = items.indexOfFirst { it.path == queue.current?.path }.coerceAtLeast(0)
         play(items, index)
         return true
+    }
+
+    override suspend fun openAt(
+        items: List<PlayableMedia>,
+        startIndex: Int,
+        startPositionMillis: Long?,
+    ): Boolean {
+        val item = items.getOrNull(startIndex) ?: return false
+        val reachable = item.path.startsWith("content://") || File(item.path).isFile
+        if (!reachable) {
+            AndroidPlaybackSessionBridge.markError()
+            return false
+        }
+        val clamped = startPositionMillis?.let { clampSeekPosition(it, 0L) }
+        AndroidPlaybackSessionBridge.markPreparing(item, clamped)
+        playAt(items, startIndex, clamped ?: -1L)
+        return true
+    }
+
+    override suspend fun seekTo(positionMillis: Long): Boolean =
+        AndroidPlaybackSessionBridge.seekTo(positionMillis)
+
+    override suspend fun pause() {
+        AndroidPlaybackSessionBridge.pause()
+    }
+
+    override suspend fun play() {
+        AndroidPlaybackSessionBridge.play()
+    }
+
+    override suspend fun stop() {
+        AndroidPlaybackSessionBridge.stop()
+    }
+
+    override fun close() {
+        AndroidPlaybackSessionBridge.stop()
     }
 
     override fun play(items: List<PlayableMedia>, startIndex: Int) {
