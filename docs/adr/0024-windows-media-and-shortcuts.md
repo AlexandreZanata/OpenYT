@@ -26,6 +26,10 @@ did not request desktop or Start-menu shortcuts.
   clicks while busy, and report failures with localized recovery instructions.
   Both Library and Downloads use this component. External playback reuses the
   same MediaActions adapter.
+- Release playback's native component synchronously on the Swing event thread,
+  before disposing its video surface or exiting the JVM. Window closing uses the
+  same idempotent teardown; callbacks from an old component cannot update a newly
+  opened player. Deferred windowClosed cleanup can race JNA's shutdown unload.
 - Bundle the unmodified official **VLC 3.0.24 Windows x64** core DLLs/plugins,
   excluding DVD/Blu-ray access. Prefer those DLLs over installed VLC. Linux and
   macOS retain discovery of separately installed libvlc and system-player fallback.
@@ -58,6 +62,7 @@ References:
 - [VLC 3.0.24 corresponding source](https://download.videolan.org/pub/videolan/vlc/3.0.24/vlc-3.0.24.tar.xz)
 - [SHOpenFolderAndSelectItems](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shopenfolderandselectitems)
 - [ShellFolderView.SelectItem](https://learn.microsoft.com/en-us/windows/win32/shell/shellfolderview-selectitem)
+- [VLCJ resource cleanup](https://www.capricasoftware.co.uk/tutorials/vlcj/4/my-first-media-player)
 - [Compose native distribution options](https://kotlinlang.org/docs/multiplatform/compose-native-distribution.html)
 
 ## Evidence and limits

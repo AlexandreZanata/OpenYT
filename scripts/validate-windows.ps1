@@ -26,7 +26,20 @@ function Run-Launcher([string]$Path, [string[]]$Arguments, [string]$Name) {
         -RedirectStandardOutput (Join-Path $work "$Name.log") -RedirectStandardError (Join-Path $work "$Name.err")
     # Retain the native handle before a short-lived CLI process can exit.
     $null = $process.Handle
-    if (!$process.WaitForExit(90000)) { $process.Kill(); throw "$Name timed out" }
+    if (!$process.WaitForExit(90000)) {
+        try {
+            $jcmd = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME 'bin/jcmd.exe' }
+            if ($jcmd -and (Test-Path $jcmd)) {
+                $diagnostic = Start-Process $jcmd -ArgumentList @($process.Id, 'Thread.print') -PassThru `
+                    -RedirectStandardOutput (Join-Path $work "$Name-threads.log") -RedirectStandardError (Join-Path $work "$Name-threads.err")
+                $null = $diagnostic.Handle
+                if (!$diagnostic.WaitForExit(5000)) { $diagnostic.Kill() }
+            }
+        } catch { Write-Output 'Thread diagnostic unavailable' }
+        finally { try { $process.Kill() } catch { } }
+        Get-Content (Join-Path $work "$Name.log"), (Join-Path $work "$Name.err") -Tail 20
+        throw "$Name timed out"
+    }
     $process.WaitForExit()
     $process.Refresh()
     if ($process.ExitCode -ne 0) { Get-Content (Join-Path $work "$Name.err"); throw "$Name failed: $($process.ExitCode)" }
@@ -154,7 +167,9 @@ function Validate-Installed([string]$Format) {
         $previousPlugins = $env:VLC_PLUGIN_PATH
         $env:VLC_PLUGIN_PATH = Join-Path $work 'incompatible-vlc-plugins'
         try {
-            Run-Launcher $testExe @('play', ('"' + (Join-Path $work "$Format-vídeo & ação.mp4") + '"')) "$Format-play"
+            foreach ($cycle in 1..3) {
+                Run-Launcher $testExe @('play', ('"' + (Join-Path $work "$Format-vídeo & ação.mp4") + '"')) "$Format-play-$cycle"
+            }
         } finally { $env:VLC_PLUGIN_PATH = $previousPlugins }
         Copy-Item (Join-Path $work 'windows-playback.png') (Join-Path $work "$Format-playback.png") -Force
         Copy-Item (Join-Path $work 'windows-video-surface.png') (Join-Path $work "$Format-video-surface.png") -Force

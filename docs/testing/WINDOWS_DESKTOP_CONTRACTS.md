@@ -57,6 +57,15 @@ A rejected action must display localized recovery instructions and an operable
 Close action. Missing files must not be reported as successfully opened; native
 exceptions must not escape as raw diagnostics or disappear silently.
 
+## W06 — Playback processes finish cleanly
+
+Each installer must pass three independent playback processes, including real
+video, mini-player and process exit. Printing PASS before a stuck JVM exits does
+not satisfy the contract. VLC resources are released synchronously before frame
+disposal; queued callbacks from the released player must not affect a new player.
+The launcher wait remains bounded. When a JDK diagnostic tool is available, a
+timeout captures a thread dump before terminating the test process.
+
 ## Execution
 
 Deterministic path/action and shared-screen error tests:

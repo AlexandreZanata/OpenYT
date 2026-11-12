@@ -147,7 +147,18 @@ class DesktopPlaybackLauncher(
     fun close() {
         val finish = {
             checkpoint()
-            window?.dispose()
+            val frame = window
+            val player = component
+            component = null
+            window = null
+            loadedMedia = null
+            mini = false
+            fullBounds = null
+            seekSlider = null
+            timeLabel = null
+            // Native teardown must finish before the surface/JVM can disappear.
+            // windowClosed is queued after dispose() and can race JVM shutdown.
+            try { player?.release() } finally { frame?.dispose() }
             Unit
         }
         if (SwingUtilities.isEventDispatchThread()) finish() else SwingUtilities.invokeAndWait(finish)
@@ -164,15 +175,20 @@ class DesktopPlaybackLauncher(
         player.mediaPlayer().events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
             override fun finished(mediaPlayer: MediaPlayer) {
                 SwingUtilities.invokeLater {
+                    if (component !== player) return@invokeLater
                     if (queue.hasNext) select(queue.next()) else checkpoint()
                 }
             }
             override fun error(mediaPlayer: MediaPlayer) {
-                SwingUtilities.invokeLater { loadedMedia = null; showPlaybackError() }
+                SwingUtilities.invokeLater {
+                    if (component !== player) return@invokeLater
+                    loadedMedia = null
+                    showPlaybackError()
+                }
             }
         })
         window = JFrame("OpenYT").apply {
-            defaultCloseOperation = WindowConstants.DISPOSE_ON_CLOSE
+            defaultCloseOperation = WindowConstants.DO_NOTHING_ON_CLOSE
             layout = BorderLayout()
             add(buildToolbar(), BorderLayout.NORTH)
             add(player, BorderLayout.CENTER)
@@ -197,13 +213,9 @@ class DesktopPlaybackLauncher(
             setSize(960, 580)
             setLocationRelativeTo(null)
             addWindowListener(object : WindowAdapter() {
-                override fun windowClosing(event: WindowEvent) { checkpoint() }
+                override fun windowClosing(event: WindowEvent) { close() }
                 override fun windowClosed(event: WindowEvent) {
-                    player.release()
-                    loadedMedia = null
-                    component = null
-                    window = null
-                    mini = false
+                    if (window === event.window) close()
                 }
             })
             bind("SPACE") { togglePlayback() }

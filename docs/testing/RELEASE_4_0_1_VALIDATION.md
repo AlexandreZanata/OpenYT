@@ -13,11 +13,11 @@ The existing local Windows 11 Pro x64 VM was started on the Linux host. Tests us
 four virtual CPUs, 6 GiB RAM, Windows build 26200, Windows PowerShell 5.1, Temurin
 21.0.13 for Gradle/jpackage and Temurin 17.0.21 for the Kotlin JVM toolchain.
 
-Both installers and the test harness were rebuilt on Windows from product commit
+The selection-fix installers and test harness were rebuilt on Windows from product commit
 `97a9c6161f809075c975f96b12ad5c4fbb8ff199`. The source archive was checksum-verified
 before extraction. The final run used the normal packaging configuration.
 
-Both actual MSI and EXE passed:
+Both actual MSI and EXE from that validation snapshot passed:
 
 - Installed version and source-catalog CLI checks.
 - Desktop and Start-menu shortcut existence, launcher target, branded icon pixels
@@ -104,6 +104,27 @@ Earlier diagnostic and release-candidate runs failed at startup without jobs,
 including [43097538295](https://github.com/AlexandreZanata/OpenYT/actions/runs/43097538295).
 The successful PR run supersedes that earlier infrastructure blocker. Protected
 branch checks and native release requirements remain enabled.
+
+## Shutdown hardening after cross-platform CI
+
+The first [PR #47 CI run](https://github.com/AlexandreZanata/OpenYT/actions/runs/43124444124)
+passed the MSI contracts. The EXE logged successful decoded video and mini-player
+checks, then failed to exit within 90 seconds. The earlier snapshot above remains
+a completed local run, rather than proof that this shutdown race was impossible.
+
+Playback cleanup was deferred to windowClosed, which can run after close returns
+and overlap JVM/native-library shutdown. The component is now released
+synchronously before its surface is disposed. Late callbacks from an old player
+cannot affect a reopened one. This follows the VLCJ resource-cleanup lifecycle.
+
+The corrected Kotlin code passed six independent Windows playback/process-exit
+cycles through a temporary launcher using the installed JVM and native runtime.
+Nine local tests also passed, including real Linux VLC playback, close/reopen,
+checkpoint/resume and the eight deterministic action/UI checks.
+
+Contract W06 now requires three complete playback/process-exit runs per installer.
+Timeouts retain the failure and attempt a bounded thread dump. Final integration
+and release checks are tracked on [PR #47](https://github.com/AlexandreZanata/OpenYT/pull/47).
 
 ## Release verification
 
