@@ -51,6 +51,7 @@ data class AppSettings(
     val fileOrganizationTemplate: String? = null,
     val clipboardSuggestions: Boolean = false,
     val downloadNotifications: Boolean = false,
+    val defaultProfileId: String? = null,
 ) {
     companion object {
         const val MIN_CONCURRENT = 1

@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX1.1 VERIFIED; remaining NX1 tasks PENDING.**
+Updated: 2026-11-12. **NX1.2 VERIFIED; remaining NX1 tasks PENDING.**
 
-Baseline: OpenYT 4.0.1; checkout `18fa90cd86c9072582c6fbc65329c7a0e6203856` (branch `codex/nx1-1-profiles-model`).
-Actual baseline inspected, validated, and profile resolution models implemented.
+Baseline: OpenYT 4.0.1; checkout `18fa90cd86c9072582c6fbc65329c7a0e6203856` (branch `codex/nx1-2-profile-persistence`).
+Actual baseline inspected, validated, profile resolution models implemented, and profile persistence with schema migration verified.
 
-Current task: NX1.1 completed. First ready task: **NX1.2**.
+Current task: NX1.2 completed. First ready task: **NX1.3**.
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -25,7 +25,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 ## NX1 — complete download profiles
 
 - [x] [NX1.1 — model profiles and deterministic resolution](01_DOWNLOAD_PROFILES.md#nx1-1) — VERIFIED (Pure KMP domain models & resolver; 13 tests passing).
-- [ ] [NX1.2 — persist custom profiles and local bindings](01_DOWNLOAD_PROFILES.md#nx1-2) — PENDING.
+- [x] [NX1.2 — persist custom profiles and local bindings](01_DOWNLOAD_PROFILES.md#nx1-2) — VERIFIED (SQLDelight schema 18->19 migration, profile repository, separate local bindings & versioned serialization; 8 contract tests passing).
 - [ ] [NX1.3 — snapshot profiles into queued requests](01_DOWNLOAD_PROFILES.md#nx1-3) — PENDING.
 - [ ] [NX1.4 — connect the host/engine adapters](01_DOWNLOAD_PROFILES.md#nx1-4) — PENDING.
 - [ ] [NX1.5 — add profile selection, preview and editing UI](01_DOWNLOAD_PROFILES.md#nx1-5) — PENDING.
@@ -297,6 +297,51 @@ Known limits / blocked checks / decisions needed:
 - Persistence of custom profiles and local bindings is scheduled for NX1.2.
 Next ready task and why its prerequisites are satisfied:
 - NX1.2 — persist custom profiles and local bindings: NX1.1 domain models and resolution logic are VERIFIED.
+```
+
+### NX1.2 — persist custom profiles and local bindings
+
+```text
+Task: NX1.2 — persist custom profiles and local bindings
+Status: VERIFIED (SQLDelight schema 18->19 migration, download profile repository, separate local bindings & versioned serialization with 8 contract tests)
+Branch and commit (or uncommitted diff): codex/nx1-2-profile-persistence
+Behavior changed: Added SQLDelight migration 18.sqm creating tables download_profile and profile_destination_binding and adding default_profile_id to app_settings. Created DownloadProfileRepository interface in core and SqlDelightDownloadProfileRepository in data with automatic seeding of built-in profiles, immutability protection, versioned JSON serialization, duplicate names/IDs validation, separate local destination directory / SAF storage tree URI bindings, and independent task queue lifecycle upon profile deletion.
+Files and ADRs changed:
+- core/src/commonMain/kotlin/com/openyt/core/application/DownloadProfileRepository.kt
+- core/src/commonMain/kotlin/com/openyt/core/domain/AppSettings.kt
+- core/src/commonMain/kotlin/com/openyt/core/domain/MediaModels.kt
+- data/src/commonMain/sqldelight/com/openyt/data/db/18.sqm
+- data/src/commonMain/sqldelight/com/openyt/data/db/Download.sq
+- data/src/commonMain/kotlin/com/openyt/data/SqlDelightDownloadProfileRepository.kt
+- data/src/commonMain/kotlin/com/openyt/data/SqlDelightSettingsRepository.kt
+- data/src/desktopTest/kotlin/com/openyt/data/DownloadProfileRepositoryTest.kt
+- docs/planning/NEXT_EXPANSION/CONTRACTS.md
+- docs/planning/NEXT_EXPANSION/PROGRESS.md
+Contracts added/updated (IDs and exact test methods):
+- NX-P02 (Profile Persistence & Migration):
+  - DownloadProfileRepositoryTest.upgradePreviousSchemaAndPreserveSettingsAndTasks[desktop]
+  - DownloadProfileRepositoryTest.seedsBuiltInProfilesAndEnforcesImmutability[desktop]
+  - DownloadProfileRepositoryTest.persistsCustomProfilesAndDestinationBindingsAcrossReopen[desktop]
+  - DownloadProfileRepositoryTest.rejectsDuplicateNamesAndDuplicateIds[desktop]
+  - DownloadProfileRepositoryTest.handlesCorruptedProfileDefinitionsGracefully[desktop]
+  - DownloadProfileRepositoryTest.detectsMissingDestinationPermission[desktop]
+  - DownloadProfileRepositoryTest.deletedProfileDoesNotInvalidateQueuedTasks[desktop]
+  - DownloadProfileRepositoryTest.portableProfileExportExcludesLocalBindingsAndSecrets[desktop]
+Commands actually executed and results:
+1. ./gradlew :data:verifySqlDelightMigration --console=plain -> exit 0 (BUILD SUCCESSFUL in 1s)
+2. ./gradlew :data:desktopTest --tests '*DownloadProfileRepositoryTest' --console=plain -> exit 0 (8 tests completed, 0 failed, 0 errors in 1s)
+3. ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --console=plain -> exit 0 (212 actionable tasks executed/up-to-date in 15s)
+Native environment / device / tool versions:
+- Pop!_OS 24.04 LTS (noble) x86_64, OpenJDK 21 LTS, Gradle 8.14.4.
+Failure-path and migration evidence:
+- Migration from schema 18 database verified; PRAGMA user_version is 19; all preexisting app_settings (theme, language, directories, SAF tree, toggles) and download_task records are preserved without data loss.
+- Malformed definition JSON and future schema versions are safely ignored during profile loading without throwing or crashing.
+- Missing destination access / permissions correctly detected and flagged via DestinationPermissionChecker.
+- Deletion of a custom profile preserves queued tasks referencing it and safely clears default profile ID.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
+Next ready task and why its prerequisites are satisfied:
+- NX1.3 — snapshot profiles into queued requests: Profile models (NX1.1) and persistence with separate local destination bindings (NX1.2) are VERIFIED.
 ```
 
 ## Native Matrix

@@ -86,6 +86,9 @@ Suggested groups: `DownloadProfileResolverTest`, `DownloadProfileRepositoryTest`
   - Implemented by `com.openyt.core.domain.DownloadProfileResolverTest` (13 tests in `:core:desktopTest` and `:core:testDebugUnitTest`).
   - Status: **VERIFIED**.
 - **NX-P02:** custom profile persistence/migration and separate local bindings.
+  - Implemented by `com.openyt.data.DownloadProfileRepositoryTest` (8 tests in `:data:desktopTest`).
+  - Covers: schema v18->v19 upgrade and settings/task preservation, seeding built-in profiles and immutability, reopening database with custom profiles and bindings, duplicate names/IDs rejection, graceful handling of corrupted definitions, missing destination permission detection, independent task queue lifecycle upon profile deletion, and portable definition export excluding local bindings and secrets.
+  - Status: **VERIFIED**.
 - **NX-P03:** immutable request/SAF snapshot through editing, retry and restart.
 - **NX-P04:** real output matches resolved container/streams/track choices.
 - **NX-P05:** accessible preview/editor and explicit download action.

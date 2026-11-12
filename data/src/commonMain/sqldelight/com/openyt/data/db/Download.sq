@@ -65,7 +65,8 @@ CREATE TABLE app_settings (
     organization_preset TEXT NOT NULL DEFAULT 'PLAYLIST',
     file_organization_template TEXT,
     clipboard_suggestions INTEGER NOT NULL DEFAULT 0,
-    download_notifications INTEGER NOT NULL DEFAULT 0
+    download_notifications INTEGER NOT NULL DEFAULT 0,
+    default_profile_id TEXT
 );
 
 selectSettings:
@@ -75,13 +76,24 @@ upsertSettings:
 INSERT OR REPLACE INTO app_settings(
     id, theme_mode, language, max_concurrent, downloads_directory, storage_tree_uri,
     speed_limit_bytes_per_second, download_window_start_minutes, download_window_end_minutes,
-    organization_preset, file_organization_template, clipboard_suggestions, download_notifications
+    organization_preset, file_organization_template, clipboard_suggestions, download_notifications,
+    default_profile_id
 )
 VALUES (
     1, :theme_mode, :language, :max_concurrent, :downloads_directory, :storage_tree_uri,
     :speed_limit_bytes_per_second, :download_window_start_minutes, :download_window_end_minutes,
-    :organization_preset, :file_organization_template, :clipboard_suggestions, :download_notifications
+    :organization_preset, :file_organization_template, :clipboard_suggestions, :download_notifications,
+    :default_profile_id
 );
+
+updateDefaultProfileId:
+UPDATE app_settings SET default_profile_id = :default_profile_id WHERE id = 1;
+
+insertDefaultSettingsWithProfileId:
+INSERT OR IGNORE INTO app_settings(id, default_profile_id) VALUES (1, :default_profile_id);
+
+selectDefaultProfileId:
+SELECT default_profile_id FROM app_settings WHERE id = 1;
 
 selectAllTasks:
 SELECT * FROM download_task ORDER BY seq ASC;
@@ -232,3 +244,42 @@ saveSubscription:
 INSERT OR REPLACE INTO subscription_rule VALUES (?, ?);
 deleteSubscription:
 DELETE FROM subscription_rule WHERE id = ?;
+
+CREATE TABLE download_profile (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    is_builtin INTEGER NOT NULL DEFAULT 0,
+    definition_json TEXT NOT NULL
+);
+
+selectAllProfiles:
+SELECT * FROM download_profile ORDER BY is_builtin DESC, name ASC;
+
+selectProfileById:
+SELECT * FROM download_profile WHERE id = :id;
+
+insertProfile:
+INSERT OR REPLACE INTO download_profile(id, name, is_builtin, definition_json)
+VALUES (:id, :name, :is_builtin, :definition_json);
+
+deleteProfile:
+DELETE FROM download_profile WHERE id = :id;
+
+CREATE TABLE profile_destination_binding (
+    profile_id TEXT NOT NULL PRIMARY KEY,
+    destination_directory TEXT,
+    storage_tree_uri TEXT
+);
+
+selectProfileBinding:
+SELECT * FROM profile_destination_binding WHERE profile_id = :profile_id;
+
+selectAllProfileBindings:
+SELECT * FROM profile_destination_binding;
+
+insertProfileBinding:
+INSERT OR REPLACE INTO profile_destination_binding(profile_id, destination_directory, storage_tree_uri)
+VALUES (:profile_id, :destination_directory, :storage_tree_uri);
+
+deleteProfileBinding:
+DELETE FROM profile_destination_binding WHERE profile_id = :profile_id;

@@ -33,6 +33,7 @@ class SqlDelightSettingsRepository(
             downloadWindowEndMinutes = row?.download_window_end_minutes?.toInt(),
             organizationPreset = parsePreset(row?.organization_preset),
             fileOrganizationTemplate = row?.file_organization_template,
+            defaultProfileId = row?.default_profile_id,
         )
     }
 
@@ -50,6 +51,7 @@ class SqlDelightSettingsRepository(
             download_window_end_minutes = settings.downloadWindowEndMinutes?.toLong(),
             organization_preset = settings.organizationPreset.name,
             file_organization_template = settings.fileOrganizationTemplate,
+            default_profile_id = settings.defaultProfileId,
         )
         Unit
     }
