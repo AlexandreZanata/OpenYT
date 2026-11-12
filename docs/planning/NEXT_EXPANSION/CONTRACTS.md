@@ -299,6 +299,12 @@ Suggested groups: `StudyRepositoryTest`, `StudySessionTest`, `StudyLinkTest`,
     - Duplicate taps & position agreement: duplicate capture/save/navigation taps are cleanly suppressed (`DuplicateTapIgnored`), while opening valid notes/bookmarks seeks active playback or launches the target entry at the exact saved time and verifies player position agreement (`Opened`); implemented across core KMP, `DesktopPlaybackLauncher`, and `AndroidPlaybackLauncher` / `PlaybackService`.
   - Status: **VERIFIED**.
 - **NX-T03:** five real A/B loops within stated tolerance and clean stop/switch.
+  - Contract & Invariants:
+    - Explicit active-session control (`AbRepeatModels`, `StudyAbRepeatController`): sets A/B (`0 <= A < B <= known duration`, `B - A >= 1000 ms`) or activates persisted `SavedStudyRange` rows strictly on explicit user/session action; persisted ranges never auto-start playback or repeat after restart;
+    - Capability & duration gating: external fallback (`!isInternalPlayer`), non-seekable players (`!canSeek`), and unknown duration (`durationMillis <= 0`) disable A/B repeat with structured explanations instead of simulating loops (`DesktopPlaybackSessionTest`, `StudyAbRepeatControllerTest`);
+    - Serialized/coalesced seeks & end-of-media safety: concurrent position ticks, slow seek callbacks, and async post-seek lag coalesce behind single-flight `seekMutex`, epoch cancellation, and settling latch guards so slow/jammed backends cannot enter an infinite seek storm; EOF (`COMPLETED`) restarts cleanly at `A` without unintended queue auto-advance;
+    - Pause, PiP/mini-player, lifecycle clearing & 5-loop real media tolerance: `PAUSED` states and audio focus / PiP / mini-player remain intact without fighting pause; explicit `stop()`, `close()`, item switch, and native `ERROR` clear active repeat with zero background playback after stop; proven over 5 consecutive real loops within `<= 1000 ms` return-to-`A` and `<= 1000 ms` `B`-overshoot budgets on real Desktop VLCJ + FFmpeg (`DesktopPlaybackLocalTest`) and wired on Android Media3 (`PlaybackService` / `AndroidPlaybackLauncher` / `AndroidAbRepeatContractTest`).
+  - Status: **VERIFIED**.
 - **NX-T04:** escaped Markdown, typed local links, OS dispatch and privacy.
 - **NX-T05:** accessible edit/export/progress UI and authored-data removal preview.
 - **NX-T06:** full offline study flow, PiP/mini-player and actual exported links.

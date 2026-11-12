@@ -48,6 +48,27 @@ fun clampSeekPosition(requestedMillis: Long, durationMillis: Long = 0L): Long {
 }
 
 /**
+ * Active A/B repeat loop bounds published by [StudyAbRepeatController] to platform
+ * playback adapters so host loops can maintain timely position monitoring and
+ * suppress unintended queue advancement at end-of-media while repeat is active.
+ */
+data class ActiveAbRepeatBounds(
+    val entryId: String?,
+    val mediaPath: String,
+    val sessionGeneration: Long,
+    val startMillis: Long,
+    val endMillis: Long,
+)
+
+/**
+ * Observer notified by platform [PlaybackSessionControl] implementations when playback
+ * state, loaded media identity, generation, or position changes.
+ */
+fun interface PlaybackSessionListener {
+    fun onSessionSnapshot(snapshot: PlaybackPositionSnapshot?)
+}
+
+/**
  * Core port controlling active playback sessions, entry identity, seeking, and lifecycle.
  */
 interface PlaybackSessionControl {
@@ -88,4 +109,16 @@ interface PlaybackSessionControl {
     suspend fun play()
     suspend fun stop()
     fun close()
+
+    /**
+     * Publishes active A/B loop bounds to the host session so platform adapters can
+     * keep position telemetry responsive and prevent EOF auto-advance during repeats.
+     */
+    fun updateActiveRepeatBounds(bounds: ActiveAbRepeatBounds?) {}
+
+    /**
+     * Registers a listener notified on session state, identity, generation, and
+     * position updates. Returns an idempotent unregister callback.
+     */
+    fun registerSessionListener(listener: PlaybackSessionListener): () -> Unit = {}
 }

@@ -7,8 +7,12 @@ import com.openyt.core.application.MemoryStudyRepository
 import com.openyt.core.application.PlayableMedia
 import com.openyt.core.application.PlaybackCheckpoint
 import com.openyt.core.application.PlaybackSessionState
+import com.openyt.core.application.StudyAbRepeatController
 import com.openyt.core.application.StudyCaptureAndNavigationService
 import com.openyt.core.application.StudyService
+import com.openyt.core.domain.AbRepeatFailure
+import com.openyt.core.domain.AbRepeatResult
+import com.openyt.core.domain.AbRepeatStatus
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.ShareableMedia
@@ -203,6 +207,53 @@ class DesktopPlaybackSessionTest {
             val navResult = navService.openNoteTimestamp(savedNote.id)
             assertTrue(navResult is StudyNavigationResult.CapabilityUnsupported)
         } finally {
+            launcher.close()
+            scope.cancel()
+            file.delete()
+        }
+    }
+
+    @Test
+    fun externalDesktopLauncherDisablesAbRepeatWithExplanationInsteadOfSimulating() = runBlocking<Unit> {
+        val file = Files.createTempFile("openyt-ab-ext-", ".mp4").toFile()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val actions = object : MediaActions {
+            override val canOpen = true
+            override val canShare = false
+            override val canReveal = false
+            override fun share(media: List<ShareableMedia>, chooserTitle: String) = Unit
+            override fun reveal(media: ShareableMedia) = false
+            override fun open(media: ShareableMedia): Boolean = true
+        }
+        val launcher = DesktopPlaybackLauncher(
+            store = MemoryPlaybackStore(),
+            scope = scope,
+            mediaActions = actions,
+            runtimeAvailable = { false },
+        )
+        val controller = StudyAbRepeatController(launcher, scope)
+
+        try {
+            assertFalse(controller.state.value.isSupported)
+            assertEquals(AbRepeatStatus.UNSUPPORTED, controller.state.value.status)
+            assertNotNull(controller.state.value.disabledReason)
+
+            val item = PlayableMedia(file.absolutePath, "External Loop Check", MediaKind.VIDEO, "ext-ab-1")
+            assertTrue(launcher.openAt(listOf(item), 0, 5_000L))
+
+            val markAttempt = controller.markPointA()
+            assertTrue(markAttempt is AbRepeatResult.Failure)
+            assertTrue(markAttempt.failure is AbRepeatFailure.CapabilityUnsupported)
+
+            val rangeAttempt = controller.setRange(1_000L, 4_000L)
+            assertTrue(rangeAttempt is AbRepeatResult.Failure)
+            assertTrue(rangeAttempt.failure is AbRepeatFailure.CapabilityUnsupported)
+            assertEquals(AbRepeatStatus.UNSUPPORTED, controller.state.value.status)
+
+            launcher.close()
+            assertFalse(controller.state.value.isLooping)
+        } finally {
+            controller.close()
             launcher.close()
             scope.cancel()
             file.delete()

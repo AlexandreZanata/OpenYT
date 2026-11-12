@@ -44,6 +44,7 @@ import com.openyt.core.application.TimedSearchUseCase
 import com.openyt.core.application.OfflineAssetRepository
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.PlaybackLauncher
+import com.openyt.core.application.StudyAbRepeatController
 import com.openyt.core.application.StudyCaptureAndNavigationService
 import com.openyt.core.application.StudyEditorCoordinator
 import com.openyt.core.application.StudyRepository
@@ -175,6 +176,15 @@ class AppContainer(context: Context) {
             nowEpochMillis = { System.currentTimeMillis() },
         )
     }
+
+    fun createStudyAbRepeatController(
+        playbackLauncher: PlaybackLauncher?,
+        scope: CoroutineScope = appScope,
+    ): StudyAbRepeatController =
+        StudyAbRepeatController(
+            playbackLauncher = playbackLauncher,
+            scope = scope,
+        )
 
     val settingsRepository: SettingsRepository? =
         database.getOrNull()?.let(::SqlDelightSettingsRepository)

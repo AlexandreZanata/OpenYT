@@ -2,6 +2,9 @@ package com.openyt.android.player
 
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.MediaItem
@@ -44,6 +47,14 @@ class PlaybackService : MediaSessionService() {
         val player = ExoPlayer.Builder(this)
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(10_000)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                    .setUsage(C.USAGE_MEDIA)
+                    .build(),
+                true,
+            )
+            .setHandleAudioBecomingNoisy(true)
             .build()
         val delegate = object : AndroidPlaybackSessionBridge.ActiveSessionDelegate {
             override fun captureBridgeState(): AndroidPlaybackSessionBridge.BridgeState =
@@ -121,10 +132,16 @@ class PlaybackService : MediaSessionService() {
         })
         mediaSession = MediaSession.Builder(this, player).build()
         scope.launch {
+            var lastSavedAt = 0L
             while (true) {
-                delay(1_000)
+                val hasRepeat = AndroidPlaybackSessionBridge.hasActiveRepeatBounds()
+                delay(if (hasRepeat) 100 else 1_000)
                 AndroidPlaybackSessionBridge.publishState(readBridgeState(player))
-                saveSnapshot(player)
+                val now = SystemClock.elapsedRealtime()
+                if (!hasRepeat || now - lastSavedAt >= 1_000L) {
+                    lastSavedAt = now
+                    saveSnapshot(player)
+                }
             }
         }
     }

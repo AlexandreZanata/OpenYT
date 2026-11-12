@@ -2,11 +2,13 @@ package com.openyt.android.player
 
 import android.content.Context
 import android.content.Intent
+import com.openyt.core.application.ActiveAbRepeatBounds
 import com.openyt.core.application.PlayableMedia
 import com.openyt.core.application.PlaybackCapabilities
 import com.openyt.core.application.PlaybackLauncher
 import com.openyt.core.application.PlaybackPositionSnapshot
 import com.openyt.core.application.PlaybackSessionControl
+import com.openyt.core.application.PlaybackSessionListener
 import com.openyt.core.application.PlaybackSessionState
 import com.openyt.core.application.clampSeekPosition
 import java.io.File
@@ -37,6 +39,13 @@ class AndroidPlaybackLauncher(
 
     override fun captureSnapshot(): PlaybackPositionSnapshot? =
         AndroidPlaybackSessionBridge.currentBridgeState().snapshot
+
+    override fun updateActiveRepeatBounds(bounds: ActiveAbRepeatBounds?) {
+        AndroidPlaybackSessionBridge.updateActiveRepeatBounds(bounds)
+    }
+
+    override fun registerSessionListener(listener: PlaybackSessionListener): () -> Unit =
+        AndroidPlaybackSessionBridge.registerListener(listener)
 
     override suspend fun resumeLastSession(): Boolean {
         val queue = store?.loadQueue() ?: return false
