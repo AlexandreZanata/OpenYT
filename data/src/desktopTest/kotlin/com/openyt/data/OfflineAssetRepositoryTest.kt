@@ -56,9 +56,9 @@ class OfflineAssetRepositoryTest {
             assertNull(entry.mediaRevision) // Old record with unknown asset state
             assertNull(entry.lastVerifiedEpochMillis)
 
-            // Verify user version reached 20
+            // Verify user version reached latest schema version
             val version = readUserVersion(file)
-            assertEquals(20L, version)
+            assertEquals(OpenYtDatabase.Schema.version, version)
 
             // Verify offline asset repository functions on upgraded database
             val assetRepo = SqlDelightOfflineAssetRepository(database)

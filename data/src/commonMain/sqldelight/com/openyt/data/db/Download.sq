@@ -365,3 +365,83 @@ DELETE FROM offline_asset WHERE entry_id = :entry_id;
 invalidateAssetsForEntry:
 UPDATE offline_asset SET state = :state WHERE entry_id = :entry_id;
 
+CREATE TABLE asset_operation (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    source_path TEXT NOT NULL,
+    language TEXT,
+    source_type TEXT,
+    timeline_basis TEXT,
+    is_required INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'QUEUED',
+    staging_path TEXT,
+    target_locator TEXT,
+    asset_id TEXT,
+    byte_count INTEGER,
+    expected_size_bytes INTEGER,
+    sha256 TEXT,
+    error TEXT,
+    attempt INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+);
+
+CREATE INDEX asset_operation_entry_idx ON asset_operation(entry_id);
+CREATE INDEX asset_operation_status_idx ON asset_operation(status);
+
+selectOperationById:
+SELECT * FROM asset_operation WHERE id = :id;
+
+selectOperationsForEntry:
+SELECT * FROM asset_operation WHERE entry_id = :entry_id ORDER BY created_at DESC;
+
+selectActiveOperations:
+SELECT * FROM asset_operation WHERE status IN ('QUEUED', 'RUNNING') ORDER BY created_at ASC;
+
+findPendingOperation:
+SELECT * FROM asset_operation
+WHERE entry_id = :entry_id
+  AND kind = :kind
+  AND (language = :language OR (language IS NULL AND :language IS NULL))
+  AND source_path = :source_path
+  AND status IN ('QUEUED', 'RUNNING')
+LIMIT 1;
+
+insertOperation:
+INSERT OR REPLACE INTO asset_operation(
+    id, entry_id, kind, source_path, language, source_type, timeline_basis,
+    is_required, status, staging_path, target_locator, asset_id,
+    byte_count, expected_size_bytes, sha256, error, attempt, created_at, updated_at
+) VALUES (
+    :id, :entry_id, :kind, :source_path, :language, :source_type, :timeline_basis,
+    :is_required, :status, :staging_path, :target_locator, :asset_id,
+    :byte_count, :expected_size_bytes, :sha256, :error, :attempt, :created_at, :updated_at
+);
+
+updateOperation:
+UPDATE asset_operation SET
+    status = :status,
+    staging_path = :staging_path,
+    target_locator = :target_locator,
+    asset_id = :asset_id,
+    byte_count = :byte_count,
+    expected_size_bytes = :expected_size_bytes,
+    sha256 = :sha256,
+    error = :error,
+    attempt = :attempt,
+    updated_at = :updated_at
+WHERE id = :id;
+
+markRunningOperationsInterrupted:
+UPDATE asset_operation SET
+    status = 'INTERRUPTED',
+    updated_at = (strftime('%s','now') * 1000)
+WHERE status = 'RUNNING';
+
+deleteOperation:
+DELETE FROM asset_operation WHERE id = :id;
+
+deleteOperationsForEntry:
+DELETE FROM asset_operation WHERE entry_id = :entry_id;
+

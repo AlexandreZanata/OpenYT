@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX2.1 VERIFIED; NX2.2 ready to start.**
+Updated: 2026-11-12. **NX2.3 VERIFIED; NX2.4 ready to start.**
 
-Baseline: OpenYT 4.0.1; checkout `codex/nx2-1-asset-models`.
-Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, and offline asset domain models, media revision drift detection, readiness calculator, and SQLDelight schema 20 migration verified.
+Baseline: OpenYT 4.0.1; checkout `codex/nx2-3-owned-storage`.
+Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, and owned storage, journaled durable local operations, and SQLDelight schema 21 migration verified.
 
-Current task: NX2.1 completed. First ready task: **NX2.2**.
+Current task: NX2.3 completed. First ready task: **NX2.4**.
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -35,7 +35,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 
 - [x] [NX2.1 — model assets, revisions and readiness](02_OFFLINE_LIBRARY.md#nx2-1) — VERIFIED (Pure KMP domain models & readiness calculator, SQLDelight schema 19->20 migration, asset repository with cascade deletion, and off-UI thread digest inspection; 17 contract tests passing).
 - [x] [NX2.2 — confirm engine-produced companion artifacts](02_OFFLINE_LIBRARY.md#nx2-2) — VERIFIED (Backward-compatible receipt contract, strict path containment, safe asset store copy, multi-track extraction, and coordinator resilience; 34 contract tests passing).
-- [ ] [NX2.3 — implement owned storage and durable local operations](02_OFFLINE_LIBRARY.md#nx2-3) — PENDING.
+- [x] [NX2.3 — implement owned storage and durable local operations](02_OFFLINE_LIBRARY.md#nx2-3) — VERIFIED (Pure KMP operation models, SQLDelight schema 20->21 migration, durable asset operator, journaled staging, atomic promotion, bounds & failure injection checks; 20 contract tests passing).
 - [ ] [NX2.4 — fetch artwork and import subtitle assets safely](02_OFFLINE_LIBRARY.md#nx2-4) — PENDING.
 - [ ] [NX2.5 — show offline readiness and storage actions](02_OFFLINE_LIBRARY.md#nx2-5) — PENDING.
 - [ ] [NX2.6 — prove offline behavior and close milestone 1](02_OFFLINE_LIBRARY.md#nx2-6) — PENDING.
@@ -561,6 +561,33 @@ Known limits / blocked checks / decisions needed:
 - Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
 Next ready task and why its prerequisites are satisfied:
 - NX2.3 — implement owned storage and durable local operations: Engine-produced companion artifact receipts and validation (NX2.2) are complete and VERIFIED; durable local operations and journaled asset staging can begin.
+```
+
+```
+Task: NX2.3 — implement owned storage and durable local operations
+Date: 2026-11-12
+Host: Linux x86_64 (Pop!_OS 24.04 LTS), JDK 21.0.8, Android SDK 34-37
+Command: ./gradlew :core:desktopTest --tests '*DurableAssetOperator*' :data:desktopTest --tests '*JvmDurableAssetStorage*' :data:desktopTest --tests '*SqlDelightAssetOperationRepository*' :data:desktopTest --tests '*JvmOfflineAssetStore*' --console=plain
+Result: VERIFIED (20 contract tests passed; staging, bounds, streaming, hashing, verification, atomic promotion, retry deduplication, crash recovery, and source preservation verified; Android and desktop compilation successful)
+Evidence:
+- DurableAssetOperatorTest: 9 tests passed covering staging/streaming/hashing and atomic asset promotion, cancellation cleaning staging without deleting source media, disk full aborting operation and preserving configured storage reserve (128 MiB), revoked permission failing cleanly with structured failure, truncated copy rejection and staging cleanup, concurrent submission deduplication of queued operations, retry deduplication preventing duplicate assets, retry after failure succeeding and registering asset, and journal reconciliation cleaning or promoting crashed operations.
+- JvmDurableAssetStorageTest: 5 tests passed on real filesystem covering real durable staging and atomic promotion, disk full injection aborting operation preserving reserve, truncated copy injection failing verification without publishing, revoked permission injection failing gracefully, and crash recovery reconciling unpromoted staging and marking operations INTERRUPTED.
+- SqlDelightAssetOperationRepositoryTest: 2 tests passed covering schema upgrade v20->v21 preserving existing offline_asset and library records while creating asset_operation table and indices, and full CRUD status transitions (QUEUED -> RUNNING -> SUCCEEDED / FAILED / CANCELED / INTERRUPTED) with structured failure serialization.
+- JvmOfflineAssetStoreTest: 4 tests passed verifying JvmOfflineAssetStore delegation to DurableAssetOperator, app-owned asset promotion, and database metadata registration.
+- Regression: :core:desktopTest, :engine-ytdlp:desktopTest, :data:desktopTest, :media-ffmpeg:desktopTest, :desktopApp:test, :androidApp:assembleDebug, :androidApp:assembleDebugAndroidTest (BUILD SUCCESSFUL, 218 tasks).
+- Linux offline validation: ./scripts/validate-linux.sh --scenario all --no-build --offline (validation passed, 4 skipped).
+Behavior changed:
+- Added pure KMP domain models: AssetOperation, AssetOperationStatus (QUEUED, RUNNING, SUCCEEDED, FAILED, CANCELED, INTERRUPTED), and structured AssetOperationFailure hierarchy (DiskFull, RevokedPermission, TruncatedCopy, SourceMissing, VerificationFailed, Canceled, Unexpected).
+- Added AssetOperationRepository and AssetStagingPort interfaces in core, and implemented MemoryAssetOperationRepository.
+- Implemented DurableAssetOperator implementing OfflineAssetStore with mutex concurrency control to serialize disk-heavy jobs, pending retry deduplication, bounds checking against storage reserve, streaming SHA-256 calculation, atomic promotion, and journal reconciliation.
+- Added SQLDelight migration 20.sqm creating table asset_operation and index asset_operation_entry_idx.
+- Implemented SqlDelightAssetOperationRepository mapping SQLDelight records to domain models with failure serialization.
+- Implemented JvmAssetStagingPort on JVM/Android with strict staging directory containment (.staging/<opId>), atomic file move, and failure injection knobs for unit and integration testing.
+- Updated JvmOfflineAssetStore to delegate to DurableAssetOperator.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
+Next ready task and why its prerequisites are satisfied:
+- NX2.4 — fetch artwork and import subtitle assets safely: Owned storage and durable local operations (NX2.3) are complete and VERIFIED; safe external artwork fetching and subtitle importing into durable store can begin.
 ```
 
 ## Native Matrix

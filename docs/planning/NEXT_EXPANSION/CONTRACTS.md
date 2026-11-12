@@ -156,6 +156,20 @@ Suggested groups: `OfflineReadinessTest`, `AssetRepositoryTest`,
     - Safe copying into application-owned asset store via `JvmOfflineAssetStore`, streaming SHA-256 digest computation, and SQLite metadata registration in `offline_asset`.
   - Status: **VERIFIED**.
 - **NX-O03:** staging/journal/cancel/crash/disk-full, source preservation.
+  - Implemented by `com.openyt.core.application.DurableAssetOperatorTest` (9 tests in `:core:desktopTest`), `com.openyt.data.JvmDurableAssetStorageTest` (5 tests in `:data:desktopTest`), `com.openyt.data.SqlDelightAssetOperationRepositoryTest` (2 tests in `:data:desktopTest`), and `com.openyt.data.JvmOfflineAssetStoreTest` (4 tests in `:data:desktopTest`).
+  - Covers:
+    - Pure KMP domain model `AssetOperation` persisting operation lifecycle states `QUEUED`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`, and `INTERRUPTED`;
+    - SQLDelight migration 20 (`20.sqm`) creating table `asset_operation` and index `asset_operation_entry_idx`, upgrading from v20 to v21 and preserving existing `offline_asset` and library records;
+    - Staging, bounding, streaming, hashing, verifying, and publishing assets into app-owned storage (`.staging/<opId>` -> `<assetsDirectory>/<entryId>/<assetId>.<ext>`) with atomic promotion (`ATOMIC_MOVE` or copy+delete);
+    - Structured failure serialization and mapping for `DiskFull`, `RevokedPermission`, `TruncatedCopy`, `SourceMissing`, `VerificationFailed`, `Canceled`, and `Unexpected`;
+    - Serialization of disk-heavy asset operations via mutex concurrency control and deduplication of pending submissions for the same asset;
+    - Explicit retry deduplication preventing duplicate offline asset entries or orphaned files;
+    - Aborting operations when available disk space is insufficient to preserve the configured storage reserve (`storage_reserve_bytes`), with structured `DiskFull` failure;
+    - Rejection and staging cleanup of truncated copies (byte length mismatch) without promoting or creating database records;
+    - Staging directory boundary enforcement strictly preventing path traversal or escaping `.staging/<opId>`;
+    - Cancellation cleaning up the operation's isolated staging directory without touching or deleting original source media;
+    - Journal reconciliation (`reconcileJournal()`) restoring active operations interrupted by application crashes, cleaning unpromoted staging directories, and marking unpromoted jobs as `INTERRUPTED`.
+  - Status: **VERIFIED**.
 - **NX-O04:** bounded artwork fetch/subtitle import and verified local preference.
 - **NX-O05:** accurate storage categories, pinning and explicit cleanup UI.
 - **NX-O06:** actual offline reopen after networking/cache removal on native hosts.
