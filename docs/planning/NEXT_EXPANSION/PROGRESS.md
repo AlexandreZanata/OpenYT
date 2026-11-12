@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX1.3 VERIFIED; remaining NX1 tasks PENDING.**
+Updated: 2026-11-12. **NX1.4 VERIFIED; remaining NX1 tasks PENDING.**
 
-Baseline: OpenYT 4.0.1; checkout `18fa90cd86c9072582c6fbc65329c7a0e6203856` (branch `codex/nx1-3-profile-snapshots`).
-Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, and immutable profile request snapshots implemented.
+Baseline: OpenYT 4.0.1; checkout `codex/nx1-4-engine-adapters`.
+Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, and host/engine adapters connected with real output container/stream probing.
 
-Current task: NX1.3 completed. First ready task: **NX1.4**.
+Current task: NX1.4 completed. First ready task: **NX1.5**.
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -27,8 +27,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 - [x] [NX1.1 — model profiles and deterministic resolution](01_DOWNLOAD_PROFILES.md#nx1-1) — VERIFIED (Pure KMP domain models & resolver; 13 tests passing).
 - [x] [NX1.2 — persist custom profiles and local bindings](01_DOWNLOAD_PROFILES.md#nx1-2) — VERIFIED (SQLDelight schema 18->19 migration, profile repository, separate local bindings & versioned serialization; 8 contract tests passing).
 - [x] [NX1.3 — snapshot profiles into queued requests](01_DOWNLOAD_PROFILES.md#nx1-3) — VERIFIED (Immutable profile provenance, per-task SAF export target isolation, retry snapshot preservation, and revalidation on format expiration; 11 contract tests passing).
-- [ ] [NX1.4 — connect the host/engine adapters](01_DOWNLOAD_PROFILES.md#nx1-4) — PENDING.
-- [ ] [NX1.4 — connect the host/engine adapters](01_DOWNLOAD_PROFILES.md#nx1-4) — PENDING.
+- [x] [NX1.4 — connect the host/engine adapters](01_DOWNLOAD_PROFILES.md#nx1-4) — VERIFIED (Host and engine options updated with merge/remux container flags, confirmed output validation against approved plan, structured format disappearance errors, and real local probing; 7 local contract tests passing).
 - [ ] [NX1.5 — add profile selection, preview and editing UI](01_DOWNLOAD_PROFILES.md#nx1-5) — PENDING.
 - [ ] [NX1.6 — milestone evidence and documentation](01_DOWNLOAD_PROFILES.md#nx1-6) — PENDING.
 
@@ -390,6 +389,65 @@ Known limits / blocked checks / decisions needed:
 - Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
 Next ready task and why its prerequisites are satisfied:
 - NX1.4 — connect the host/engine adapters: Profile models (NX1.1), persistence (NX1.2), and immutable request snapshots with SAF isolation (NX1.3) are VERIFIED.
+```
+
+### NX1.4 — connect the host/engine adapters
+
+```text
+Task: NX1.4 — connect the host/engine adapters
+Status: VERIFIED (Host and engine options updated with merge/remux container flags, confirmed output validation against approved plan, structured format disappearance errors, and real local probing; 7 local contract tests passing)
+Branch and commit (or uncommitted diff): codex/nx1-4-engine-adapters
+Behavior changed: Connected profile-resolved choices to the engine boundary without disturbing raw or manual format selection. YtDlpDownloadOptions now translates profile provenance into safe container merging and remuxing arguments (--merge-output-format and --remux-video for video; -x --audio-format for audio) while strictly validating container names against safe whitelists. Enhanced confirmedEngineOutput() to enforce that the produced output matches the expected plan container and extension, rejecting mismatched files without inferring success from process exit codes alone. Updated DesktopYtDlpEngine and AndroidYtDlpEngine to supply expected containers to output confirmation. Added fileNameTemplate parameter to ResolvedDownloadPlan.toDownloadRequest(). Created contract test suite DownloadProfileLocalTest verifying real local tool downloads with each compatible profile (Study, Audio only, Save space, Watch on TV), actual stream/container ffprobe probes, absent subtitle handling without file corruption, structured format disappearance error mapping without raw Python tracebacks, and safe Unicode argument handling.
+Files and ADRs changed:
+- engine-ytdlp/src/commonMain/kotlin/com/openyt/engine/ytdlp/YtDlpDownloadOptions.kt
+- engine-ytdlp/src/commonTest/kotlin/com/openyt/engine/ytdlp/YtDlpDownloadOptionsTest.kt
+- data/src/jvmSharedMain/kotlin/com/openyt/data/ConfirmedEngineOutput.kt
+- data/src/desktopTest/kotlin/com/openyt/data/ConfirmedEngineOutputTest.kt
+- core/src/commonMain/kotlin/com/openyt/core/domain/DownloadProfile.kt
+- desktopApp/src/main/kotlin/com/openyt/desktop/downloader/DesktopYtDlpEngine.kt
+- desktopApp/src/test/kotlin/com/openyt/desktop/downloader/DesktopYtDlpEngineTest.kt
+- desktopApp/src/test/kotlin/com/openyt/desktop/downloader/DownloadProfileLocalTest.kt
+- androidApp/src/main/kotlin/com/openyt/android/downloader/AndroidYtDlpEngine.kt
+- docs/planning/NEXT_EXPANSION/CONTRACTS.md
+- docs/planning/NEXT_EXPANSION/PROGRESS.md
+Contracts added/updated (IDs and exact test methods):
+- NX-P04 (Engine Output & Profile Adapter Confirmation):
+  - DownloadProfileLocalTest.realDownloadWithStudyProfileMatchesPlanAndEmbedsSubtitles
+  - DownloadProfileLocalTest.realDownloadWithAudioProfileMatchesPlanAndAudioPreset
+  - DownloadProfileLocalTest.realDownloadWithSaveSpaceProfileMatchesPlanAndHeightCeiling
+  - DownloadProfileLocalTest.realDownloadWithWatchOnTvProfileMatchesPlanAndCodecs
+  - DownloadProfileLocalTest.absentSubtitleDoesNotCorruptVideoAndFailsSubtitleOnlyRequest
+  - DownloadProfileLocalTest.sourceFormatDisappearanceReportsStructuredErrorWithoutRawTraceback
+  - DownloadProfileLocalTest.safeArgumentsPreserveUnicodeSpacesAndPunctuation
+  - YtDlpDownloadOptionsTest.rawFormatSelectionWithoutProfilePreservesExistingBehavior
+  - YtDlpDownloadOptionsTest.videoWithProfileResolvedContainerPassesMergeAndRemuxFlags
+  - YtDlpDownloadOptionsTest.videoWithMkvResolvedContainerPassesMkvMergeAndRemuxFlags
+  - YtDlpDownloadOptionsTest.unsafeContainerInProfileProvenanceIsIgnored
+  - YtDlpDownloadOptionsTest.audioWithProfileContainerOverridesPresetExtension
+  - YtDlpDownloadOptionsTest.subtitlesArePassedAsIndividualTypedArguments
+  - YtDlpDownloadOptionsTest.automaticSubtitlesUseWriteAutoSubs
+  - YtDlpDownloadOptionsTest.subtitleOnlyDownloadSkipsVideoDownload
+  - ConfirmedEngineOutputTest.confirmsExpectedExtensionAndRejectsMismatches
+  - DesktopYtDlpEngineTest.rejectsOutputWhenContainerDoesNotMatchApprovedPlan
+  - DesktopYtDlpEngineTest.acceptsOutputWhenContainerMatchesApprovedPlan
+Commands actually executed and results:
+1. OPENYT_RUN_LOCAL_ENGINE_TESTS=1 OPENYT_YTDLP="$PWD/desktopApp/build/bundled-tools/linux-x64/yt-dlp" OPENYT_FFMPEG="$PWD/desktopApp/build/bundled-tools/linux-x64/ffmpeg" OPENYT_FFPROBE="$PWD/desktopApp/build/bundled-tools/linux-x64/ffprobe" ./gradlew :desktopApp:test --tests '*DownloadProfileLocalTest*' --console=plain -> exit 0 (7 tests completed, 0 failed in 26s)
+2. ./gradlew :engine-ytdlp:desktopTest :data:desktopTest :desktopApp:test --console=plain -> exit 0 (all unit tests passed, 0 failures)
+3. ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --console=plain -> exit 0 (212 actionable tasks executed/up-to-date in 9s)
+4. ./scripts/validate-linux.sh --scenario all --no-build --offline -> exit 0 (12 scenarios passed, 4 skipped, 0 failures in 40s)
+Native environment / device / tool versions:
+- Pop!_OS 24.04 LTS (noble) x86_64, OpenJDK 21 LTS, Gradle 8.14.4.
+- Bundled tools: yt-dlp 2026.10.26, ffmpeg n8.1.3-27, ffprobe n8.1.3-27.
+Failure-path and migration evidence:
+- Container mismatch rejection: confirmedEngineOutput() and DesktopYtDlpEngine explicitly reject files when the resulting container extension deviates from the plan, returning DownloadFailure.OutputMissing.
+- Subtitle-only request for non-existent subtitle fails with OutputMissing rather than false success from exit code 0.
+- Video download with absent subtitle downloads intact video stream without corrupting file or failing process.
+- Source format disappearance: format "99999+99998" cleanly maps to DownloadFailure.ProcessingFailed("requested format is not available") without raw Python tracebacks or leaving partial files.
+- Safe Unicode filenames and paths with spaces, brackets, quotes, and punctuation are verified on disk without shell injection vulnerabilities.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
+Next ready task and why its prerequisites are satisfied:
+- NX1.5 — add profile selection, preview and editing UI: Engine adapters (NX1.4), profile snapshots (NX1.3), persistence (NX1.2), and resolution domain models (NX1.1) are VERIFIED.
 ```
 
 ## Native Matrix

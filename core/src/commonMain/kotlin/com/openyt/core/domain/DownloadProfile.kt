@@ -154,6 +154,7 @@ data class ProfileProvenance(
 fun ResolvedDownloadPlan.toDownloadRequest(
     url: String,
     destinationDirectory: String,
+    fileNameTemplate: String = "%(title)s.%(ext)s",
     exportTargetUri: String? = null,
     limitBytesPerSecond: Long? = null,
     cookiesFilePath: String? = null,
@@ -188,6 +189,7 @@ fun ResolvedDownloadPlan.toDownloadRequest(
         kind = kind,
         formatId = formatId,
         destinationDirectory = destinationDirectory,
+        fileNameTemplate = fileNameTemplate,
         limitBytesPerSecond = limitBytesPerSecond,
         cookiesFilePath = cookiesFilePath,
         playlistItemIndex = playlistItemIndex,

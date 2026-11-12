@@ -58,6 +58,56 @@ class DesktopYtDlpEngineTest {
     }
 
     @Test
+    fun rejectsOutputWhenContainerDoesNotMatchApprovedPlan() = runBlocking {
+        val directory = temporary.newFolder()
+        // yt-dlp produced webm, but plan required mp4
+        val file = File(directory, "video.webm").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        val profileRequest = DownloadRequest(
+            url = "https://example.com/media",
+            kind = com.openyt.core.domain.MediaKind.VIDEO,
+            destinationDirectory = directory.absolutePath,
+            options = com.openyt.core.domain.DownloadOptions(
+                profileProvenance = com.openyt.core.domain.ProfileProvenance(
+                    profileId = "study",
+                    profileName = "Study",
+                    resolvedContainer = "mp4",
+                ),
+            ),
+        )
+        val events = engine { MemoryProcess(finalRecord(file).toByteArray()) }
+            .download(profileRequest, "container-mismatch").toList()
+
+        assertEquals(DownloadEvent.Failed(DownloadFailure.OutputMissing), events.last())
+    }
+
+    @Test
+    fun acceptsOutputWhenContainerMatchesApprovedPlan() = runBlocking {
+        val directory = temporary.newFolder()
+        val file = File(directory, "video.mp4").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        val profileRequest = DownloadRequest(
+            url = "https://example.com/media",
+            kind = com.openyt.core.domain.MediaKind.VIDEO,
+            destinationDirectory = directory.absolutePath,
+            options = com.openyt.core.domain.DownloadOptions(
+                profileProvenance = com.openyt.core.domain.ProfileProvenance(
+                    profileId = "study",
+                    profileName = "Study",
+                    resolvedContainer = "mp4",
+                ),
+            ),
+        )
+        val events = engine { arguments ->
+            assertTrue(arguments.contains("--merge-output-format"))
+            assertEquals("mp4", arguments[arguments.indexOf("--merge-output-format") + 1])
+            assertTrue(arguments.contains("--remux-video"))
+            assertEquals("mp4", arguments[arguments.indexOf("--remux-video") + 1])
+            MemoryProcess(finalRecord(file).toByteArray())
+        }.download(profileRequest, "container-match").toList()
+
+        assertEquals(DownloadEvent.Completed(file.absolutePath, 3), events.last())
+    }
+
+    @Test
     fun rejectsMissingAndEmptyFinalFiles() = runBlocking {
         val directory = temporary.newFolder()
         val file = File(directory, "empty.mkv")

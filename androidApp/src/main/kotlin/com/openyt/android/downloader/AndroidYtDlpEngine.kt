@@ -130,9 +130,15 @@ class AndroidYtDlpEngine(
                     }
                 }
 
+                val expectedContainer = when (request.kind) {
+                    MediaKind.VIDEO -> request.options.profileProvenance?.resolvedContainer
+                    MediaKind.AUDIO -> request.options.profileProvenance?.resolvedContainer ?: request.options.audioPreset.extension
+                    MediaKind.SUBTITLE -> null
+                }
                 val file = com.openyt.data.confirmedEngineOutput(
                     YtDlpOutputParser.extractFilePath(response.out), directory, tempDirectory,
                     request.kind == MediaKind.SUBTITLE,
+                    expectedContainer,
                 )
                 if (file != null) {
                     send(DownloadEvent.Completed(file.absolutePath, file.length()))
