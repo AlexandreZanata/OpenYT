@@ -90,6 +90,9 @@ Suggested groups: `DownloadProfileResolverTest`, `DownloadProfileRepositoryTest`
   - Covers: schema v18->v19 upgrade and settings/task preservation, seeding built-in profiles and immutability, reopening database with custom profiles and bindings, duplicate names/IDs rejection, graceful handling of corrupted definitions, missing destination permission detection, independent task queue lifecycle upon profile deletion, and portable definition export excluding local bindings and secrets.
   - Status: **VERIFIED**.
 - **NX-P03:** immutable request/SAF snapshot through editing, retry and restart.
+  - Implemented by `com.openyt.core.application.DownloadProfileSnapshotTest` (11 tests in `:core:desktopTest`).
+  - Covers: profile snapshotting into requests, editing/deleting profile or mutating global destination after enqueue leaves queued request immutable, per-task SAF export target isolation, restart preserves snapshot and profile provenance, legacy task compatibility, strict rejection of SAF URIs as filesystem paths, retry preserving saved choices, revoked SAF grant producing copy-export warning without failing local download, format expiration revalidation requiring user approval, and absence of credentials in snapshots or diagnostics.
+  - Status: **VERIFIED**.
 - **NX-P04:** real output matches resolved container/streams/track choices.
 - **NX-P05:** accessible preview/editor and explicit download action.
 - **NX-P06:** native combined flow and existing manual format selection survive.

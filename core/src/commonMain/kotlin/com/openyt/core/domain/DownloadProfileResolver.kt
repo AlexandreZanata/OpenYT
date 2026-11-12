@@ -2,6 +2,11 @@ package com.openyt.core.domain
 
 class DownloadProfileResolver {
 
+    companion object {
+        fun resolve(profile: DownloadProfile, mediaInfo: MediaInfo): ProfileResolution =
+            DownloadProfileResolver().resolve(profile, mediaInfo)
+    }
+
     fun resolve(profile: DownloadProfile, mediaInfo: MediaInfo): ProfileResolution {
         if (mediaInfo.formats.isEmpty()) {
             return ProfileResolution.Incompatible(

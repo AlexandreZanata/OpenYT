@@ -139,3 +139,116 @@ sealed interface ProfileResolution {
         val actionableAlternative: ActionableAlternative? = null,
     ) : ProfileResolution
 }
+
+@Serializable
+data class ProfileProvenance(
+    val profileId: String,
+    val profileName: String,
+    val isBuiltIn: Boolean = false,
+    val resolvedContainer: String? = null,
+    val effectiveHeight: Int? = null,
+    val selectedFormatId: String? = null,
+    val sourceWebpageUrl: String? = null,
+)
+
+fun ResolvedDownloadPlan.toDownloadRequest(
+    url: String,
+    destinationDirectory: String,
+    exportTargetUri: String? = null,
+    limitBytesPerSecond: Long? = null,
+    cookiesFilePath: String? = null,
+    playlistItemIndex: Int? = null,
+): DownloadRequest {
+    require(!destinationDirectory.startsWith("content://")) {
+        "SAF content URI cannot be used as destinationDirectory: $destinationDirectory"
+    }
+    val formatId = when {
+        selectedVideoFormat != null && selectedAudioFormat != null ->
+            "${selectedVideoFormat.id}+${selectedAudioFormat.id}"
+        selectedVideoFormat != null -> selectedVideoFormat.id
+        selectedAudioFormat != null -> selectedAudioFormat.id
+        else -> null
+    }
+    val provenance = ProfileProvenance(
+        profileId = profileId,
+        profileName = profileName,
+        isBuiltIn = DownloadProfile.BuiltIns.any { it.id == profileId },
+        resolvedContainer = container,
+        effectiveHeight = effectiveHeight,
+        selectedFormatId = formatId,
+        sourceWebpageUrl = url,
+    )
+    val snapshotOptions = options.copy(
+        subtitle = selectedSubtitle ?: options.subtitle,
+        exportTargetUri = exportTargetUri,
+        profileProvenance = provenance,
+    )
+    return DownloadRequest(
+        url = url,
+        kind = kind,
+        formatId = formatId,
+        destinationDirectory = destinationDirectory,
+        limitBytesPerSecond = limitBytesPerSecond,
+        cookiesFilePath = cookiesFilePath,
+        playlistItemIndex = playlistItemIndex,
+        options = snapshotOptions,
+    )
+}
+
+sealed interface PlanRevalidationResult {
+    data class Valid(val request: DownloadRequest) : PlanRevalidationResult
+
+    data class RequiresApproval(
+        val previousProvenance: ProfileProvenance?,
+        val proposedPlan: ResolvedDownloadPlan,
+        val reason: String,
+    ) : PlanRevalidationResult
+
+    data class Incompatible(
+        val resolution: ProfileResolution.Incompatible,
+    ) : PlanRevalidationResult
+}
+
+fun revalidatePlan(
+    task: DownloadTask,
+    freshMediaInfo: MediaInfo,
+    profile: DownloadProfile? = null,
+): PlanRevalidationResult {
+    val previousProvenance = task.request.options.profileProvenance
+    val previousFormatId = task.request.formatId
+
+    val constituentIds = previousFormatId?.split("+") ?: emptyList()
+    val formatStillExists = constituentIds.isNotEmpty() && constituentIds.all { id ->
+        freshMediaInfo.formats.any { it.id == id }
+    }
+
+    if (formatStillExists && previousProvenance != null) {
+        return PlanRevalidationResult.Valid(task.request)
+    }
+
+    val effectiveProfile = profile
+        ?: previousProvenance?.let { prov ->
+            DownloadProfile.BuiltIns.find { it.id == prov.profileId }
+                ?: DownloadProfile(
+                    id = prov.profileId,
+                    name = prov.profileName,
+                    isBuiltIn = prov.isBuiltIn,
+                    kind = task.request.kind,
+                    maxHeight = prov.effectiveHeight,
+                )
+        }
+        ?: DownloadProfile.study()
+
+    return when (val resolution = DownloadProfileResolver.resolve(effectiveProfile, freshMediaInfo)) {
+        is ProfileResolution.Success -> {
+            PlanRevalidationResult.RequiresApproval(
+                previousProvenance = previousProvenance,
+                proposedPlan = resolution.plan,
+                reason = "Source format expired or changed from '$previousFormatId'",
+            )
+        }
+        is ProfileResolution.Incompatible -> {
+            PlanRevalidationResult.Incompatible(resolution)
+        }
+    }
+}

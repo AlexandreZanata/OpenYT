@@ -37,4 +37,6 @@ data class DownloadOptions(
     val sponsorBlockMarkers: Boolean = false,
     val segment: MediaSegment? = null,
     val liveDurationSeconds: Int? = null,
+    val exportTargetUri: String? = null,
+    val profileProvenance: ProfileProvenance? = null,
 )

@@ -7,6 +7,7 @@ import android.provider.DocumentsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import com.openyt.core.application.SafDestinationPicker
+import com.openyt.core.application.SafExporter
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -44,8 +45,8 @@ class AndroidSafDestinationPicker(
 
 class AndroidSafExporter(
     private val context: Context,
-) {
-    suspend fun export(filePath: String, treeUri: String): Boolean = withContext(Dispatchers.IO) {
+) : SafExporter {
+    override suspend fun export(filePath: String, treeUri: String): Boolean = withContext(Dispatchers.IO) {
         val file = File(filePath)
         if (!file.isFile) return@withContext false
         runCatching {

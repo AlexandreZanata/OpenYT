@@ -10,6 +10,8 @@ import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaInfo
+import com.openyt.core.domain.ResolvedDownloadPlan
+import com.openyt.core.domain.toDownloadRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.updateAndGet
@@ -157,6 +159,21 @@ class DownloadCoordinator(
             }
             pendingInsertions.update { it - task.id }
         }
+    }
+
+    fun enqueuePlan(
+        media: MediaInfo,
+        plan: ResolvedDownloadPlan,
+        destinationDirectory: String,
+        exportTargetUri: String? = null,
+        priority: DownloadPriority = DownloadPriority.NORMAL,
+    ): String {
+        val request = plan.toDownloadRequest(
+            url = media.webpageUrl,
+            destinationDirectory = destinationDirectory,
+            exportTargetUri = exportTargetUri,
+        )
+        return enqueue(media = media, request = request, priority = priority)
     }
 
     suspend fun awaitPersistence(): Boolean {

@@ -9,10 +9,11 @@ import com.openyt.android.diagnostics.AndroidUpdateChecker
 import com.openyt.android.diagnostics.AndroidUpdateInstaller
 import com.openyt.android.probe.AndroidMediaProbe
 import com.openyt.android.saf.AndroidSafExporter
-import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.CompletedDownloadHandler
 import com.openyt.core.application.DiagnosticsProvider
+import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.DownloadRepository
+import com.openyt.core.application.SafExportRouter
 import com.openyt.core.application.LibraryArchiveService
 import com.openyt.core.application.BulkFileService
 import com.openyt.core.application.FolderImportService
@@ -92,6 +93,13 @@ class AppContainer(context: Context) {
     val mediaTagger = AndroidMediaTagger(appContext)
 
     private val safExporter = AndroidSafExporter(appContext)
+    private val safExportRouter = SafExportRouter(
+        exporter = safExporter,
+        fallbackTreeUri = { settingsController.settings.value.storageTreeUri },
+        onWarning = { warning ->
+            android.util.Log.w("OpenYT", warning.message)
+        },
+    )
 
     val coordinator: DownloadCoordinator = DownloadCoordinator(
         engine = engine,
@@ -102,16 +110,7 @@ class AppContainer(context: Context) {
             val now = Calendar.getInstance()
             now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
         },
-        completedHandler = CompletedDownloadHandler { task ->
-            val tree = settingsController.settings.value.storageTreeUri
-            val path = task.filePath
-            if (tree != null && path != null) {
-                val exported = safExporter.export(path, tree)
-                if (!exported) {
-                    android.util.Log.w("OpenYT", "SAF export failed")
-                }
-            }
-        },
+        completedHandler = safExportRouter,
     )
 
     val subscriptions = database.getOrNull()?.let { database ->

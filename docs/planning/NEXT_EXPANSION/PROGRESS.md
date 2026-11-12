@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX1.2 VERIFIED; remaining NX1 tasks PENDING.**
+Updated: 2026-11-12. **NX1.3 VERIFIED; remaining NX1 tasks PENDING.**
 
-Baseline: OpenYT 4.0.1; checkout `18fa90cd86c9072582c6fbc65329c7a0e6203856` (branch `codex/nx1-2-profile-persistence`).
-Actual baseline inspected, validated, profile resolution models implemented, and profile persistence with schema migration verified.
+Baseline: OpenYT 4.0.1; checkout `18fa90cd86c9072582c6fbc65329c7a0e6203856` (branch `codex/nx1-3-profile-snapshots`).
+Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, and immutable profile request snapshots implemented.
 
-Current task: NX1.2 completed. First ready task: **NX1.3**.
+Current task: NX1.3 completed. First ready task: **NX1.4**.
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -26,7 +26,8 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 
 - [x] [NX1.1 — model profiles and deterministic resolution](01_DOWNLOAD_PROFILES.md#nx1-1) — VERIFIED (Pure KMP domain models & resolver; 13 tests passing).
 - [x] [NX1.2 — persist custom profiles and local bindings](01_DOWNLOAD_PROFILES.md#nx1-2) — VERIFIED (SQLDelight schema 18->19 migration, profile repository, separate local bindings & versioned serialization; 8 contract tests passing).
-- [ ] [NX1.3 — snapshot profiles into queued requests](01_DOWNLOAD_PROFILES.md#nx1-3) — PENDING.
+- [x] [NX1.3 — snapshot profiles into queued requests](01_DOWNLOAD_PROFILES.md#nx1-3) — VERIFIED (Immutable profile provenance, per-task SAF export target isolation, retry snapshot preservation, and revalidation on format expiration; 11 contract tests passing).
+- [ ] [NX1.4 — connect the host/engine adapters](01_DOWNLOAD_PROFILES.md#nx1-4) — PENDING.
 - [ ] [NX1.4 — connect the host/engine adapters](01_DOWNLOAD_PROFILES.md#nx1-4) — PENDING.
 - [ ] [NX1.5 — add profile selection, preview and editing UI](01_DOWNLOAD_PROFILES.md#nx1-5) — PENDING.
 - [ ] [NX1.6 — milestone evidence and documentation](01_DOWNLOAD_PROFILES.md#nx1-6) — PENDING.
@@ -342,6 +343,53 @@ Known limits / blocked checks / decisions needed:
 - Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
 Next ready task and why its prerequisites are satisfied:
 - NX1.3 — snapshot profiles into queued requests: Profile models (NX1.1) and persistence with separate local destination bindings (NX1.2) are VERIFIED.
+```
+
+### NX1.3 — snapshot profiles into queued requests
+
+```text
+Task: NX1.3 — snapshot profiles into queued requests
+Status: VERIFIED (Immutable profile provenance, per-task SAF export target isolation, retry snapshot preservation, and revalidation on format expiration; 11 contract tests passing)
+Branch and commit (or uncommitted diff): codex/nx1-3-profile-snapshots
+Behavior changed: Added ProfileProvenance to DownloadOptions and implemented ResolvedDownloadPlan.toDownloadRequest() to snapshot resolved profiles into immutable DownloadRequest objects before enqueue. Stored per-task exportTargetUri separately from filesystem destinationDirectory (strictly rejecting content:// URIs in filesystem paths). Updated DownloadCoordinator with enqueuePlan() and verified that retries reuse saved snapshot choices. Implemented revalidatePlan() to prompt for approval if constituent format IDs disappear or expire from fresh source metadata. Implemented SafExportRouter in core and wired AndroidSafExporter to route per-task exports and emit copy-export warnings without failing successful local downloads.
+Files and ADRs changed:
+- core/src/commonMain/kotlin/com/openyt/core/domain/DownloadProfile.kt
+- core/src/commonMain/kotlin/com/openyt/core/domain/DownloadProfileResolver.kt
+- core/src/commonMain/kotlin/com/openyt/core/domain/DownloadOptions.kt
+- core/src/commonMain/kotlin/com/openyt/core/application/DownloadCoordinator.kt
+- core/src/commonMain/kotlin/com/openyt/core/application/SafExportRouter.kt
+- core/src/commonTest/kotlin/com/openyt/core/application/DownloadProfileSnapshotTest.kt
+- androidApp/src/main/kotlin/com/openyt/android/saf/AndroidSafDestination.kt
+- androidApp/src/main/kotlin/com/openyt/android/OpenYtApplication.kt
+- docs/planning/NEXT_EXPANSION/CONTRACTS.md
+- docs/planning/NEXT_EXPANSION/PROGRESS.md
+Contracts added/updated (IDs and exact test methods):
+- NX-P03 (Profile Snapshots & SAF Isolation):
+  - DownloadProfileSnapshotTest.editingProfileAfterEnqueueDoesNotMutateQueuedRequest[desktop]
+  - DownloadProfileSnapshotTest.deletingProfileAfterEnqueueDoesNotMutateQueuedRequest[desktop]
+  - DownloadProfileSnapshotTest.changingGlobalDestinationAfterEnqueueDoesNotMutateQueuedRequest[desktop]
+  - DownloadProfileSnapshotTest.twoTasksWithDifferentDestinationTargetsRemainIndependent[desktop]
+  - DownloadProfileSnapshotTest.restartPreservesSnapshotAndProvenance[desktop]
+  - DownloadProfileSnapshotTest.legacyTasksWithoutProvenanceRetainExistingBehavior[desktop]
+  - DownloadProfileSnapshotTest.safUriNeverEntersFilesystemDestinationField[desktop]
+  - DownloadProfileSnapshotTest.retryPreservesSavedSnapshotAndChoices[desktop]
+  - DownloadProfileSnapshotTest.revokedSafGrantProducesWarningWithoutFailingLocalDownload[desktop]
+  - DownloadProfileSnapshotTest.expiredSourceFormatRevalidationRequiresApproval[desktop]
+  - DownloadProfileSnapshotTest.noCredentialsInSnapshotOrDiagnostics[desktop]
+Commands actually executed and results:
+1. ./gradlew :core:desktopTest --tests '*DownloadProfileSnapshotTest' --console=plain -> exit 0 (11 tests completed, 0 failed, 0 errors in 15s)
+2. ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --console=plain -> exit 0 (212 actionable tasks executed/up-to-date in 45s)
+Native environment / device / tool versions:
+- Pop!_OS 24.04 LTS (noble) x86_64, OpenJDK 21 LTS, Gradle 8.14.4.
+Failure-path and migration evidence:
+- Revoked SAF tree grant tested via failing exporter in SafExportRouter; produces SafExportResult.Warning and routes warning message while keeping the local download status at COMPLETED and the local file intact.
+- Format expiration tested when constituent format IDs are missing from re-inspected metadata; triggers PlanRevalidationResult.RequiresApproval with proposed new plan and reason instead of failing silently.
+- Rejection of SAF content:// URIs in filesystem destinationDirectory verified via IllegalArgumentException.
+- Legacy tasks with blank/default options_json continue to decode and execute with null provenance and null export target without crashing or altering behavior.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
+Next ready task and why its prerequisites are satisfied:
+- NX1.4 — connect the host/engine adapters: Profile models (NX1.1), persistence (NX1.2), and immutable request snapshots with SAF isolation (NX1.3) are VERIFIED.
 ```
 
 ## Native Matrix
