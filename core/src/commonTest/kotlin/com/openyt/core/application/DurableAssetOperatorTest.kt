@@ -114,6 +114,7 @@ class DurableAssetOperatorTest {
         override fun fileSize(path: String): Long = existingFiles[path] ?: 0L
         override suspend fun computeSha256(path: String): String? = "sha-$path"
         override fun resolveTargetLocator(targetLocator: String): String = "/assets/$targetLocator"
+        override suspend fun deleteTarget(targetLocator: String): Boolean = true
     }
 
     private fun sampleRevision() = MediaRevision(sizeBytes = 1048576L, lastModifiedEpochMillis = 1000L)

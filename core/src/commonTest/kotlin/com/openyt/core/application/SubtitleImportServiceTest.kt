@@ -75,6 +75,7 @@ class SubtitleImportServiceTest {
         override fun fileSize(path: String): Long = existingFiles[path] ?: 0L
         override suspend fun computeSha256(path: String): String? = "sha256-computed"
         override fun resolveTargetLocator(targetLocator: String): String = "/assets/$targetLocator"
+        override suspend fun deleteTarget(targetLocator: String): Boolean = true
     }
 
     private class FakeFileInspector : MediaFileInspector {

@@ -90,6 +90,20 @@ import com.openyt.ui.components.MediaThumbnail
 import com.openyt.ui.components.StorageDialog
 import com.openyt.ui.components.MediaToolsDialog
 import com.openyt.core.application.MediaProcessor
+import com.openyt.core.application.MediaFileInspector
+import com.openyt.core.application.OfflineAssetMaintenance
+import com.openyt.core.application.OfflineAssetRepository
+import com.openyt.core.application.OfflineAssetStore
+import com.openyt.core.application.OfflineAssetView
+import com.openyt.core.application.OfflineLibraryPresenter
+import com.openyt.core.application.OfflineLibraryState
+import com.openyt.core.application.OfflineStorageBreakdown
+import com.openyt.core.application.SubtitleImportService
+import com.openyt.core.application.SubtitlePicker
+import com.openyt.core.application.ArtworkFetchService
+import com.openyt.core.domain.AssetKind
+import com.openyt.core.domain.RecoveryAction
+import com.openyt.ui.components.OfflineReadinessCard
 import com.openyt.ui.i18n.FeatureText
 import com.openyt.ui.components.ProviderIcon
 import com.openyt.ui.i18n.AppStrings
@@ -120,6 +134,13 @@ fun LibraryScreen(
     bulkFileService: BulkFileService? = null,
     playbackLauncher: PlaybackLauncher? = null,
     mediaProcessor: MediaProcessor? = null,
+    offlineAssetStore: OfflineAssetStore? = null,
+    offlineAssetRepository: OfflineAssetRepository? = null,
+    offlineAssetInspector: MediaFileInspector? = null,
+    subtitlePicker: SubtitlePicker? = null,
+    subtitleImportService: SubtitleImportService? = null,
+    artworkFetchService: ArtworkFetchService? = null,
+    renderingCacheBytes: () -> Long = { 0L },
 ) {
     val strings = LocalStrings.current
     val playbackScope = rememberCoroutineScope()
@@ -170,6 +191,16 @@ fun LibraryScreen(
     var storageReport by remember { mutableStateOf<StorageReport?>(null) }
     var storageLoading by remember { mutableStateOf(false) }
     var storageFailed by remember { mutableStateOf(false) }
+    var offlineState by remember { mutableStateOf<OfflineLibraryState?>(null) }
+    var artworkByEntry by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var offlineStorage by remember { mutableStateOf<OfflineStorageBreakdown?>(null) }
+    var offlineRefresh by remember { mutableStateOf(0) }
+    var subtitleMessage by remember { mutableStateOf<String?>(null) }
+    val offlineMaintenance = remember(offlineAssetRepository, offlineAssetStore) {
+        val repository = offlineAssetRepository
+        val store = offlineAssetStore
+        if (repository != null && store != null) OfflineAssetMaintenance(repository, store) else null
+    }
     var showBulkRename by remember { mutableStateOf(false) }
     var bulkRenamePattern by remember { mutableStateOf("{title}") }
     var showBulkMove by remember { mutableStateOf(false) }
@@ -212,6 +243,47 @@ fun LibraryScreen(
             storageFailed = true
         } finally {
             storageLoading = false
+        }
+    }
+
+    LaunchedEffect(entries, offlineAssetRepository, offlineAssetStore, offlineRefresh) {
+        val repository = offlineAssetRepository
+        val store = offlineAssetStore
+        if (repository == null || store == null) {
+            artworkByEntry = emptyMap()
+            offlineStorage = null
+            return@LaunchedEffect
+        }
+        val assets = withContext(Dispatchers.Default) { repository.loadAllAssets() }
+        artworkByEntry = assets
+            .filter { it.kind == AssetKind.ARTWORK && it.isVerified }
+            .associate { it.entryId to store.resolveAssetPath(it.relativeLocator) }
+        offlineStorage = OfflineStorageBreakdown(
+            originalMediaBytes = entries.sumOf { it.sizeBytes ?: 0L },
+            durableAssetBytes = assets.sumOf { it.byteCount },
+            renderingCacheBytes = renderingCacheBytes(),
+        )
+    }
+
+    LaunchedEffect(detail?.entry?.id, entries, offlineAssetRepository, offlineRefresh) {
+        val entry = detail?.entry
+        val repository = offlineAssetRepository
+        val store = offlineAssetStore
+        val inspector = offlineAssetInspector
+        if (entry == null || repository == null || store == null || inspector == null) {
+            offlineState = null
+            return@LaunchedEffect
+        }
+        offlineState = withContext(Dispatchers.Default) {
+            val assets = repository.loadAssetsForEntry(entry.id)
+            OfflineLibraryPresenter.present(
+                entry = entry,
+                assets = assets,
+                remoteArtworkUrl = entry.thumbnailUrl,
+                renderingCacheBytes = renderingCacheBytes(),
+                fileInspector = inspector,
+                resolveAssetPath = { store.resolveAssetPath(it) },
+            )
         }
     }
 
@@ -506,6 +578,7 @@ fun LibraryScreen(
                     itemsIndexed(sortedItems, key = { _, item -> item.entry.id }) { index, item ->
                         LibraryCard(
                             item = item,
+                            localArtworkPath = artworkByEntry[item.entry.id],
                             wide = false,
                             selectable = wide,
                             selected = item.entry.id in activeSelection,
@@ -559,12 +632,93 @@ fun LibraryScreen(
             item = resolved,
             mediaProbe = mediaProbe,
             mediaTagger = mediaTagger,
-            onClose = { detail = null },
+            onClose = {
+                detail = null
+                subtitleMessage = null
+            },
             onAddTag = { coordinator.addLibraryTag(item.entry.id, it) },
             onRemoveTag = { coordinator.removeLibraryTag(item.entry.id, it) },
             onSaveMetadata = { title, author ->
                 coordinator.updateLibraryMetadata(item.entry.id, title, author)
             },
+            offlineState = offlineState,
+            onTogglePin = { asset, pinned ->
+                val maintenance = offlineMaintenance ?: return@LibraryDetailsDialog
+                archiveScope.launch {
+                    maintenance.setPinned(resolved.entry.id, asset.id, pinned)
+                    offlineRefresh++
+                }
+            },
+            onOfflineCleanup = { ids ->
+                val maintenance = offlineMaintenance ?: return@LibraryDetailsDialog
+                archiveScope.launch {
+                    maintenance.cleanup(resolved.entry.id, ids)
+                    offlineRefresh++
+                }
+            },
+            onOfflineAction = { action ->
+                when (action) {
+                    RecoveryAction.IMPORT_SUBTITLE -> {
+                        val picker = subtitlePicker
+                        val service = subtitleImportService
+                        val revision = resolved.entry.mediaRevision
+                        if (picker != null && service != null && revision != null) {
+                            picker.pickSubtitle { picked ->
+                                if (picked == null) return@pickSubtitle
+                                archiveScope.launch {
+                                    val result = service.importSubtitleContent(
+                                        entryId = resolved.entry.id,
+                                        bytes = picked.bytes,
+                                        filenameHint = picked.filename,
+                                        mediaRevision = revision,
+                                    )
+                                    subtitleMessage = if (result.isSuccess) null else strings.offline.importSubtitleFailed
+                                    offlineRefresh++
+                                }
+                            }
+                        }
+                    }
+
+                    RecoveryAction.FETCH_ARTWORK -> {
+                        val service = artworkFetchService
+                        val url = resolved.entry.thumbnailUrl
+                        val revision = resolved.entry.mediaRevision
+                        if (service != null && !url.isNullOrBlank() && revision != null) {
+                            archiveScope.launch {
+                                service.fetchArtwork(resolved.entry.id, url, revision)
+                                offlineRefresh++
+                            }
+                        }
+                    }
+
+                    else -> offlineRefresh++
+                }
+            },
+            onRetryReadiness = { offlineRefresh++ },
+            canImportSubtitle = subtitlePicker?.canPick == true &&
+                subtitleImportService != null &&
+                resolved.entry.mediaRevision != null,
+            onImportSubtitle = {
+                val picker = subtitlePicker
+                val service = subtitleImportService
+                val revision = resolved.entry.mediaRevision
+                if (picker != null && service != null && revision != null) {
+                    picker.pickSubtitle { picked ->
+                        if (picked == null) return@pickSubtitle
+                        archiveScope.launch {
+                            val result = service.importSubtitleContent(
+                                entryId = resolved.entry.id,
+                                bytes = picked.bytes,
+                                filenameHint = picked.filename,
+                                mediaRevision = revision,
+                            )
+                            subtitleMessage = if (result.isSuccess) null else strings.offline.importSubtitleFailed
+                            offlineRefresh++
+                        }
+                    }
+                }
+            },
+            subtitleMessage = subtitleMessage,
         )
     }
 
@@ -971,6 +1125,7 @@ fun LibraryScreen(
                 null
             },
             onDismiss = { showStorage = false },
+            offlineStorage = offlineStorage,
         )
     }
 
@@ -1148,6 +1303,7 @@ fun LibraryScreen(
 @Composable
 private fun LibraryCard(
     item: LibraryItem,
+    localArtworkPath: String?,
     wide: Boolean,
     selectable: Boolean,
     selected: Boolean,
@@ -1175,9 +1331,10 @@ private fun LibraryCard(
                         modifier = Modifier.semantics { contentDescription = entry.title },
                     )
                 }
-                if (!entry.thumbnailUrl.isNullOrBlank()) {
+                if (localArtworkPath != null || !entry.thumbnailUrl.isNullOrBlank()) {
                     MediaThumbnail(
                         url = entry.thumbnailUrl,
+                        localArtworkPath = localArtworkPath,
                         modifier = Modifier
                             .width(if (wide) 240.dp else 96.dp)
                             .aspectRatio(16f / 9f),
@@ -1344,6 +1501,14 @@ private fun LibraryDetailsDialog(
     onAddTag: (String) -> Unit,
     onRemoveTag: (String) -> Unit,
     onSaveMetadata: (String, String?) -> Unit,
+    offlineState: OfflineLibraryState?,
+    onTogglePin: (OfflineAssetView, Boolean) -> Unit,
+    onOfflineCleanup: (Set<String>) -> Unit,
+    onOfflineAction: (RecoveryAction) -> Unit,
+    onRetryReadiness: () -> Unit,
+    canImportSubtitle: Boolean,
+    onImportSubtitle: () -> Unit,
+    subtitleMessage: String?,
 ) {
     val strings = LocalStrings.current
     val entry = item.entry
@@ -1483,6 +1648,27 @@ private fun LibraryDetailsDialog(
                         else -> strings.statusAvailable
                     },
                 )
+                offlineState?.let { state ->
+                    OfflineReadinessCard(
+                        state = state,
+                        onTogglePin = onTogglePin,
+                        onCleanup = onOfflineCleanup,
+                        onAction = onOfflineAction,
+                        onRetry = onRetryReadiness,
+                    )
+                }
+                if (canImportSubtitle) {
+                    TextButton(onClick = onImportSubtitle) {
+                        Text(strings.offline.importSubtitle)
+                    }
+                }
+                subtitleMessage?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 when {
                     analyzing -> Text(
                         strings.analyzing,

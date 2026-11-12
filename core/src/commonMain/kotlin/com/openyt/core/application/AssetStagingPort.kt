@@ -28,4 +28,5 @@ interface AssetStagingPort {
     fun fileSize(path: String): Long
     suspend fun computeSha256(path: String): String?
     fun resolveTargetLocator(targetLocator: String): String
+    suspend fun deleteTarget(targetLocator: String): Boolean
 }

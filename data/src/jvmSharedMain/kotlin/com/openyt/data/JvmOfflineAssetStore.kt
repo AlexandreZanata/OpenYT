@@ -45,4 +45,7 @@ class JvmOfflineAssetStore(
 
     override fun resolveAssetPath(relativeLocator: String): String =
         File(assetsDirectory, relativeLocator).absolutePath
+
+    override suspend fun deleteOwnedAsset(asset: OfflineAsset): Boolean =
+        operator.deleteOwnedAsset(asset)
 }

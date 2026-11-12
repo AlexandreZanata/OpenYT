@@ -31,6 +31,14 @@ import com.openyt.data.FileFolderScanner
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.SqlDelightDownloadProfileRepository
 import com.openyt.data.SqlDelightSettingsRepository
+import com.openyt.data.SqlDelightOfflineAssetRepository
+import com.openyt.data.SqlDelightAssetOperationRepository
+import com.openyt.data.JvmOfflineAssetStore
+import com.openyt.data.JvmMediaFileInspector
+import com.openyt.data.JvmArtworkFetchPort
+import com.openyt.core.application.ArtworkFetchService
+import com.openyt.core.application.SubtitleImportService
+import com.openyt.core.application.OfflineAssetRepository
 import com.openyt.data.SqlDelightPlaybackStore
 import com.openyt.data.SqlDelightSubscriptions
 import com.openyt.data.RssFeedReader
@@ -86,6 +94,41 @@ class AppContainer(context: Context) {
     val profileRepository: DownloadProfileRepository? =
         database.getOrNull()?.let(::SqlDelightDownloadProfileRepository)
 
+    val offlineAssetsDirectory: File =
+        File(appContext.filesDir, "offline-assets").apply { mkdirs() }
+    val offlineAssetRepository: OfflineAssetRepository? =
+        database.getOrNull()?.let(::SqlDelightOfflineAssetRepository)
+    val offlineAssetStore: JvmOfflineAssetStore? = run {
+        val db = database.getOrNull() ?: return@run null
+        val assetRepository = offlineAssetRepository ?: return@run null
+        JvmOfflineAssetStore(
+            assetsDirectory = offlineAssetsDirectory,
+            repository = assetRepository,
+            operationRepository = SqlDelightAssetOperationRepository(db),
+        )
+    }
+    val artworkFetchService: ArtworkFetchService? = run {
+        val store = offlineAssetStore ?: return@run null
+        val assetRepository = offlineAssetRepository ?: return@run null
+        ArtworkFetchService(
+            operator = store.operator,
+            fetchPort = JvmArtworkFetchPort(),
+            assetRepository = assetRepository,
+            stagingPort = store.stagingPort,
+        )
+    }
+    val subtitleImportService: SubtitleImportService? = run {
+        val store = offlineAssetStore ?: return@run null
+        val assetRepository = offlineAssetRepository ?: return@run null
+        SubtitleImportService(
+            operator = store.operator,
+            assetRepository = assetRepository,
+            stagingPort = store.stagingPort,
+            fileInspector = JvmMediaFileInspector(),
+        )
+    }
+    val renderingCacheBytes: () -> Long = { appContext.cacheDir.directorySize() }
+
     val playbackStore = database.getOrNull()?.let(::SqlDelightPlaybackStore) ?: MemoryPlaybackStore()
 
     val settingsRepository: SettingsRepository? =
@@ -110,6 +153,7 @@ class AppContainer(context: Context) {
         scope = appScope,
         repository = repository,
         cookieRepository = cookieRepository,
+        assetStore = offlineAssetStore,
         timeOfDayMinutes = {
             val now = Calendar.getInstance()
             now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
@@ -153,3 +197,10 @@ private fun cleanStaleTemporaryFiles(directory: File) {
 }
 
 private const val STALE_TEMP_MILLIS = 7L * 24 * 60 * 60 * 1000
+
+private fun File.directorySize(): Long =
+    if (isDirectory) {
+        listFiles()?.sumOf { it.directorySize() } ?: 0L
+    } else {
+        length()
+    }

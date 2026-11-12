@@ -55,4 +55,6 @@ class MemoryOfflineAssetStore(
 
     override fun resolveAssetPath(relativeLocator: String): String =
         "/memory/assets/$relativeLocator"
+
+    override suspend fun deleteOwnedAsset(asset: OfflineAsset): Boolean = true
 }

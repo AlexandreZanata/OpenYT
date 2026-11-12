@@ -55,3 +55,30 @@ object DesktopFolderPicker {
 }
 
 private val URI_LIST_FLAVOR = DataFlavor("text/uri-list;class=java.lang.String")
+
+object DesktopSubtitlePicker {
+    fun pick(): com.openyt.core.application.PickedSubtitle? {
+        val chooser = JFileChooser(File(System.getProperty("user.home") ?: "."))
+        chooser.fileSelectionMode = JFileChooser.FILES_ONLY
+        chooser.isAcceptAllFileFilterUsed = false
+        chooser.fileFilter = javax.swing.filechooser.FileNameExtensionFilter(
+            "Subtitles (*.srt, *.vtt)",
+            "srt",
+            "vtt",
+        )
+        chooser.dialogTitle = "OpenYT — import subtitle"
+        if (chooser.showOpenDialog(null) != JFileChooser.APPROVE_OPTION) return null
+
+        val selected = chooser.selectedFile ?: return null
+        if (!selected.isFile || selected.length() <= 0L) return null
+        if (selected.length() > MAX_SUBTITLE_BYTES) return null
+        return runCatching {
+            com.openyt.core.application.PickedSubtitle(
+                filename = selected.name,
+                bytes = selected.readBytes(),
+            )
+        }.getOrNull()
+    }
+
+    private const val MAX_SUBTITLE_BYTES = 10L * 1024 * 1024
+}

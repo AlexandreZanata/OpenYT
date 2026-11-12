@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import com.openyt.core.application.FileAvailability
 import com.openyt.android.diagnostics.AndroidUrlOpener
 import com.openyt.android.importer.AndroidMediaImporter
+import com.openyt.android.importer.AndroidSubtitlePicker
 import com.openyt.android.player.AndroidPlaybackLauncher
 import com.openyt.android.saf.AndroidSafDestinationPicker
 import com.openyt.android.share.AndroidMediaActions
@@ -84,6 +85,13 @@ class MainActivity : ComponentActivity() {
                 initialSharedUrl = pendingSharedUrl,
                 onSharedUrlConsumed = { sharedUrl.value = null },
                 profileRepository = container.profileRepository,
+                offlineAssetStore = container.offlineAssetStore,
+                offlineAssetRepository = container.offlineAssetRepository,
+                offlineAssetInspector = remember { com.openyt.data.JvmMediaFileInspector() },
+                subtitlePicker = remember { AndroidSubtitlePicker(this) },
+                subtitleImportService = container.subtitleImportService,
+                artworkFetchService = container.artworkFetchService,
+                renderingCacheBytes = container.renderingCacheBytes,
             )
         }
     }

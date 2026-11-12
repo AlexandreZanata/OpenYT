@@ -92,6 +92,7 @@ class ArtworkFetchServiceTest {
         override fun fileSize(path: String): Long = 1024L
         override suspend fun computeSha256(path: String): String? = "sha256-computed"
         override fun resolveTargetLocator(targetLocator: String): String = "/assets/$targetLocator"
+        override suspend fun deleteTarget(targetLocator: String): Boolean = true
     }
 
     private class FakeFileInspector : MediaFileInspector {

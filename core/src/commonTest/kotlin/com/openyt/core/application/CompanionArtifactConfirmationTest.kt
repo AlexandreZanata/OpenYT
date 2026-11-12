@@ -159,6 +159,7 @@ class CompanionArtifactConfirmationTest {
         }
         override suspend fun getAssetsForEntry(entryId: String): List<OfflineAsset> = emptyList()
         override fun resolveAssetPath(relativeLocator: String): String = "/throwing/$relativeLocator"
+        override suspend fun deleteOwnedAsset(asset: OfflineAsset): Boolean = false
     }
 
     private fun sampleMedia(id: String = "test-media") = MediaInfo(

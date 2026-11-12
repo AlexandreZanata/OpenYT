@@ -25,4 +25,10 @@ interface OfflineAssetStore {
      * Resolves the absolute host path for a stored asset given its [relativeLocator].
      */
     fun resolveAssetPath(relativeLocator: String): String
+
+    /**
+     * Deletes the owned file backing [asset]. Never touches original user media.
+     * Returns true when the owned file is gone after the call.
+     */
+    suspend fun deleteOwnedAsset(asset: OfflineAsset): Boolean
 }

@@ -198,6 +198,16 @@ class JvmAssetStagingPort(
     override fun resolveTargetLocator(targetLocator: String): String =
         File(assetsDirectory, targetLocator).absolutePath
 
+    override suspend fun deleteTarget(targetLocator: String): Boolean = withContext(Dispatchers.IO) {
+        val target = File(assetsDirectory, targetLocator)
+        val root = assetsDirectory.canonicalFile
+        val canonical = target.canonicalFile
+        if (canonical.path == root.path || !canonical.path.startsWith(root.path + File.separator)) {
+            return@withContext false
+        }
+        !canonical.exists() || canonical.delete()
+    }
+
     private fun ensureWithinStaging(file: File) {
         val root = stagingDirectory.canonicalFile
         val target = file.canonicalFile

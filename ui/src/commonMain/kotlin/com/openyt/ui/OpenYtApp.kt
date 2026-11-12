@@ -125,6 +125,13 @@ fun OpenYtApp(
     mediaPreview: MediaPreview? = null,
     subscriptions: SubscriptionController? = null,
     profileRepository: DownloadProfileRepository? = null,
+    offlineAssetStore: com.openyt.core.application.OfflineAssetStore? = null,
+    offlineAssetRepository: com.openyt.core.application.OfflineAssetRepository? = null,
+    offlineAssetInspector: com.openyt.core.application.MediaFileInspector? = null,
+    subtitlePicker: com.openyt.core.application.SubtitlePicker? = null,
+    subtitleImportService: com.openyt.core.application.SubtitleImportService? = null,
+    artworkFetchService: com.openyt.core.application.ArtworkFetchService? = null,
+    renderingCacheBytes: () -> Long = { 0L },
 ) {
     val ready by coordinator.ready.collectAsState()
     val settings by settingsController.settings.collectAsState()
@@ -217,6 +224,13 @@ fun OpenYtApp(
                     toolUpdater = toolUpdater,
                     profileRepository = profileRepository,
                     systemLanguageTag = systemLanguageTag,
+                    offlineAssetStore = offlineAssetStore,
+                    offlineAssetRepository = offlineAssetRepository,
+                    offlineAssetInspector = offlineAssetInspector,
+                    subtitlePicker = subtitlePicker,
+                    subtitleImportService = subtitleImportService,
+                    artworkFetchService = artworkFetchService,
+                    renderingCacheBytes = renderingCacheBytes,
                 )
             }
         }
@@ -261,6 +275,13 @@ private fun AppShell(
     toolUpdater: com.openyt.core.application.ToolUpdater?,
     profileRepository: DownloadProfileRepository? = null,
     systemLanguageTag: String = "en",
+    offlineAssetStore: com.openyt.core.application.OfflineAssetStore? = null,
+    offlineAssetRepository: com.openyt.core.application.OfflineAssetRepository? = null,
+    offlineAssetInspector: com.openyt.core.application.MediaFileInspector? = null,
+    subtitlePicker: com.openyt.core.application.SubtitlePicker? = null,
+    subtitleImportService: com.openyt.core.application.SubtitleImportService? = null,
+    artworkFetchService: com.openyt.core.application.ArtworkFetchService? = null,
+    renderingCacheBytes: () -> Long = { 0L },
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -364,6 +385,13 @@ private fun AppShell(
                         bulkFileService = bulkFileService,
                         playbackLauncher = playbackLauncher,
                         mediaProcessor = mediaProcessor,
+                        offlineAssetStore = offlineAssetStore,
+                        offlineAssetRepository = offlineAssetRepository,
+                        offlineAssetInspector = offlineAssetInspector,
+                        subtitlePicker = subtitlePicker,
+                        subtitleImportService = subtitleImportService,
+                        artworkFetchService = artworkFetchService,
+                        renderingCacheBytes = renderingCacheBytes,
                     )
                     else -> SettingsScreen(
                         toolUpdater = toolUpdater,

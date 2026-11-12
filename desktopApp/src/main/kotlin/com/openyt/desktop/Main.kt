@@ -29,6 +29,13 @@ import com.openyt.data.FileBulkFileOperator
 import com.openyt.data.FileFolderScanner
 import com.openyt.data.SqlDelightDownloadRepository
 import com.openyt.data.SqlDelightDownloadProfileRepository
+import com.openyt.data.SqlDelightOfflineAssetRepository
+import com.openyt.data.SqlDelightAssetOperationRepository
+import com.openyt.data.JvmOfflineAssetStore
+import com.openyt.data.JvmMediaFileInspector
+import com.openyt.data.JvmArtworkFetchPort
+import com.openyt.core.application.ArtworkFetchService
+import com.openyt.core.application.SubtitleImportService
 import com.openyt.data.SqlDelightSettingsRepository
 import com.openyt.data.SqlDelightPlaybackStore
 import com.openyt.data.SqlDelightSubscriptions
@@ -96,6 +103,55 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
             .getOrNull()
     }
     val repository = remember(database) { database?.let(::SqlDelightDownloadRepository) }
+    val offlineAssetsDirectory = remember {
+        File(defaultDatabasePath()).parentFile.resolve("offline-assets").apply { mkdirs() }
+    }
+    val offlineAssetRepository = remember(database) {
+        database?.let(::SqlDelightOfflineAssetRepository)
+    }
+    val offlineAssetStore = remember(database, offlineAssetRepository) {
+        val offlineRepository = offlineAssetRepository
+        if (database != null && offlineRepository != null) {
+            JvmOfflineAssetStore(
+                assetsDirectory = offlineAssetsDirectory,
+                repository = offlineRepository,
+                operationRepository = SqlDelightAssetOperationRepository(database),
+            )
+        } else {
+            null
+        }
+    }
+    val artworkFetchService = remember(offlineAssetStore, offlineAssetRepository) {
+        val store = offlineAssetStore
+        val offlineRepository = offlineAssetRepository
+        if (store != null && offlineRepository != null) {
+            ArtworkFetchService(
+                operator = store.operator,
+                fetchPort = JvmArtworkFetchPort(),
+                assetRepository = offlineRepository,
+                stagingPort = store.stagingPort,
+            )
+        } else {
+            null
+        }
+    }
+    val subtitleImportService = remember(offlineAssetStore, offlineAssetRepository) {
+        val store = offlineAssetStore
+        val offlineRepository = offlineAssetRepository
+        if (store != null && offlineRepository != null) {
+            SubtitleImportService(
+                operator = store.operator,
+                assetRepository = offlineRepository,
+                stagingPort = store.stagingPort,
+                fileInspector = JvmMediaFileInspector(),
+            )
+        } else {
+            null
+        }
+    }
+    val previewsDirectory = remember {
+        File(System.getProperty("java.io.tmpdir"), "openyt-previews").apply { mkdirs() }
+    }
     val profileRepository = remember(database) {
         database?.let(::SqlDelightDownloadProfileRepository) ?: MemoryDownloadProfileRepository()
     }
@@ -105,12 +161,13 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
     val cookieRepository = remember {
         EncryptedCookieRepository(File(defaultDatabasePath()).parentFile.resolve("cookies"))
     }
-    val coordinator = remember(engine) {
+    val coordinator = remember(engine, offlineAssetStore) {
         DownloadCoordinator(
             engine = engine,
             scope = scope,
             repository = repository,
             cookieRepository = cookieRepository,
+            assetStore = offlineAssetStore,
             timeOfDayMinutes = {
                 val now = LocalTime.now()
                 now.hour * 60 + now.minute
@@ -280,8 +337,29 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
             bulkFileService = bulkFileService,
             playbackLauncher = playbackLauncher,
             mediaProcessor = remember { FfmpegMediaProcessor({ ExecutableLocator().findFfmpeg() }) },
-            mediaPreview = remember { EngineMediaPreview(engine, playbackLauncher, File(System.getProperty("java.io.tmpdir"), "openyt-previews").apply { mkdirs() }.absolutePath, { java.util.UUID.randomUUID().toString() }) },
+            mediaPreview = remember { EngineMediaPreview(engine, playbackLauncher, previewsDirectory.absolutePath, { java.util.UUID.randomUUID().toString() }) },
             profileRepository = profileRepository,
+            offlineAssetStore = offlineAssetStore,
+            offlineAssetRepository = offlineAssetRepository,
+            offlineAssetInspector = remember { JvmMediaFileInspector() },
+            subtitlePicker = remember {
+                object : com.openyt.core.application.SubtitlePicker {
+                    override val canPick: Boolean = true
+                    override fun pickSubtitle(onPicked: (com.openyt.core.application.PickedSubtitle?) -> Unit) {
+                        onPicked(DesktopSubtitlePicker.pick())
+                    }
+                }
+            },
+            subtitleImportService = subtitleImportService,
+            artworkFetchService = artworkFetchService,
+            renderingCacheBytes = { previewsDirectory.directorySize() },
         )
     }
 }
+
+private fun File.directorySize(): Long =
+    if (isDirectory) {
+        listFiles()?.sumOf { it.directorySize() } ?: 0L
+    } else {
+        length()
+    }
