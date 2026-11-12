@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX1.5 VERIFIED; remaining NX1 tasks PENDING.**
+Updated: 2026-11-12. **NX1 VERIFIED (NX1.1–NX1.6 complete); NX2 ready to start.**
 
-Baseline: OpenYT 4.0.1; checkout `codex/nx1-5-profile-ui`.
-Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, and profile selection, preview, and editing UI implemented and verified.
+Baseline: OpenYT 4.0.1; checkout `codex/nx1-6-milestone-evidence`.
+Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, and combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence.
 
-Current task: NX1.5 completed. First ready task: **NX1.6**.
+Current task: NX1.6 completed. First ready task: **NX2.1**.
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -29,7 +29,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 - [x] [NX1.3 — snapshot profiles into queued requests](01_DOWNLOAD_PROFILES.md#nx1-3) — VERIFIED (Immutable profile provenance, per-task SAF export target isolation, retry snapshot preservation, and revalidation on format expiration; 11 contract tests passing).
 - [x] [NX1.4 — connect the host/engine adapters](01_DOWNLOAD_PROFILES.md#nx1-4) — VERIFIED (Host and engine options updated with merge/remux container flags, confirmed output validation against approved plan, structured format disappearance errors, and real local probing; 7 local contract tests passing).
 - [x] [NX1.5 — add profile selection, preview and editing UI](01_DOWNLOAD_PROFILES.md#nx1-5) — VERIFIED (Accessible selection, preview card across mobile/desktop widths, enlarged text, changing profile does not start download, explicit download action snapshots approved plan, actionable alternatives for incompatible profiles, and custom profile editor dialog; 20 contract tests passing).
-- [ ] [NX1.6 — milestone evidence and documentation](01_DOWNLOAD_PROFILES.md#nx1-6) — PENDING.
+- [x] [NX1.6 — milestone evidence and documentation](01_DOWNLOAD_PROFILES.md#nx1-6) — VERIFIED (Combined native preview/download/restart/retry flow verified with SQLite persistence and local tools, manual format selection preserved without interference, four profiles and fallback rules documented with real Compose UI screenshots; 3 contract tests passing).
 
 ## NX2 — durable offline library
 
@@ -478,6 +478,36 @@ Known limits / blocked checks / decisions needed:
 - Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
 Next ready task and why its prerequisites are satisfied:
 - NX1.6 — milestone evidence and documentation: Profile selection, preview, and editing UI (NX1.5) and all underlying engine adapters and contracts are VERIFIED.
+```
+
+```
+Task: NX1.6 — milestone evidence and documentation
+Date: 2026-11-12
+Host: Linux 6.17.7-76061707-generic x86_64, Pop!_OS 24.04 LTS
+Git branch: codex/nx1-6-milestone-evidence
+Status: VERIFIED
+Commands executed:
+- OPENYT_RUN_LOCAL_ENGINE_TESTS=1 OPENYT_YTDLP="$PWD/desktopApp/build/bundled-tools/linux-x64/yt-dlp" OPENYT_FFMPEG="$PWD/desktopApp/build/bundled-tools/linux-x64/ffmpeg" OPENYT_FFPROBE="$PWD/desktopApp/build/bundled-tools/linux-x64/ffprobe" ./gradlew :desktopApp:test --tests '*DownloadProfileNativeFlowTest*' --console=plain
+- ./gradlew :desktopApp:test --tests '*DownloadProfile*' --console=plain
+- ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --console=plain
+- ./scripts/validate-linux.sh --scenario all --no-build --offline
+Result:
+- 3/3 contract tests passed in DownloadProfileNativeFlowTest (contract NX-P06), verifying SQLite persistence, application restart, retry fidelity with ProfileProvenance, manual format selection coexistence without remux interference, and real loopback tool downloads.
+- All 20 parameterized tests passed in DownloadProfileUiTest (contract NX-P05).
+- All 7 real-tool contract tests passed in DownloadProfileLocalTest (contract NX-P04).
+- Full regression suite passed (212 actionable tasks, BUILD SUCCESSFUL).
+- Linux validation suite passed (all offline scenarios: prepare, tests, metadata, cookies, library, archive, watch, storage, bulk, playback, gui).
+Behavior changed:
+- Implemented and verified DownloadProfileNativeFlowTest enforcing combined native preview -> download -> restart -> retry lifecycle against real SQLite persistence and local engine execution.
+- Verified that existing manual format selection functions cleanly without interference from profile remuxing arguments or logic.
+- Documented the four built-in profiles (Study offline, Audio only, Save space, Watch on TV), deterministic resolution rules, custom profiles, local bindings, and SAF isolation in docs/DOWNLOAD_PROFILES.md.
+- Staged and embedded real Compose UI screenshots across phone/desktop widths, dark/light themes, and enlarged font scales in docs/assets/profiles/.
+- Linked Download Profiles documentation from docs/architecture/OVERVIEW.md.
+- Closed phase NX1 with all 6 tasks (NX1.1 through NX1.6) and all 6 contracts (NX-P01 through NX-P06) fully VERIFIED.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
+Next ready task and why its prerequisites are satisfied:
+- NX2.1 — model assets, revisions and readiness: Download Profiles milestone (NX1) is complete and VERIFIED; offline library assets domain modeling can begin.
 ```
 
 ## Native Matrix

@@ -109,6 +109,14 @@ Suggested groups: `DownloadProfileResolverTest`, `DownloadProfileRepositoryTest`
     - Visual regression screenshots captured to `desktopApp/build/ui-regressions/profile-preview-*.png`.
   - Status: **VERIFIED**.
 - **NX-P06:** native combined flow and existing manual format selection survive.
+  - Implemented by `com.openyt.desktop.downloader.DownloadProfileNativeFlowTest` (3 tests in `:desktopApp:test` covering SQLite persistence, application restart, retry snapshot fidelity, manual format regression, and real local loopback tools).
+  - Covers:
+    - Combined flow: inspection -> profile resolution -> preview -> explicit download action enqueues plan snapshot into SQLite;
+    - Application restart: SQLite restores task state as `INTERRUPTED`, preserving exact `ProfileProvenance`, container, and `fileNameTemplate`;
+    - Task retry: creates a fresh queued task preserving original profile snapshot choices without re-resolving or falling back to wrong containers;
+    - Existing manual format selection: raw format IDs and custom templates execute without profile remuxing interference and survive restart/retry;
+    - Local loopback integration: verifies output streams/codecs via `DesktopMediaProbe` for both profile and manual downloads.
+  - Status: **VERIFIED**.
 
 ### Offline assets — NX-O
 
