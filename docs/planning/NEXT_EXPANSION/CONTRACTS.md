@@ -281,6 +281,15 @@ Suggested groups: `StudyRepositoryTest`, `StudySessionTest`, `StudyLinkTest`,
 `StudyUiTest`, host `StudyPlaybackLocalTest`.
 
 - **NX-T01:** notes/ranges/manual completion survive restart/path changes.
+  - Contract & Invariants:
+    - Entry-anchored persistence (`StudyNote`, `StudyBookmark`, `SavedStudyRange`, `EntryStudyState`): all study records bind to stable `library_entry.id` and millisecond positions rather than mutable paths or source URLs;
+    - Schema v24 (`23.sqm`) migration & reopen: upgrading from schema v23 preserves legacy library, collection, playback, and subtitle data cleanly while persisting and reloading study tables across database restarts (`verifyCommonMainOpenYtDatabaseMigration`, `SqlDelightStudyRepositoryTest`);
+    - Injected clock, stable IDs & Unicode limits (`StudyService`, `StudyValidator`): timestamps come from an injected clock with `createdAtEpochMillis` preserved across edits; code-point validation enforces non-blank text, max 20,000 Unicode chars on notes, max 120 Unicode chars on bookmark and range labels (treating supplementary emoji surrogate pairs as 1 character), `0 <= timestamp`, `start < end`, interval >= 1,000 ms, and known-duration bounds;
+    - Overlapping intervals & deterministic ordering: overlapping note intervals, overlapping saved ranges, and same-timestamp entries are supported and deterministically ordered across memory and SQLite (`timestamp ASC, COALESCE(end, -1) ASC, created_at ASC, id ASC`);
+    - Locator moves vs stale content revisions: updating media paths (`updateLibraryPath`) or replacing `library_entry` rows does not trigger SQLite cascade deletion and keeps revision anchors valid; modifying underlying content revisions (`updateLibraryRevision`) flags mismatched anchors via `StudyRevisionComparator` (`staleNoteIds`, `staleBookmarkIds`, `staleRangeIds`), while body-only edits preserve the stale warning until re-anchored;
+    - Independent manual completion & collection progress: `entry_study_state` is separate from `playback_position`; playback end resets (`resumeMillis == 0`) do not erase manual completion; collection progress counts `studiedCount / totalMemberCount` over current members reflecting shared membership and additions/removals dynamically;
+    - Missing entry & removal preview semantics: writes for missing entries return `StudyFailure.EntryNotFound` and updates/deletes on missing items return `StudyFailure.ItemNotFound`; `previewEntryRemoval` reports authored notes/bookmarks/ranges, confirmation prompts, and physical media preservation; `deleteLibraryEntry` never silently cascades authored study text, and `deleteAllStudyDataForEntry` cleans study records only on explicit user confirmation without touching user files.
+  - Status: **VERIFIED**.
 - **NX-T02:** timestamp capture cannot race into the wrong entry; stale anchors.
 - **NX-T03:** five real A/B loops within stated tolerance and clean stop/switch.
 - **NX-T04:** escaped Markdown, typed local links, OS dispatch and privacy.

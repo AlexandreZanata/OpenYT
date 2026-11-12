@@ -778,8 +778,172 @@ FROM subtitle_track_index i
 INNER JOIN library_entry le ON le.id = i.entry_id
 WHERE i.entry_id IN (SELECT entry_id FROM collection_entry WHERE collection_id = :collection_id);
 
+CREATE TABLE study_note (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    timestamp_ms INTEGER NOT NULL,
+    end_ms INTEGER,
+    body TEXT NOT NULL,
+    media_revision_size INTEGER,
+    media_revision_mtime INTEGER,
+    media_revision_sha256 TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
 
+CREATE INDEX study_note_entry_time_idx
+    ON study_note(entry_id, timestamp_ms, end_ms, created_at, id);
 
+CREATE TABLE study_bookmark (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    timestamp_ms INTEGER NOT NULL,
+    label TEXT NOT NULL,
+    media_revision_size INTEGER,
+    media_revision_mtime INTEGER,
+    media_revision_sha256 TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
 
+CREATE INDEX study_bookmark_entry_time_idx
+    ON study_bookmark(entry_id, timestamp_ms, created_at, id);
+
+CREATE TABLE study_range (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    start_ms INTEGER NOT NULL,
+    end_ms INTEGER NOT NULL,
+    label TEXT,
+    media_revision_size INTEGER,
+    media_revision_mtime INTEGER,
+    media_revision_sha256 TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX study_range_entry_time_idx
+    ON study_range(entry_id, start_ms, end_ms, created_at, id);
+
+CREATE TABLE entry_study_state (
+    entry_id TEXT NOT NULL PRIMARY KEY,
+    is_studied INTEGER NOT NULL DEFAULT 0,
+    studied_at INTEGER,
+    updated_at INTEGER NOT NULL
+);
+
+selectStudyNotesForEntry:
+SELECT * FROM study_note
+WHERE entry_id = :entry_id
+ORDER BY timestamp_ms ASC, COALESCE(end_ms, -1) ASC, created_at ASC, id ASC;
+
+selectStudyNoteById:
+SELECT * FROM study_note WHERE id = :id;
+
+upsertStudyNote:
+INSERT OR REPLACE INTO study_note(
+    id, entry_id, timestamp_ms, end_ms, body,
+    media_revision_size, media_revision_mtime, media_revision_sha256,
+    created_at, updated_at
+) VALUES (
+    :id, :entry_id, :timestamp_ms, :end_ms, :body,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256,
+    :created_at, :updated_at
+);
+
+deleteStudyNote:
+DELETE FROM study_note WHERE id = :id;
+
+deleteStudyNotesForEntry:
+DELETE FROM study_note WHERE entry_id = :entry_id;
+
+selectStudyBookmarksForEntry:
+SELECT * FROM study_bookmark
+WHERE entry_id = :entry_id
+ORDER BY timestamp_ms ASC, created_at ASC, id ASC;
+
+selectStudyBookmarkById:
+SELECT * FROM study_bookmark WHERE id = :id;
+
+upsertStudyBookmark:
+INSERT OR REPLACE INTO study_bookmark(
+    id, entry_id, timestamp_ms, label,
+    media_revision_size, media_revision_mtime, media_revision_sha256,
+    created_at, updated_at
+) VALUES (
+    :id, :entry_id, :timestamp_ms, :label,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256,
+    :created_at, :updated_at
+);
+
+deleteStudyBookmark:
+DELETE FROM study_bookmark WHERE id = :id;
+
+deleteStudyBookmarksForEntry:
+DELETE FROM study_bookmark WHERE entry_id = :entry_id;
+
+selectStudyRangesForEntry:
+SELECT * FROM study_range
+WHERE entry_id = :entry_id
+ORDER BY start_ms ASC, end_ms ASC, created_at ASC, id ASC;
+
+selectStudyRangeById:
+SELECT * FROM study_range WHERE id = :id;
+
+upsertStudyRange:
+INSERT OR REPLACE INTO study_range(
+    id, entry_id, start_ms, end_ms, label,
+    media_revision_size, media_revision_mtime, media_revision_sha256,
+    created_at, updated_at
+) VALUES (
+    :id, :entry_id, :start_ms, :end_ms, :label,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256,
+    :created_at, :updated_at
+);
+
+deleteStudyRange:
+DELETE FROM study_range WHERE id = :id;
+
+deleteStudyRangesForEntry:
+DELETE FROM study_range WHERE entry_id = :entry_id;
+
+selectEntryStudyState:
+SELECT * FROM entry_study_state WHERE entry_id = :entry_id;
+
+upsertEntryStudyState:
+INSERT OR REPLACE INTO entry_study_state(
+    entry_id, is_studied, studied_at, updated_at
+) VALUES (
+    :entry_id, :is_studied, :studied_at, :updated_at
+);
+
+selectStudiedEntryIds:
+SELECT entry_id FROM entry_study_state WHERE is_studied = 1 ORDER BY entry_id ASC;
+
+deleteEntryStudyState:
+DELETE FROM entry_study_state WHERE entry_id = :entry_id;
+
+selectCollectionStudyProgress:
+SELECT
+    ce.collection_id,
+    count(DISTINCT le.id) AS total_members,
+    coalesce(sum(CASE WHEN ess.is_studied = 1 THEN 1 ELSE 0 END), 0) AS studied_members
+FROM collection_entry ce
+INNER JOIN library_entry le ON le.id = ce.entry_id
+LEFT JOIN entry_study_state ess ON ess.entry_id = le.id
+WHERE ce.collection_id = :collection_id
+GROUP BY ce.collection_id;
+
+selectAllCollectionStudyProgress:
+SELECT
+    c.id AS collection_id,
+    count(le.id) AS total_members,
+    coalesce(sum(CASE WHEN le.id IS NOT NULL AND ess.is_studied = 1 THEN 1 ELSE 0 END), 0) AS studied_members
+FROM collection c
+LEFT JOIN collection_entry ce ON ce.collection_id = c.id
+LEFT JOIN library_entry le ON le.id = ce.entry_id
+LEFT JOIN entry_study_state ess ON ess.entry_id = le.id
+GROUP BY c.id
+ORDER BY c.created_at ASC, c.id ASC;
 
 

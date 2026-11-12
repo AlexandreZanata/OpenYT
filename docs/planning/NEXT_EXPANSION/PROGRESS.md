@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX3.7 VERIFIED; search-to-playback end-to-end flow proven offline across synthetic Portuguese and English phrases within <= 1000 ms player seek accuracy, checkpoint persistence, close/reopen cycle, tokenizer limits documented, and non-ASR distinction established.**
+Updated: 2026-11-12. **NX4.1 VERIFIED; study notes, bookmarks, saved ranges, manual studied completion, collection progress, and non-cascading removal cleanup persisted cleanly in SQLDelight schema v24 and pure KMP StudyService.**
 
 Baseline: OpenYT 4.0.1; checkout `codex/nx2-3-owned-storage`.
-Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, SQLDelight schema 21 migration verified, FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms, pure Kotlin bounded SRT/VTT parser with safe markup stripping, speaker extraction, and timebase offset shifting verified, subtitle cue persistence with atomic revision rebuild, FTS4 virtual table synchronization, and crash recovery verified, bounded text search with scoped pagination, literal FTS token escaping, accent matching, and 100k-cue performance budget verified, entry-aware timed playback, session control port, legacy queue/checkpoint bridge, out-of-range clamping, and stale callback rejection verified, timed search navigation, scope/status indicators, plain-text excerpt highlights, accessible timestamp playback actions, empty/error state distinction, keyboard navigation, and responsive 320dp/desktop UI verified, and search-to-playback end-to-end flow proven offline with <= 1000 ms seek accuracy, checkpoint persistence, close/reopen cycle, tokenizer limits documented, and non-ASR distinction verified.
+Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, SQLDelight schema 21 migration verified, FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms, pure Kotlin bounded SRT/VTT parser with safe markup stripping, speaker extraction, and timebase offset shifting verified, subtitle cue persistence with atomic revision rebuild, FTS4 virtual table synchronization, and crash recovery verified, bounded text search with scoped pagination, literal FTS token escaping, accent matching, and 100k-cue performance budget verified, entry-aware timed playback, session control port, legacy queue/checkpoint bridge, out-of-range clamping, and stale callback rejection verified, timed search navigation, scope/status indicators, plain-text excerpt highlights, accessible timestamp playback actions, empty/error state distinction, keyboard navigation, and responsive 320dp/desktop UI verified, search-to-playback end-to-end flow proven offline with <= 1000 ms seek accuracy, checkpoint persistence, close/reopen cycle, tokenizer limits documented, and non-ASR distinction verified, and study mode persistence (notes, bookmarks, saved ranges, studied completion, collection progress, and non-cascading removal cleanup) verified on SQLDelight schema v24.
 
-Current task: NX3.7 verified; search-to-playback end-to-end flow complete. Next ready task is NX4.1 (persist notes, bookmarks, saved ranges and study state).
+Current task: NX4.1 verified; study persistence complete. Next ready task is NX4.2 (implement timestamp capture and note navigation).
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -52,7 +52,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 
 ## NX4 — study mode
 
-- [ ] [NX4.1 — persist notes, bookmarks, saved ranges and study state](04_STUDY_MODE.md#nx4-1) — PENDING.
+- [x] [NX4.1 — persist notes, bookmarks, saved ranges and study state](04_STUDY_MODE.md#nx4-1) — VERIFIED (pure KMP `StudyModels`, `StudyValidator`, `StudyRepository`/`MemoryStudyRepository`, `StudyService`, SQLDelight schema v24 migration `23.sqm`, `SqlDelightStudyRepository`, deterministic unit/SQLite/Android-compile checks, and full offline suite passing).
 - [ ] [NX4.2 — implement timestamp capture and note navigation](04_STUDY_MODE.md#nx4-2) — PENDING.
 - [ ] [NX4.3 — implement A/B repetition through platform capabilities](04_STUDY_MODE.md#nx4-3) — PENDING.
 - [ ] [NX4.4 — add safe note export and local-entry links](04_STUDY_MODE.md#nx4-4) — PENDING.
@@ -908,6 +908,29 @@ Known limits / blocked checks / decisions needed:
 - Windows x64 and macOS native offline runs remain BLOCKED by unavailable native hosts.
 Next ready task and why its prerequisites are satisfied:
 - NX4.1 — persist notes, bookmarks, saved ranges and study state: Search-to-playback end-to-end verification (NX3.7) is complete and VERIFIED; study mode data models and persistence can begin.
+```
+
+### 2026-11-12 — Phase NX4.1 (persist notes, bookmarks, saved ranges and study state)
+```
+Task: NX4.1 — persist notes, bookmarks, saved ranges and study state (contract NX-T01)
+Completed items:
+- Added pure KMP domain models in core/src/commonMain/kotlin/com/openyt/core/domain/StudyModels.kt: StudyRevisionComparator, StudyComparators, StudyNote, StudyBookmark, SavedStudyRange, EntryStudyState, CollectionStudyProgress, EntryStudyBundle, StudyRemovalPreview, StudyValidationError, StudyFailure, and StudyResult.
+- Added pure KMP StudyValidator in core/src/commonMain/kotlin/com/openyt/core/application/StudyValidator.kt with Unicode code-point counting (MAX_NOTE_BODY_CHARS = 20_000, MAX_BOOKMARK_LABEL_CHARS = 120, MAX_RANGE_LABEL_CHARS = 120), MIN_RANGE_INTERVAL_MILLIS = 1_000L, non-blank validation, and duration bounds checks.
+- Added StudyRepository, MemoryStudyRepository, and StudyService in core/src/commonMain/kotlin/com/openyt/core/application/: injected clock (nowEpochMillis) and ID generator (nextId), EntryNotFound guard, body-only edit revision preservation vs re-anchoring, manual studied completion toggle, collection study progress over existing entries, and previewEntryRemoval / deleteAllStudyDataForEntry.
+- Added SQLDelight schema v23 -> v24 migration (23.sqm) and Download.sq schema/queries for study_note, study_bookmark, study_range, and entry_study_state without ON DELETE CASCADE on library_entry so INSERT OR REPLACE updates never cascade-delete authored study data, plus atomic SqlDelightStudyRepository.
+- Added Android database persistence test persistsStudyNotesBookmarksRangesAndCompletionAcrossReopen in androidApp/src/androidTest/kotlin/com/openyt/android/AndroidDatabasePersistenceTest.kt.
+- Updated docs/architecture/OVERVIEW.md (Schema v24) and docs/planning/NEXT_EXPANSION/CONTRACTS.md (marked NX-T01 VERIFIED).
+Verification output:
+- ./gradlew :core:desktopTest --tests com.openyt.core.application.StudyRepositoryAndServiceTest --rerun: 5 passed, 0 failed (StudyRepositoryAndServiceTest.xml: tests="5" skipped="0" failures="0" errors="0")
+- ./gradlew :data:desktopTest --tests com.openyt.data.SqlDelightStudyRepositoryTest --rerun: 4 passed, 0 failed (SqlDelightStudyRepositoryTest.xml: tests="4" skipped="0" failures="0" errors="0")
+- ./gradlew :data:verifyCommonMainOpenYtDatabaseMigration: BUILD SUCCESSFUL
+- ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :data:verifyCommonMainOpenYtDatabaseMigration: BUILD SUCCESSFUL in 24s (213 actionable tasks: 33 executed, 180 up-to-date; desktop unit suites passed; baseline opt-in env-gated integration/media tests skipped: FfmpegProcessorTest 1 skipped, DesktopMediaTaggerTest 1 skipped, DesktopPlaybackLocalTest 1 skipped, DesktopYtDlpEngineIntegrationTest 6 skipped, DesktopYtDlpLocalTest 2 skipped, DownloadProfileLocalTest 7 skipped, DownloadProfileNativeFlowTest 1 skipped)
+- ./scripts/validate-linux.sh --scenario all --no-build --offline: exit 0, validation passed (4 skipped) — offline scenarios prepare, tests, android, tools, metadata, cookies, library, archive, watch, storage, bulk, playback, gui passed; inspect, download, playlist, pause skipped offline
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device (Xiaomi 2311DRK48G); APK and test APK assembly pass.
+- Windows x64 and macOS native offline runs remain BLOCKED by unavailable native hosts.
+Next ready task and why its prerequisites are satisfied:
+- NX4.2 — implement timestamp capture and note navigation: NX4.1 persistence contracts (NX-T01), repository, and service layer are VERIFIED.
 ```
 
 ## Native Matrix
