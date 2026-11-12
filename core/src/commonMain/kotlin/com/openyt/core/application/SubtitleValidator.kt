@@ -9,10 +9,7 @@ object SubtitleValidator {
 
     const val DEFAULT_MAX_SUBTITLE_BYTES = 10_485_760L // 10 MiB
 
-    enum class SubtitleFormat(val extension: String) {
-        SRT("srt"),
-        VTT("vtt"),
-    }
+    typealias SubtitleFormat = com.openyt.core.domain.SubtitleFormat
 
     sealed interface SubtitleValidationResult {
         data class Valid(

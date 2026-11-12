@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX3.1 VERIFIED on Linux / Android test compilation; NX-S01 100k corpus budget passed at 0.899 ms; native device gates remain documented.**
+Updated: 2026-11-12. **NX3.2 VERIFIED; pure Kotlin bounded SRT/VTT parser and normalization complete with 9 contract tests.**
 
 Baseline: OpenYT 4.0.1; checkout `codex/nx2-3-owned-storage`.
-Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, and SQLDelight schema 21 migration verified, and FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms.
+Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, SQLDelight schema 21 migration verified, FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms, and pure Kotlin bounded SRT/VTT parser with safe markup stripping, speaker extraction, and timebase offset shifting verified.
 
-Current task: NX3.1 verified; FTS4 + unicode61 indexing probe, accent folding, CRUD, and 100k-cue synthetic query budget passed. Next ready task is NX3.2 (parse and normalize timed subtitle tracks).
+Current task: NX3.2 verified; pure Kotlin bounded SRT/VTT parser, deterministic sorting, markup stripping, speaker extraction, and timebase shifting implemented. Next ready task is NX3.3 (persist cues and atomically rebuild an index revision).
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -43,7 +43,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 ## NX3 — search within saved media
 
 - [x] [NX3.1 — prove indexing capability on the shipped databases](03_TIMED_SEARCH.md#nx3-1) — VERIFIED (Pure KMP FtsCapabilityReport, SQLDelight SqliteFtsCapabilityProbe, FTS4 + unicode61 creation, binding, accent folding, CRUD, Android driver factory support, and measured 100,000-cue synthetic corpus p95 budget passed at 0.899 ms; 13 tests passing).
-- [ ] [NX3.2 — parse and normalize timed subtitle tracks](03_TIMED_SEARCH.md#nx3-2) — PENDING.
+- [x] [NX3.2 — parse and normalize timed subtitle tracks](03_TIMED_SEARCH.md#nx3-2) — VERIFIED (Pure Kotlin TimedSubtitleParser, TimedCue/ParsedSubtitleTrack domain models, bounded 10 MiB/100k cue limits, safe markup stripping, speaker extraction, and timebase offset shifting; 9 contract tests passing).
 - [ ] [NX3.3 — persist cues and atomically rebuild an index revision](03_TIMED_SEARCH.md#nx3-3) — PENDING.
 - [ ] [NX3.4 — expose bounded text search](03_TIMED_SEARCH.md#nx3-4) — PENDING.
 - [ ] [NX3.5 — add entry-aware timed playback without losing history](03_TIMED_SEARCH.md#nx3-5) — PENDING.
@@ -700,6 +700,41 @@ Known limits / blocked checks / decisions needed:
 - Windows x64 and macOS native offline runs remain BLOCKED by unavailable native hosts.
 Next ready task and why its prerequisites are satisfied:
 - NX3.2 — parse and normalize timed subtitle tracks: Indexing capability probe (NX3.1) is complete and VERIFIED; pure Kotlin SRT/VTT parser and normalization can begin.
+```
+
+```
+Task: NX3.2 — parse and normalize timed subtitle tracks
+Date: 2026-11-12
+Host: Linux x86_64 (Pop!_OS 24.04 LTS), JDK 21.0.8, Android SDK 34-37
+Result: VERIFIED (9 contract tests passed in core; pure Kotlin bounded SRT/VTT parsing, markup stripping, HTML entity decoding, speaker extraction, timebase shifting, and error recovery verified)
+Commands executed:
+- ./gradlew :core:desktopTest --tests "*TimedSubtitleParserTest*" --console=plain
+- ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --console=plain
+- ./scripts/validate-linux.sh --scenario all --no-build --offline
+Evidence:
+- TimedSubtitleParserTest: 9 tests passed in core covering:
+  - Standard SRT parsing with Portuguese and English accents ("música", "coração", "não", "açúcar", "naïve", "résumé");
+  - WebVTT parsing with header metadata skipping, multi-line NOTE blocks, STYLE blocks, REGION blocks, and cue settings stripping;
+  - Linear-time O(n) HTML/VTT tag stripping (<b>, <i>, <u>, <font>, <c>, <v>, <script>) with zero regular expression catastrophic backtracking (ReDoS);
+  - Full HTML entity decoding (&amp;, &lt;, &gt;, &quot;, &apos;, &#39;, &nbsp;, decimal/hex entities);
+  - Multiline cue line joining and overlapping cue preservation;
+  - Deterministic cue ordering (startMs ASC, endMs ASC, originalIndex ASC) with collision-free cue IDs;
+  - Explicit local vs source timebase offset shifting (timebaseOffsetMs) clamping timestamps to >= 0;
+  - Documented nonfatal error recovery for missing cue separation lines, out-of-order sequence numbers, empty text cues, and end times preceding start times (clamped with warning);
+  - Transparent UTF-8 BOM and CRLF/LF line-break normalization;
+  - Speaker extraction from WebVTT <v Speaker>, bracketed [Speaker], and prefix Speaker: annotations;
+  - Rejection of oversized payloads (>10 MiB / >100,000 cues), empty content, and malformed WebVTT missing signature header.
+- Full regression: 212 actionable tasks passed (BUILD SUCCESSFUL).
+- Linux offline validation: all offline scenarios passed with 4 network-dependent skips.
+Behavior changed:
+- Added pure KMP domain models TimedCue, ParsedSubtitleTrack, SubtitleFormat, and SubtitleParseException in core/domain.
+- Added TimedSubtitleParser in core/application for parsing bounded SRT and WebVTT tracks in memory without file system or process dependencies.
+- Refactored SubtitleValidator.SubtitleFormat to alias com.openyt.core.domain.SubtitleFormat for clean domain reuse and complete backward compatibility.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device (Xiaomi 2311DRK48G); APK and test APK assembly pass.
+- Windows x64 and macOS native offline runs remain BLOCKED by unavailable native hosts.
+Next ready task and why its prerequisites are satisfied:
+- NX3.3 — persist cues and atomically rebuild an index revision: Parsed subtitle tracks and normalized cues (NX3.2) are complete and VERIFIED; database persistence and atomic index revisions can begin.
 ```
 
 ## Native Matrix

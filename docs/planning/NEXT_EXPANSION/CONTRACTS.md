@@ -194,6 +194,22 @@ Suggested groups: `SubtitleParserTest`, `TimedSearchRepositoryTest`,
     - Android instrumented probe test suite verifying SQLite FTS4 + unicode61 with target budget <= 1,000 ms.
   - Status: **VERIFIED** on Linux x86_64; Android device blocked by OEM USB install security restrictions.
 - **NX-S02:** bounded SRT/VTT parse and explicit local/source timebase mapping.
+  - Implemented by `com.openyt.core.application.TimedSubtitleParserTest` (9 tests in `:core:desktopTest`).
+  - Covers:
+    - Pure KMP domain models `TimedCue`, `ParsedSubtitleTrack`, `SubtitleFormat`, and structured `SubtitleParseException`;
+    - SRT and WebVTT parsing without filesystem or process I/O;
+    - Strict boundary enforcement rejecting tracks exceeding 10 MiB (10,485,760 chars) or 100,000 cues;
+    - UTF-8 BOM (`\uFEFF`) and CRLF/LF line-break normalization;
+    - Portuguese ("música", "coração", "não", "órgão", "açúcar", "aprendizado") and English ("café", "résumé", "naïve", "coöperation") accent preservation;
+    - Safe linear $O(n)$ HTML/VTT tag stripping (`<b>`, `<i>`, `<u>`, `<font>`, `<c>`, `<v>`, `<script>`) with zero regular expression catastrophic backtracking (ReDoS);
+    - Full HTML entity decoding (`&amp;`, `&lt;`, `&gt;`, `&quot;`, `&apos;`, `&#39;`, `&nbsp;`, numeric decimal/hex entities);
+    - Speaker extraction from WebVTT `<v Speaker>`, bracketed `[Speaker]`, and prefix `Speaker:` annotations;
+    - Multiline cue joining (`\n` in `displayText`, normalized space in `plainText`);
+    - Overlapping cue preservation and deterministic sorting by `startMs ASC, endMs ASC, originalIndex ASC` with stable collision-free cue IDs;
+    - Explicit local vs source timebase offset shifting (`timebaseOffsetMs`) clamping timestamps to $\ge 0$ without drift;
+    - WebVTT metadata handling safely skipping header lines, `NOTE` comment blocks, `STYLE` blocks, `REGION` blocks, and cue settings (`line:`, `position:`, `align:`);
+    - Documented nonfatal error recovery: out-of-order sequence numbers, missing blank line separators between cues, empty text cues, and end times preceding start times (clamped with warning).
+  - Status: **VERIFIED**.
 - **NX-S03:** atomic index revisions, invalidation and crash/restart behavior.
 - **NX-S04:** literal bounded query/pagination/cancellation and scoped results.
 - **NX-S05:** actual prepared-player seek, entry identity and legacy queue bridge.
