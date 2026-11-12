@@ -31,10 +31,10 @@ class SqlDelightSubtitleIndexRepositoryTest {
 
             val database = createOpenYtDatabase(file.absolutePath)
 
-            // Verify user_version reached schema version 22
+            // Verify user_version reached current schema version (at least 22)
             val version = readUserVersion(file)
             assertEquals(OpenYtDatabase.Schema.version, version)
-            assertEquals(22L, version)
+            assertTrue(version >= 22L)
 
             // Verify existing v21 data is preserved
             val assetRepo = SqlDelightOfflineAssetRepository(database)

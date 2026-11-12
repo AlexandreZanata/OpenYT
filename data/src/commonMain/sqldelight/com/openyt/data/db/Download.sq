@@ -237,8 +237,11 @@ DELETE FROM collection_entry WHERE collection_id = :collection_id AND entry_id =
 CREATE TABLE playback_position (
     path TEXT NOT NULL PRIMARY KEY,
     position_millis INTEGER NOT NULL,
-    duration_millis INTEGER NOT NULL DEFAULT 0
+    duration_millis INTEGER NOT NULL DEFAULT 0,
+    entry_id TEXT
 );
+
+CREATE INDEX playback_position_entry_idx ON playback_position(entry_id);
 
 CREATE TABLE playback_session (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -248,8 +251,17 @@ CREATE TABLE playback_session (
 selectPlaybackPosition:
 SELECT * FROM playback_position WHERE path = ?;
 
+selectPlaybackPositionByEntryId:
+SELECT * FROM playback_position WHERE entry_id = ?;
+
 savePlaybackPosition:
-INSERT OR REPLACE INTO playback_position VALUES (?, ?, ?);
+INSERT OR REPLACE INTO playback_position(path, position_millis, duration_millis, entry_id) VALUES (?, ?, ?, ?);
+
+updatePlaybackPositionEntryId:
+UPDATE playback_position SET entry_id = :entry_id WHERE path = :path;
+
+deletePlaybackPositionByEntryId:
+DELETE FROM playback_position WHERE entry_id = :entry_id;
 
 selectPlaybackQueue:
 SELECT queue_json FROM playback_session WHERE id = 1;

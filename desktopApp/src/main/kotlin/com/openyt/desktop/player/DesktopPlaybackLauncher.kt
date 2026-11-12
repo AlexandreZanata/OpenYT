@@ -2,10 +2,14 @@ package com.openyt.desktop.player
 
 import com.openyt.core.application.MemoryPlaybackStore
 import com.openyt.core.application.PlayableMedia
+import com.openyt.core.application.PlaybackCapabilities
 import com.openyt.core.application.PlaybackCheckpoint
 import com.openyt.core.application.PlaybackLauncher
 import com.openyt.core.application.PlaybackQueue
+import com.openyt.core.application.PlaybackSessionControl
+import com.openyt.core.application.PlaybackSessionState
 import com.openyt.core.application.PlaybackStore
+import com.openyt.core.application.clampSeekPosition
 import com.openyt.core.application.miniPlayerSize
 import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.i18n.EnStrings
@@ -19,6 +23,7 @@ import java.awt.Rectangle
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
 import javax.swing.AbstractAction
 import javax.swing.JButton
 import javax.swing.JComponent
@@ -40,6 +45,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
 import uk.co.caprica.vlcj.player.component.EmbeddedMediaPlayerComponent
@@ -51,7 +57,7 @@ class DesktopPlaybackLauncher(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     private val mediaActions: MediaActions = DesktopMediaActions(),
     private val runtimeAvailable: () -> Boolean = DesktopVlcRuntime::discover,
-) : PlaybackLauncher {
+) : PlaybackLauncher, PlaybackSessionControl {
     override val canPlay: Boolean = true
     private var window: JFrame? = null
     private var component: EmbeddedMediaPlayerComponent? = null
@@ -60,12 +66,42 @@ class DesktopPlaybackLauncher(
     private var timeLabel: JLabel? = null
     private var settingSeek = false
     private var lastSavedTime = 0L
-    private var loadedMedia: PlayableMedia? = null
+    override var loadedMedia: PlayableMedia? = null
+        private set
+    override var state: PlaybackSessionState = PlaybackSessionState.IDLE
+        private set
     private var fullBounds: Rectangle? = null
     private var mini = false
     private var vlcChecked = false
     private var vlcAvailable = false
+    private val sessionGeneration = AtomicLong(0L)
+    @Volatile private var pendingSeekMillis: Long? = null
     private val writes = Channel<suspend () -> Unit>(Channel.UNLIMITED)
+
+    override val capabilities: PlaybackCapabilities
+        get() = if (isVlcAvailable()) {
+            PlaybackCapabilities(
+                canSeek = true,
+                canMiniPlayer = true,
+                canPause = true,
+                isInternalPlayer = true,
+                limitationDescription = null,
+            )
+        } else {
+            PlaybackCapabilities(
+                canSeek = false,
+                canMiniPlayer = false,
+                canPause = false,
+                isInternalPlayer = false,
+                limitationDescription = "External system player does not support in-app seek or session control",
+            )
+        }
+
+    override val currentPositionMillis: Long
+        get() = component?.mediaPlayer()?.status()?.time()?.coerceAtLeast(0L) ?: 0L
+
+    override val durationMillis: Long
+        get() = component?.mediaPlayer()?.status()?.length()?.coerceAtLeast(0L) ?: 0L
 
     init {
         scope.launch { for (write in writes) runCatching { write() } }
@@ -75,15 +111,24 @@ class DesktopPlaybackLauncher(
                 SwingUtilities.invokeLater {
                     val item = loadedMedia ?: return@invokeLater
                     val player = component?.mediaPlayer() ?: return@invokeLater
-                    val position = PlaybackCheckpoint(player.status().time().coerceAtLeast(0), player.status().length())
+                    val position = PlaybackCheckpoint(
+                        player.status().time().coerceAtLeast(0),
+                        player.status().length(),
+                        item.entryId,
+                    )
                     settingSeek = true
-                    seekSlider?.value = if (position.durationMillis > 0) ((position.positionMillis * 1000) / position.durationMillis).toInt().coerceIn(0, 1000) else 0
+                    seekSlider?.value = if (position.durationMillis > 0) {
+                        ((position.positionMillis * 1000) / position.durationMillis).toInt().coerceIn(0, 1000)
+                    } else 0
                     settingSeek = false
-                    fun time(value: Long): String { val seconds = value.coerceAtLeast(0) / 1000; return "%d:%02d".format(seconds / 60, seconds % 60) }
+                    fun time(value: Long): String {
+                        val seconds = value.coerceAtLeast(0) / 1000
+                        return "%d:%02d".format(seconds / 60, seconds % 60)
+                    }
                     timeLabel?.text = "${time(position.positionMillis)} / ${time(position.durationMillis)}"
                     if (kotlin.math.abs(position.positionMillis - lastSavedTime) >= 5_000) {
                         lastSavedTime = position.positionMillis
-                        writes.trySend { store.savePosition(item.path, position) }
+                        writes.trySend { store.savePosition(item.path, position, item.entryId) }
                     }
                 }
             }
@@ -102,27 +147,100 @@ class DesktopPlaybackLauncher(
         val saved = store.loadQueue() ?: return false
         val items = saved.items.filter { File(it.path).isFile }
         if (items.isEmpty()) return false
-        play(items, items.indexOfFirst { it.path == saved.current?.path }.coerceAtLeast(0))
-        return true
+        val index = items.indexOfFirst { it.path == saved.current?.path }.coerceAtLeast(0)
+        return openAt(items, index, null)
     }
 
     override fun play(items: List<PlayableMedia>, startIndex: Int) {
-        val item = items.getOrNull(startIndex) ?: return
-        if (!isVlcAvailable()) {
-            openExternally(item)
-            return
+        scope.launch { openAt(items, startIndex, null) }
+    }
+
+    override fun playAt(items: List<PlayableMedia>, startIndex: Int, startPositionMillis: Long) {
+        scope.launch { openAt(items, startIndex, startPositionMillis) }
+    }
+
+    override suspend fun openAt(
+        items: List<PlayableMedia>,
+        startIndex: Int,
+        startPositionMillis: Long?,
+    ): Boolean {
+        val item = items.getOrNull(startIndex) ?: return false
+        if (!File(item.path).isFile) {
+            state = PlaybackSessionState.ERROR
+            loadedMedia = null
+            SwingUtilities.invokeLater { showPlaybackError() }
+            return false
         }
-        SwingUtilities.invokeLater {
-            runCatching {
+        if (!isVlcAvailable()) {
+            return openExternally(item)
+        }
+
+        return runCatching {
+            runOnEdt {
                 ensureWindow()
                 checkpoint()
                 loadedMedia = null
                 component?.mediaPlayer()?.controls()?.stop()
                 queue = PlaybackQueue.of(items, startIndex)
-                playCurrent()
+                playCurrent(startPositionMillis)
                 window?.isVisible = true
                 window?.toFront()
-            }.onFailure { openExternally(item) }
+            }
+            true
+        }.getOrElse {
+            openExternally(item)
+        }
+    }
+
+    override suspend fun seekTo(positionMillis: Long): Boolean {
+        if (!capabilities.canSeek) return false
+        if (loadedMedia == null && state != PlaybackSessionState.PREPARING) return false
+        val player = component?.mediaPlayer() ?: return false
+        return runOnEdt {
+            val duration = player.status().length()
+            val clamped = clampSeekPosition(positionMillis, duration)
+            if (state == PlaybackSessionState.PREPARING) {
+                pendingSeekMillis = clamped
+                true
+            } else {
+                player.controls().setTime(clamped)
+                true
+            }
+        }
+    }
+
+    override suspend fun pause() {
+        runOnEdt {
+            val player = component?.mediaPlayer() ?: return@runOnEdt
+            if (player.status().isPlaying) {
+                player.controls().pause()
+                state = PlaybackSessionState.PAUSED
+            }
+        }
+    }
+
+    override suspend fun play() {
+        runOnEdt {
+            if (loadedMedia == null) {
+                playCurrent()
+                return@runOnEdt
+            }
+            val player = component?.mediaPlayer() ?: return@runOnEdt
+            if (!player.status().isPlaying) {
+                player.controls().play()
+                state = PlaybackSessionState.PLAYING
+            }
+        }
+    }
+
+    override suspend fun stop() {
+        runOnEdt {
+            checkpoint()
+            loadedMedia = null
+            state = PlaybackSessionState.IDLE
+            pendingSeekMillis = null
+            sessionGeneration.incrementAndGet()
+            component?.mediaPlayer()?.controls()?.stop()
         }
     }
 
@@ -144,7 +262,7 @@ class DesktopPlaybackLauncher(
         }
     }
 
-    fun close() {
+    override fun close() {
         val finish = {
             checkpoint()
             val frame = window
@@ -152,6 +270,9 @@ class DesktopPlaybackLauncher(
             component = null
             window = null
             loadedMedia = null
+            state = PlaybackSessionState.IDLE
+            pendingSeekMillis = null
+            sessionGeneration.incrementAndGet()
             mini = false
             fullBounds = null
             seekSlider = null
@@ -173,16 +294,45 @@ class DesktopPlaybackLauncher(
         else EmbeddedMediaPlayerComponent()
         component = player
         player.mediaPlayer().events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
-            override fun finished(mediaPlayer: MediaPlayer) {
+            override fun playing(mediaPlayer: MediaPlayer) {
+                val currentGen = sessionGeneration.get()
                 SwingUtilities.invokeLater {
-                    if (component !== player) return@invokeLater
+                    if (component !== player || sessionGeneration.get() != currentGen) return@invokeLater
+                    state = PlaybackSessionState.PLAYING
+                    val pending = pendingSeekMillis
+                    if (pending != null) {
+                        pendingSeekMillis = null
+                        val duration = mediaPlayer.status().length()
+                        val clamped = clampSeekPosition(pending, duration)
+                        mediaPlayer.controls().setTime(clamped)
+                    }
+                }
+            }
+
+            override fun paused(mediaPlayer: MediaPlayer) {
+                val currentGen = sessionGeneration.get()
+                SwingUtilities.invokeLater {
+                    if (component !== player || sessionGeneration.get() != currentGen) return@invokeLater
+                    state = PlaybackSessionState.PAUSED
+                }
+            }
+
+            override fun finished(mediaPlayer: MediaPlayer) {
+                val currentGen = sessionGeneration.get()
+                SwingUtilities.invokeLater {
+                    if (component !== player || sessionGeneration.get() != currentGen) return@invokeLater
+                    state = PlaybackSessionState.COMPLETED
                     if (queue.hasNext) select(queue.next()) else checkpoint()
                 }
             }
+
             override fun error(mediaPlayer: MediaPlayer) {
+                val currentGen = sessionGeneration.get()
                 SwingUtilities.invokeLater {
-                    if (component !== player) return@invokeLater
+                    if (component !== player || sessionGeneration.get() != currentGen) return@invokeLater
+                    state = PlaybackSessionState.ERROR
                     loadedMedia = null
+                    pendingSeekMillis = null
                     showPlaybackError()
                 }
             }
@@ -260,6 +410,9 @@ class DesktopPlaybackLauncher(
         button("[]", FeatureText.STOP) {
             checkpoint()
             loadedMedia = null
+            state = PlaybackSessionState.IDLE
+            pendingSeekMillis = null
+            sessionGeneration.incrementAndGet()
             component?.mediaPlayer()?.controls()?.stop()
         }
         button("[ ]", FeatureText.MINI_PLAYER, ::toggleMiniPlayer)
@@ -268,27 +421,47 @@ class DesktopPlaybackLauncher(
     private fun select(next: PlaybackQueue) {
         checkpoint()
         loadedMedia = null
+        pendingSeekMillis = null
+        sessionGeneration.incrementAndGet()
         component?.mediaPlayer()?.controls()?.stop()
         queue = next
         playCurrent()
     }
 
-    private fun playCurrent() {
+    private fun playCurrent(explicitPositionMillis: Long? = null) {
         val item = queue.current ?: return
         if (!File(item.path).isFile) {
+            state = PlaybackSessionState.ERROR
+            loadedMedia = null
+            pendingSeekMillis = null
             showPlaybackError()
             return
         }
-        val selected = queue
-        writes.trySend { store.saveQueue(selected) }
+        state = PlaybackSessionState.PREPARING
+        val currentGen = sessionGeneration.incrementAndGet()
+        pendingSeekMillis = explicitPositionMillis?.let { clampSeekPosition(it, 0L) }
+        val selectedQueue = queue
+        writes.trySend { store.saveQueue(selectedQueue) }
         scope.launch {
-            val position = store.position(item.path)?.resumeMillis ?: 0
+            val position = explicitPositionMillis ?: store.position(item.path, item.entryId)?.resumeMillis ?: 0L
+            val clampedPosition = clampSeekPosition(position, 0L)
             SwingUtilities.invokeLater {
-                if (queue != selected) return@invokeLater
-                val started = component?.mediaPlayer()?.media()?.play(File(item.path).absolutePath, ":start-time=${position / 1000.0}") == true
-                if (!started) { showPlaybackError(); return@invokeLater }
+                if (sessionGeneration.get() != currentGen || queue != selectedQueue) return@invokeLater
+                val player = component?.mediaPlayer()
+                val startTimeArg = if (clampedPosition > 0) ":start-time=${clampedPosition / 1000.0}" else ":start-time=0"
+                val started = player?.media()?.play(File(item.path).absolutePath, startTimeArg) == true
+                if (!started) {
+                    state = PlaybackSessionState.ERROR
+                    loadedMedia = null
+                    pendingSeekMillis = null
+                    showPlaybackError()
+                    return@invokeLater
+                }
                 loadedMedia = item
-                lastSavedTime = position
+                if (clampedPosition > 0) {
+                    pendingSeekMillis = clampedPosition
+                }
+                lastSavedTime = clampedPosition
                 window?.title = "OpenYT — ${item.title}"
             }
         }
@@ -297,13 +470,17 @@ class DesktopPlaybackLauncher(
     private fun checkpoint() {
         val item = loadedMedia ?: return
         val player = component?.mediaPlayer() ?: return
-        val position = PlaybackCheckpoint(player.status().time().coerceAtLeast(0), player.status().length())
+        val position = PlaybackCheckpoint(
+            player.status().time().coerceAtLeast(0),
+            player.status().length(),
+            item.entryId,
+        )
         // Flush pending checkpoints before the final one so a close cannot reorder them.
         runBlocking {
             val barrier = kotlinx.coroutines.CompletableDeferred<Unit>()
             writes.send { barrier.complete(Unit) }
             kotlinx.coroutines.withTimeoutOrNull(2_000) { barrier.await() }
-            store.savePosition(item.path, position)
+            store.savePosition(item.path, position, item.entryId)
             store.saveQueue(queue)
         }
     }
@@ -317,17 +494,43 @@ class DesktopPlaybackLauncher(
     private fun togglePlayback() {
         if (loadedMedia == null) { playCurrent(); return }
         val player = component?.mediaPlayer() ?: return
-        if (player.status().isPlaying) player.controls().pause() else player.controls().play()
+        if (player.status().isPlaying) {
+            player.controls().pause()
+            state = PlaybackSessionState.PAUSED
+        } else {
+            player.controls().play()
+            state = PlaybackSessionState.PLAYING
+        }
     }
 
     private fun showPlaybackError() {
         JOptionPane.showMessageDialog(window, strings().features[FeatureText.PLAYBACK_FAILED], "OpenYT", JOptionPane.ERROR_MESSAGE)
     }
 
-    private fun openExternally(item: PlayableMedia) {
-        scope.launch(Dispatchers.IO) {
-            val opened = runCatching { mediaActions.open(ShareableMedia(item.path, item.title, item.kind)) }.getOrDefault(false)
-            if (!opened) SwingUtilities.invokeLater { showPlaybackError() }
+    private suspend fun openExternally(item: PlayableMedia): Boolean {
+        val opened = withContext(Dispatchers.IO) {
+            runCatching { mediaActions.open(ShareableMedia(item.path, item.title, item.kind)) }.getOrDefault(false)
         }
+        if (!opened) {
+            state = PlaybackSessionState.ERROR
+            loadedMedia = null
+            SwingUtilities.invokeLater { showPlaybackError() }
+            return false
+        } else {
+            state = PlaybackSessionState.PLAYING
+            loadedMedia = item
+            return true
+        }
+    }
+
+    private fun <T> runOnEdt(block: () -> T): T {
+        if (SwingUtilities.isEventDispatchThread()) {
+            return block()
+        }
+        var result: Result<T>? = null
+        SwingUtilities.invokeAndWait {
+            result = runCatching(block)
+        }
+        return result!!.getOrThrow()
     }
 }

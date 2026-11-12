@@ -68,6 +68,8 @@ class PlayerActivity : ComponentActivity() {
         val paths = intent.getStringArrayListExtra(EXTRA_PATHS).orEmpty()
         val titles = intent.getStringArrayListExtra(EXTRA_TITLES).orEmpty()
         val kinds = intent.getStringArrayListExtra(EXTRA_KINDS).orEmpty()
+        val entryIds = intent.getStringArrayListExtra(EXTRA_ENTRY_IDS).orEmpty()
+        val requestedPosition = intent.getLongExtra(EXTRA_START_POSITION_MILLIS, -1L)
         val startIndex = intent.getIntExtra(EXTRA_START_INDEX, 0).coerceIn(0, paths.lastIndex.coerceAtLeast(0))
         val future = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlaybackService::class.java))).buildAsync()
         controllerFuture = future
@@ -89,28 +91,40 @@ class PlayerActivity : ComponentActivity() {
                     val uris = paths.map { Uri.fromFile(File(it)) }
                     val sameQueue = connected.mediaItemCount == uris.size &&
                         uris.indices.all { connected.getMediaItemAt(it).localConfiguration?.uri == uris[it] }
+                    val currentEntryId = entryIds.getOrNull(startIndex)?.takeIf { it.isNotBlank() }
+                    val initialPosition = if (requestedPosition >= 0L) {
+                        requestedPosition
+                    } else {
+                        container.playbackStore.position(paths[startIndex], currentEntryId)?.resumeMillis ?: 0L
+                    }
                     if (sameQueue && connected.currentMediaItemIndex != startIndex) {
-                        connected.seekTo(startIndex, container.playbackStore.position(paths[startIndex])?.resumeMillis ?: 0)
+                        connected.seekTo(startIndex, initialPosition)
                     }
                     if (!sameQueue) {
-                        val position = container.playbackStore.position(paths[startIndex])?.resumeMillis ?: 0
                         connected.setMediaItems(paths.mapIndexed { index, path ->
+                            val entryId = entryIds.getOrNull(index)?.takeIf { it.isNotBlank() }
                             MediaItem.Builder().setUri(uris[index])
                                 .setMediaMetadata(MediaMetadata.Builder()
                                     .setTitle(titles.getOrNull(index) ?: File(path).name)
-                                    .setExtras(Bundle().apply { putString("openyt.kind", kinds.getOrNull(index) ?: MediaKind.VIDEO.name) })
+                                    .setExtras(Bundle().apply {
+                                        putString("openyt.kind", kinds.getOrNull(index) ?: MediaKind.VIDEO.name)
+                                        entryId?.let { putString("openyt.entryId", it) }
+                                    })
                                     .build())
                                 .build()
-                        }, startIndex, position)
+                        }, startIndex, initialPosition)
                     }
                 } else if (connected.mediaItemCount == 0) {
                     val saved = container.playbackStore.loadQueue()
                     if (saved != null && saved.items.isNotEmpty()) {
-                        val position = container.playbackStore.position(saved.current!!.path)?.resumeMillis ?: 0
+                        val position = container.playbackStore.position(saved.current!!.path, saved.current!!.entryId)?.resumeMillis ?: 0L
                         connected.setMediaItems(saved.items.map {
                             MediaItem.Builder().setUri(Uri.fromFile(File(it.path)))
                                 .setMediaMetadata(MediaMetadata.Builder().setTitle(it.title)
-                                    .setExtras(Bundle().apply { putString("openyt.kind", it.kind.name) }).build())
+                                    .setExtras(Bundle().apply {
+                                        putString("openyt.kind", it.kind.name)
+                                        it.entryId?.let { eid -> putString("openyt.entryId", eid) }
+                                    }).build())
                                 .build()
                         }, saved.currentIndex, position)
                     }
@@ -194,6 +208,8 @@ class PlayerActivity : ComponentActivity() {
         const val EXTRA_PATHS = "com.openyt.android.player.PATHS"
         const val EXTRA_TITLES = "com.openyt.android.player.TITLES"
         const val EXTRA_KINDS = "com.openyt.android.player.KINDS"
+        const val EXTRA_ENTRY_IDS = "com.openyt.android.player.ENTRY_IDS"
+        const val EXTRA_START_POSITION_MILLIS = "com.openyt.android.player.START_POSITION_MILLIS"
         const val EXTRA_START_INDEX = "com.openyt.android.player.START_INDEX"
     }
 }

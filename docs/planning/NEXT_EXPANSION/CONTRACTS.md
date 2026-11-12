@@ -242,6 +242,18 @@ Suggested groups: `SubtitleParserTest`, `TimedSearchRepositoryTest`,
     - Performance budget: measured 100,000-cue synthetic corpus p95 search latency through `SqlDelightTimedSearchRepository` passed at 73.96 ms (budget $\le 500$ ms).
   - Status: **VERIFIED**.
 - **NX-S05:** actual prepared-player seek, entry identity and legacy queue bridge.
+  - Contract & Invariants:
+    - Core playback session port: `PlaybackSessionControl` exposes `loadedMedia`, `state` (`IDLE`, `PREPARING`, `PLAYING`, `PAUSED`, `COMPLETED`, `ERROR`), `capabilities` (`canSeek`, `canMiniPlayer`, `canPause`, `isInternalPlayer`, `limitationDescription`), `currentPositionMillis`, `durationMillis`, `openAt(items, startIndex, startPositionMillis)`, `seekTo(positionMillis)`, `pause()`, `play()`, `stop()`, and `close()`;
+    - Entry identity & queue compatibility: `PlayableMedia` carries optional `entryId: String? = null` with backward-compatible JSON serialization/deserialization of legacy queue JSON;
+    - Entry ID checkpoint bridge: `PlaybackStore` and `SqlDelightPlaybackStore` bridge legacy path records without `entry_id` to their corresponding entry ID upon lookup;
+    - Moving entry locator: when media files are relocated or relinked to a new path with the same `entryId`, `position(newPath, entryId)` recovers the saved checkpoint, and `savePosition(newPath, checkpoint, entryId)` updates the path while cleaning up obsolete path records;
+    - Missing ID fallback: media files without an entry ID save and load purely by `path` without disruption;
+    - Asynchronous prepare seek: `openAt(items, startIndex, startPositionMillis)` records pending seek positions during asynchronous player engine preparation and applies the clamped timestamp immediately upon media playback ready;
+    - Out-of-range clamping: `clampSeekPosition` clamps negative seek targets to 0 ms and targets exceeding media duration to the duration limit;
+    - Stale callback rejection: switching active media entries or issuing a new playback command increments generation counters, discarding obsolete pending seeks and ignoring out-of-order player callbacks;
+    - External fallback & limitation reporting: when internal player engines (VLCJ / Media3) are unavailable, launcher falls back to external system players and reports `canSeek = false` with descriptive limitation text;
+    - Clean lifecycle & native teardown: closing the desktop player flushes playback checkpoint and queue, resets session state to `IDLE`, and releases the native VLC component synchronously before disposing native frame surfaces.
+  - Status: **VERIFIED**.
 - **NX-S06:** missing-index vs no-match UI and correct accessible timestamp action.
 - **NX-S07:** offline search phrase to real player time and native close/reopen.
 

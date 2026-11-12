@@ -36,8 +36,9 @@ class PlaybackService : MediaSessionService() {
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 val uri = mediaItem?.localConfiguration?.uri ?: return
+                val entryId = mediaItem.mediaMetadata.extras?.getString("openyt.entryId")
                 scope.launch {
-                    val position = store.position(uri.path.orEmpty())?.resumeMillis ?: 0
+                    val position = store.position(uri.path.orEmpty(), entryId)?.resumeMillis ?: 0
                     if (player.currentMediaItem?.localConfiguration?.uri == uri && position > 0 && player.currentPosition < 1_000) {
                         player.seekTo(position)
                     }
@@ -58,18 +59,24 @@ class PlaybackService : MediaSessionService() {
         val uri = player.currentMediaItem?.localConfiguration?.uri ?: return
         val path = uri.path ?: return
         if (player.currentPosition <= 0 && player.duration <= 0) return
-        val position = PlaybackCheckpoint(player.currentPosition.coerceAtLeast(0), player.duration.coerceAtLeast(0))
+        val currentEntryId = player.currentMediaItem?.mediaMetadata?.extras?.getString("openyt.entryId")
+        val position = PlaybackCheckpoint(
+            player.currentPosition.coerceAtLeast(0),
+            player.duration.coerceAtLeast(0),
+            currentEntryId,
+        )
         val items = (0 until player.mediaItemCount).mapNotNull { index ->
             val item = player.getMediaItemAt(index)
             val itemPath = item.localConfiguration?.uri?.path ?: return@mapNotNull null
             val kind = runCatching {
                 MediaKind.valueOf(item.mediaMetadata.extras?.getString("openyt.kind").orEmpty())
             }.getOrDefault(MediaKind.VIDEO)
-            PlayableMedia(itemPath, item.mediaMetadata.title?.toString().orEmpty(), kind)
+            val itemEntryId = item.mediaMetadata.extras?.getString("openyt.entryId")
+            PlayableMedia(itemPath, item.mediaMetadata.title?.toString().orEmpty(), kind, itemEntryId)
         }
         val queue = PlaybackQueue.of(items, player.currentMediaItemIndex)
         writes.trySend {
-            store.savePosition(path, position)
+            store.savePosition(path, position, currentEntryId)
             store.saveQueue(queue)
         }
     }
