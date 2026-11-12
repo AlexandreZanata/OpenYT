@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
         val mediaImporter = AndroidMediaImporter(this, container.downloadsDirectory)
         val urlOpener = AndroidUrlOpener(this)
         val safDestinationPicker = AndroidSafDestinationPicker(this)
+        val subtitlePicker = AndroidSubtitlePicker(this)
         setContent {
             val pendingSharedUrl by sharedUrl.collectAsState()
             val playback = remember { AndroidPlaybackLauncher(this, container.playbackStore) }
@@ -88,7 +89,7 @@ class MainActivity : ComponentActivity() {
                 offlineAssetStore = container.offlineAssetStore,
                 offlineAssetRepository = container.offlineAssetRepository,
                 offlineAssetInspector = remember { com.openyt.data.JvmMediaFileInspector() },
-                subtitlePicker = remember { AndroidSubtitlePicker(this) },
+                subtitlePicker = subtitlePicker,
                 subtitleImportService = container.subtitleImportService,
                 artworkFetchService = container.artworkFetchService,
                 renderingCacheBytes = container.renderingCacheBytes,

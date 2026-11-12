@@ -9,6 +9,9 @@ import com.openyt.core.domain.SavedStudyRange
 import com.openyt.core.domain.StudyResult
 import com.openyt.core.domain.StudyValidationError
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.concurrent.Volatile
+import kotlin.time.TimeSource
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -149,7 +152,6 @@ class StudyAbRepeatControllerTest {
         var virtualClock = 1_000L
         val session = FakeAbPlaybackSession(
             durationByPath = mapOf("/study.mp4" to 30_000L),
-            seekDelayMillis = 80L,
             lagPositionBeforeSettling = true,
         )
         session.openAt(listOf(PlayableMedia("/study.mp4", "Study", MediaKind.VIDEO, "s-1")), 0, 2_000L)
@@ -172,21 +174,34 @@ class StudyAbRepeatControllerTest {
             assertEquals(AbRepeatStatus.ACTIVE, controller.state.value.status)
             session.completePendingSeekImmediately()
             val initialSeekCount = session.seekCalls.size
+            val initialCompletedCount = session.completedSeekCount
+            session.gateSeeks = true
 
             // Execute 5 full loops with overlapping slow callbacks + post-seek lag reports
             repeat(5) { loopIndex ->
+                val targetSeekCount = initialSeekCount + loopIndex + 1
+                val targetCompletedCount = initialCompletedCount + loopIndex + 1
                 session.advancePositionTo(3_000L)
                 session.advancePositionTo(4_080L) // Crossed B
-                // Fire rapid redundant ticks while seekDelayMillis (80ms) is still running
+
+                // Deterministically wait until the single coalesced seek enters seekTo()
+                awaitUntil { session.seekCalls.size >= targetSeekCount && session.isSeekBlockedInFlight() }
+                // Fire rapid redundant ticks while seek is still running
                 session.emitCurrentSnapshot()
                 session.emitCurrentSnapshot()
                 virtualClock += 30L
                 session.emitCurrentSnapshot()
+                assertEquals(targetSeekCount, session.seekCalls.size)
 
-                // Wait for slow seek coroutine to finish while still lagging at 4_080 initially
-                delay(140)
+                // Release slow seek so it finishes while position is still lagging at 4_080 initially
+                session.releaseBlockedSeek()
+                awaitUntil {
+                    session.completedSeekCount >= targetCompletedCount &&
+                        controller.state.value.loopCount == loopIndex + 1
+                }
                 // Stale/lagging callback while position is settling still must NOT fire duplicate seeks
                 session.emitCurrentSnapshot()
+                assertEquals(targetSeekCount, session.seekCalls.size)
                 // Now player settles at A=2000ms
                 session.completePendingSeekImmediately()
                 virtualClock += 50L
@@ -211,6 +226,7 @@ class StudyAbRepeatControllerTest {
             session.play()
             assertEquals(AbRepeatStatus.ACTIVE, controller.state.value.status)
         } finally {
+            session.releaseBlockedSeek()
             controller.close()
             scope.cancel()
         }
@@ -237,10 +253,14 @@ class StudyAbRepeatControllerTest {
             assertTrue(controller.start() is AbRepeatResult.Success)
             // Move into range then overshoot B permanently
             jammed.forcePositionWithoutSeekCheck(4_200L)
-            repeat(10) {
-                virtualClock += 250L
-                jammed.emitCurrentSnapshot()
-                delay(25)
+            awaitUntil {
+                if (controller.state.value.status == AbRepeatStatus.INACTIVE) {
+                    true
+                } else {
+                    virtualClock += 250L
+                    jammed.emitCurrentSnapshot()
+                    false
+                }
             }
             assertEquals(AbRepeatStatus.INACTIVE, controller.state.value.status)
             assertTrue(controller.state.value.lastError is AbRepeatFailure.SeekFailed)
@@ -269,7 +289,11 @@ class StudyAbRepeatControllerTest {
             assertTrue(controller.start() is AbRepeatResult.Success)
             val playsBeforeEof = session.playCalls
             session.reachEndOfMedia()
-            delay(80)
+            awaitUntil {
+                controller.state.value.loopCount == 1 &&
+                    session.state == PlaybackSessionState.PLAYING &&
+                    session.playCalls >= playsBeforeEof + 1
+            }
             assertEquals(1, controller.state.value.loopCount)
             assertEquals(5_000L, session.currentPositionMillis)
             assertEquals(PlaybackSessionState.PLAYING, session.state)
@@ -287,7 +311,10 @@ class StudyAbRepeatControllerTest {
             assertTrue(controller.start() is AbRepeatResult.Success)
             val playsBeforeStop = session.playCalls
             session.stop()
-            delay(50)
+            awaitUntil {
+                controller.state.value.status == AbRepeatStatus.INACTIVE &&
+                    session.activeRepeatBounds == null
+            }
             assertEquals(AbRepeatStatus.INACTIVE, controller.state.value.status)
             assertNull(session.activeRepeatBounds)
             assertEquals(PlaybackSessionState.IDLE, session.state)
@@ -304,7 +331,7 @@ class StudyAbRepeatControllerTest {
 
             // 5. Close clears active repeat cleanly
             session.openAt(listOf(item1, item2), 0, 1_500L)
-            assertTrue(controller.setRange(1_000L, 4_000L) is AbRepeatResult.Success)
+        assertTrue(controller.setRange(1_000L, 4_000L) is AbRepeatResult.Success)
             assertTrue(controller.start() is AbRepeatResult.Success)
             session.close()
             assertEquals(AbRepeatStatus.INACTIVE, controller.state.value.status)
@@ -313,6 +340,19 @@ class StudyAbRepeatControllerTest {
             controller.close()
             scope.cancel()
         }
+    }
+}
+
+private suspend fun awaitUntil(
+    timeoutMillis: Long = 5_000L,
+    condition: () -> Boolean,
+) {
+    val mark = TimeSource.Monotonic.markNow()
+    while (!condition()) {
+        if (mark.elapsedNow().inWholeMilliseconds >= timeoutMillis) {
+            error("Timed out after ${timeoutMillis}ms waiting for expected test state")
+        }
+        delay(5)
     }
 }
 
@@ -340,10 +380,23 @@ private class FakeAbPlaybackSession(
         private set
     var playCalls: Int = 0
         private set
+    @Volatile
+    var gateSeeks: Boolean = false
+    @Volatile
+    var completedSeekCount: Int = 0
+        private set
+    @Volatile
+    private var activeSeekGate: CompletableDeferred<Unit>? = null
     val openAtCalls = mutableListOf<String?>()
     val seekCalls = CopyOnWriteArrayList<Long>()
     private var pendingTargetAfterLag: Long? = null
     private val listeners = CopyOnWriteArrayList<PlaybackSessionListener>()
+
+    fun isSeekBlockedInFlight(): Boolean = activeSeekGate != null
+
+    fun releaseBlockedSeek() {
+        activeSeekGate?.complete(Unit)
+    }
 
     override fun registerSessionListener(listener: PlaybackSessionListener): () -> Unit {
         listeners += listener
@@ -383,10 +436,22 @@ private class FakeAbPlaybackSession(
     override suspend fun seekTo(positionMillis: Long): Boolean {
         if (!capabilities.canSeek || loadedMedia == null) return false
         seekCalls += positionMillis
+        if (gateSeeks) {
+            val gate = CompletableDeferred<Unit>()
+            activeSeekGate = gate
+            try {
+                gate.await()
+            } finally {
+                if (activeSeekGate === gate) {
+                    activeSeekGate = null
+                }
+            }
+        }
         if (seekDelayMillis > 0L) {
             delay(seekDelayMillis)
         }
         if (ignoreSeekPositionUpdate) {
+            completedSeekCount++
             return true
         }
         val clamped = clampSeekPosition(positionMillis, durationMillis)
@@ -399,6 +464,7 @@ private class FakeAbPlaybackSession(
             }
             emitCurrentSnapshot()
         }
+        completedSeekCount++
         return true
     }
 
