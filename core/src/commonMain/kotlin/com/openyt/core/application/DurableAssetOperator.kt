@@ -1,7 +1,9 @@
 package com.openyt.core.application
 
+import com.openyt.core.domain.AppSettings
 import com.openyt.core.domain.AssetKind
 import com.openyt.core.domain.AssetOperation
+import com.openyt.core.domain.AssetOperationException
 import com.openyt.core.domain.AssetOperationFailure
 import com.openyt.core.domain.AssetOperationStatus
 import com.openyt.core.domain.AssetState
@@ -27,13 +29,32 @@ class DurableAssetOperator(
     val assetRepository: OfflineAssetRepository,
     val stagingPort: AssetStagingPort,
     val fileInspector: MediaFileInspector,
-    val storageReserveBytes: Long = 134217728L, // 128 MiB default
+    val storageReserveBytes: Long = AppSettings.DEFAULT_STORAGE_RESERVE_BYTES,
+    val assetBudgetBytes: Long = AppSettings.DEFAULT_ASSET_BUDGET_BYTES,
 ) : OfflineAssetStore {
 
     private val diskExecutionMutex = Mutex()
     private var idCounter = 0L
 
     fun generateOperationId(): String = "op-${++idCounter}-${currentTimeMillis()}"
+
+    /**
+     * Rejects new owned bytes that would exceed the configured asset budget.
+     * Existing pinned assets are never evicted to make room.
+     */
+    suspend fun ensureWithinBudget(additionalBytes: Long): Result<Unit> {
+        val used = assetRepository.loadAllAssets().sumOf { it.byteCount }
+        if (used + additionalBytes > assetBudgetBytes) {
+            return Result.failure(
+                AssetOperationFailure.StorageBudgetExceeded(
+                    usedBytes = used,
+                    budgetBytes = assetBudgetBytes,
+                    requiredBytes = additionalBytes,
+                ).toException()
+            )
+        }
+        return Result.success(Unit)
+    }
 
     /**
      * Submits an asset operation request, deduplicating with any currently active operation.
@@ -131,6 +152,15 @@ class DurableAssetOperator(
         val requiredSpace = sourceSize + storageReserveBytes
         if (availableSpace < requiredSpace) {
             val failure = AssetOperationFailure.DiskFull(availableSpace, requiredSpace)
+            runningOp = runningOp.copy(status = AssetOperationStatus.FAILED, failure = failure, updatedAtEpochMillis = currentTimeMillis())
+            operationRepository.updateOperation(runningOp)
+            return Result.failure(IllegalStateException(failure.message))
+        }
+
+        val budgetCheck = ensureWithinBudget(sourceSize)
+        if (budgetCheck.isFailure) {
+            val failure = (budgetCheck.exceptionOrNull() as? AssetOperationException)?.failure
+                ?: AssetOperationFailure.Unexpected(budgetCheck.exceptionOrNull()?.message)
             runningOp = runningOp.copy(status = AssetOperationStatus.FAILED, failure = failure, updatedAtEpochMillis = currentTimeMillis())
             operationRepository.updateOperation(runningOp)
             return Result.failure(IllegalStateException(failure.message))

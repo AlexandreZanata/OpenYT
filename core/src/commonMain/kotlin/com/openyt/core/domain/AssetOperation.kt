@@ -27,6 +27,14 @@ sealed interface AssetOperationFailure {
     ) : AssetOperationFailure
 
     @Serializable
+    data class StorageBudgetExceeded(
+        val usedBytes: Long,
+        val budgetBytes: Long,
+        val requiredBytes: Long,
+        override val message: String = "Offline asset budget exceeded: $usedBytes used of $budgetBytes, $requiredBytes required",
+    ) : AssetOperationFailure
+
+    @Serializable
     data class RevokedPermission(
         val path: String,
         override val message: String = "Storage permission revoked for path: $path",

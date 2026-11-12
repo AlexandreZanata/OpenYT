@@ -2,7 +2,9 @@ package com.openyt.desktop.ui
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -28,6 +30,8 @@ import com.openyt.ui.theme.OpenYtTheme
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import java.io.File
+import javax.imageio.ImageIO
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -69,6 +73,10 @@ class OfflineReadinessUiTest(private val scenario: Scenario) {
         onNodeWithTag("offline-cleanup").performClick()
         onNodeWithTag("offline-cleanup-confirm").performClick()
         assertEquals(setOf("sub-1"), cleaned)
+
+        val screenshot = File("build/ui-regressions/offline-${scenario.name}.png")
+        screenshot.parentFile.mkdirs()
+        ImageIO.write(captureToImage().toAwtImage(), "png", screenshot)
     }
 
     @Test

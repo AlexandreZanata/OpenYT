@@ -21,7 +21,8 @@ class JvmOfflineAssetStore(
     private val operationRepository: AssetOperationRepository = MemoryAssetOperationRepository(),
     private val fileInspector: MediaFileInspector = JvmMediaFileInspector(),
     val stagingPort: JvmAssetStagingPort = JvmAssetStagingPort(assetsDirectory),
-    val storageReserveBytes: Long = 134217728L,
+    val storageReserveBytes: Long = com.openyt.core.domain.AppSettings.DEFAULT_STORAGE_RESERVE_BYTES,
+    val assetBudgetBytes: Long = com.openyt.core.domain.AppSettings.DEFAULT_ASSET_BUDGET_BYTES,
 ) : OfflineAssetStore {
 
     val operator: DurableAssetOperator = DurableAssetOperator(
@@ -30,6 +31,7 @@ class JvmOfflineAssetStore(
         stagingPort = stagingPort,
         fileInspector = fileInspector,
         storageReserveBytes = storageReserveBytes,
+        assetBudgetBytes = assetBudgetBytes,
     )
 
     override suspend fun storeConfirmedArtifact(

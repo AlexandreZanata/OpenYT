@@ -120,13 +120,20 @@ class ArtworkFetchService(
         val ext = metadata.formatExtension.ifEmpty { "jpg" }
         val targetLocator = "$entryId/art-$opId.$ext"
 
-        // Check bounds against storage reserve
+        // Check bounds against storage reserve and the asset budget
         val available = stagingPort.getAvailableSpace()
         val required = metadata.byteCount + operator.storageReserveBytes
         if (available < required) {
             stagingPort.cleanupStaging(opId)
             return Result.failure(
                 AssetOperationFailure.DiskFull(available, required).toException()
+            )
+        }
+        val budgetCheck = operator.ensureWithinBudget(metadata.byteCount)
+        if (budgetCheck.isFailure) {
+            stagingPort.cleanupStaging(opId)
+            return Result.failure(
+                budgetCheck.exceptionOrNull() ?: IllegalStateException("Asset budget check failed")
             )
         }
 

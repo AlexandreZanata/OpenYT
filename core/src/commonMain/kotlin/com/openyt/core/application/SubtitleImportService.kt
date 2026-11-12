@@ -83,6 +83,13 @@ class SubtitleImportService(
                 stagingPort.cleanupStaging(opId)
                 return Result.failure(AssetOperationFailure.DiskFull(available, required).toException())
             }
+            val budgetCheck = operator.ensureWithinBudget(staged.byteCount)
+            if (budgetCheck.isFailure) {
+                stagingPort.cleanupStaging(opId)
+                return Result.failure(
+                    budgetCheck.exceptionOrNull() ?: IllegalStateException("Asset budget check failed")
+                )
+            }
 
             val promoteResult = stagingPort.promote(stagingFile, targetLocator)
             if (promoteResult.isFailure) {
@@ -164,6 +171,13 @@ class SubtitleImportService(
             }
 
             val staged = stageResult.getOrThrow()
+            val budgetCheck = operator.ensureWithinBudget(staged.byteCount)
+            if (budgetCheck.isFailure) {
+                stagingPort.cleanupStaging(opId)
+                return Result.failure(
+                    budgetCheck.exceptionOrNull() ?: IllegalStateException("Asset budget check failed")
+                )
+            }
             val targetLocator = "$entryId/sub-$opId.$ext"
             val promoteResult = stagingPort.promote(stagingFile, targetLocator)
             if (promoteResult.isFailure) {

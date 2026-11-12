@@ -124,6 +124,8 @@ class SqlDelightAssetOperationRepository(
         fun serializeFailure(failure: AssetOperationFailure?): String? = when (failure) {
             null -> null
             is AssetOperationFailure.DiskFull -> "DISK_FULL:${failure.availableBytes}:${failure.requiredBytes}:${failure.message}"
+            is AssetOperationFailure.StorageBudgetExceeded ->
+                "BUDGET_EXCEEDED:${failure.usedBytes}:${failure.budgetBytes}:${failure.requiredBytes}"
             is AssetOperationFailure.RevokedPermission -> "REVOKED_PERMISSION:${failure.path}:${failure.message}"
             is AssetOperationFailure.TruncatedCopy -> "TRUNCATED_COPY:${failure.expectedBytes}:${failure.actualBytes}:${failure.message}"
             is AssetOperationFailure.SourceMissing -> "SOURCE_MISSING:${failure.path}:${failure.message}"
@@ -146,6 +148,11 @@ class SqlDelightAssetOperationRepository(
                     availableBytes = parts.getOrNull(1)?.toLongOrNull() ?: 0L,
                     requiredBytes = parts.getOrNull(2)?.toLongOrNull() ?: 0L,
                     message = parts.getOrNull(3) ?: "",
+                )
+                "BUDGET_EXCEEDED" -> AssetOperationFailure.StorageBudgetExceeded(
+                    usedBytes = parts.getOrNull(1)?.toLongOrNull() ?: 0L,
+                    budgetBytes = parts.getOrNull(2)?.toLongOrNull() ?: 0L,
+                    requiredBytes = parts.getOrNull(3)?.toLongOrNull() ?: 0L,
                 )
                 "REVOKED_PERMISSION" -> AssetOperationFailure.RevokedPermission(
                     path = parts.getOrNull(1) ?: "",

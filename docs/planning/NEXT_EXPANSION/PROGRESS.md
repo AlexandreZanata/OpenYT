@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX2.5 VERIFIED; NX2.6 ready to start.**
+Updated: 2026-11-12. **NX2.6 IMPLEMENTED; Linux offline evidence passed; native gate BLOCKED (Android device, Windows, macOS). Milestone 1 stays open.**
 
 Baseline: OpenYT 4.0.1; checkout `codex/nx2-3-owned-storage`.
 Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, and owned storage, journaled durable local operations, and SQLDelight schema 21 migration verified.
 
-Current task: NX2.5 completed. First ready task: **NX2.6**.
+Current task: NX2.6 implemented and Linux evidence captured; remaining gate needs Windows/Linux-native Android device execution and macOS smoke. No later task is ready because NX3.1 requires NX2.6.
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -38,7 +38,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 - [x] [NX2.3 — implement owned storage and durable local operations](02_OFFLINE_LIBRARY.md#nx2-3) — VERIFIED (Pure KMP operation models, SQLDelight schema 20->21 migration, durable asset operator, journaled staging, atomic promotion, bounds & failure injection checks; 20 contract tests passing).
 - [x] [NX2.4 — fetch artwork and import subtitle assets safely](02_OFFLINE_LIBRARY.md#nx2-4) — VERIFIED (Bounded HTTP(S) artwork fetch, credential stripping, subtitle validation/import into owned storage, and local-artwork preference; 39 contract tests passing).
 - [x] [NX2.5 — show offline readiness and storage actions](02_OFFLINE_LIBRARY.md#nx2-5) — VERIFIED (Verified local artwork preference, per-item readiness and recovery actions, explicit pin/unpin, cleanup preview with confirmation, separated storage totals, and host wiring; 18 contract tests passing).
-- [ ] [NX2.6 — prove offline behavior and close milestone 1](02_OFFLINE_LIBRARY.md#nx2-6) — PENDING.
+- [ ] [NX2.6 — prove offline behavior and close milestone 1](02_OFFLINE_LIBRARY.md#nx2-6) — BLOCKED (Linux offline evidence, budget enforcement, docs and screenshots complete; Windows/Android-device/macOS native gate unavailable, so milestone 1 remains open).
 
 ## NX3 — search within saved media
 
@@ -643,6 +643,35 @@ Next ready task and why its prerequisites are satisfied:
 - NX2.6 — prove offline behavior and close milestone 1: Offline readiness, storage actions, and local artwork preference (NX2.5) are complete and VERIFIED; final offline evidence and milestone closure can begin.
 ```
 
+```
+Task: NX2.6 — prove offline behavior and close milestone 1
+Date: 2026-11-12
+Host: Linux x86_64 (Pop!_OS 24.04 LTS), JDK 21.0.8, Android SDK 34-37
+Result: IMPLEMENTED / BLOCKED (Linux offline evidence passed; Windows, Android device and macOS native gate unavailable, so milestone 1 is not closed)
+Commands executed:
+- ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --console=plain
+- unshare -rn bash -c 'ip link set lo up; HOME=/home/iiii GRADLE_USER_HOME=/home/iiii/.gradle JAVA_TOOL_OPTIONS=-Duser.home=/home/iiii ./gradlew --no-daemon --offline --rerun-tasks :core:desktopTest --tests "*Offline*" --tests "*CompanionArtifact*" --tests "*ArtworkFetch*" --tests "*Subtitle*" --console=plain'
+- unshare -rn bash -c '... :data:desktopTest --tests "*Offline*" --tests "*ArtworkAndSubtitle*" --tests "*JvmArtworkFetch*" ...'
+- unshare -rn bash -c '... :desktopApp:test --tests "*Offline*" ...'
+- ./scripts/validate-linux.sh --scenario all --no-build --offline
+Evidence:
+- OfflineMilestoneProofTest: 1 end-to-end test passed on real SQLite and filesystem covering confirmed artwork plus imported subtitle, rendering-cache deletion with owned bytes intact, database reopen with verified assets, READY state with local artwork preferred, owned-byte reconciliation, changed media -> STALE/REVERIFY, missing media -> UNAVAILABLE/RELINK_MEDIA, pinned artwork surviving an asset-budget breach, and offline-readable artwork/subtitles.
+- Asset budget enforcement added: DurableAssetOperator rejects additional bytes above the 512 MiB default budget with structured StorageBudgetExceeded; pinned assets are never evicted. Artwork/subtitle services honor the same check.
+- Core NX-O suite under a network namespace with loopback only: Offline*, CompanionArtifact*, ArtworkFetch*, Subtitle* classes passed (BUILD SUCCESSFUL).
+- Data NX-O suite under the same namespace: Offline*, ArtworkAndSubtitle*, JvmArtworkFetch* passed (BUILD SUCCESSFUL).
+- Offline UI suite under the same namespace: OfflineReadinessUiTest passed all 6 parameterized cases (phone 320dp, enlarged text, desktop; pt-BR/en) and regenerated screenshots in docs/assets/offline/.
+- Full regression: 212 tasks (BUILD SUCCESSFUL).
+- Linux validation harness: all offline scenarios passed with 4 network-dependent skips.
+- Documented ownership, readiness, quota, cleanup and SAF copy behavior in docs/OFFLINE_LIBRARY.md.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi 2311DRK48G; APK and test APK assembly pass.
+- Windows x64 and macOS native offline runs remain BLOCKED by unavailable native hosts.
+- Asset budget/reserve values are persisted, but host stores still use defaults; Settings UI editing and runtime propagation remain pending.
+- Per EXECUTOR_PROMPT rules a native gate that cannot be exercised keeps this task IMPLEMENTED/BLOCKED, not VERIFIED; milestone 1 (M1 = NX1.6 + NX2.6) stays open.
+Next ready task and why its prerequisites are satisfied:
+- None. NX3.1 requires NX2.6 VERIFIED, which needs the missing native offline gate.
+```
+
 ## Native Matrix
 
 | Target / Environment | Capabilities Tested | Requirements & Tools | Current Baseline Status | Notes / Blockers |
@@ -656,7 +685,7 @@ Next ready task and why its prerequisites are satisfied:
 ## Decisions and blockers
 
 - **Phase NX0 Gate: PASSED.** Baseline measurements, redistributable synthetic timeline fixtures, and contract family mappings are verified offline.
-- Milestone 1 (NX1: Download Profiles, NX2: Offline Library) is ready to begin with task **NX1.1**.
+- Milestone 1 (NX1: Download Profiles, NX2: Offline Library): NX1 is complete; NX2.6 is implemented with Linux offline evidence but remains BLOCKED until Windows, Android-device and macOS native checks run.
 - Planning assumptions and proposed budgets are in each phase; none are measured
   implementation results. Native availability is established by NX0.1:
   - Linux x86_64 host: baseline fully operational for deterministic tests, local loopback engine, libvlc playback, deb packaging, and validation harness.
