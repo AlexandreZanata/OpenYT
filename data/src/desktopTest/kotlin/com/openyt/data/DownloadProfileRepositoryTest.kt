@@ -50,9 +50,9 @@ class DownloadProfileRepositoryTest {
             assertEquals("legacy-task-1", tasks.single().id)
             assertEquals("https://example.com/watch", tasks.single().request.url)
 
-            // Verify PRAGMA user_version is 19
+            // Verify PRAGMA user_version reaches current target schema
             val version = readUserVersion(file)
-            assertEquals(19L, version)
+            assertEquals(OpenYtDatabase.Schema.version, version)
 
             // Verify profile repository functions on upgraded database
             val profileRepo = SqlDelightDownloadProfileRepository(database)

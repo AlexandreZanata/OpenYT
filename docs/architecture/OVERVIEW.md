@@ -100,7 +100,7 @@ cancellation, and startup. See ADR-0005.
 
 Final output confirmation uses tagged JSON paths and explicit UTF-8 on both hosts.
 Schema 18 adds playback sessions, typed download options, subscriptions, and opt-in settings. Schema 14 also preserves the filename template and playlist item index so a restored
-task repeats its original request. Schema 19 adds custom download profiles, separate local destination directory bindings, and immutable profile provenance snapshots. See [ADR-0020](../adr/0020-download-completion.md), the [Download Profiles guide](../DOWNLOAD_PROFILES.md), and the [video regression contracts](../testing/VIDEO_REGRESSION_CONTRACTS.md).
+task repeats its original request. Schema 19 adds custom download profiles, separate local destination directory bindings, and immutable profile provenance snapshots. Schema 20 adds durable offline companion assets (`offline_asset`), media revision tracking, and configurable asset storage budget/reserve settings. See [ADR-0020](../adr/0020-download-completion.md), the [Download Profiles guide](../DOWNLOAD_PROFILES.md), and the [video regression contracts](../testing/VIDEO_REGRESSION_CONTRACTS.md).
 
 ## Platform notes
 

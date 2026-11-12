@@ -12,6 +12,7 @@ import kotlinx.serialization.encodeToString
 import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.LibraryEntry
+import com.openyt.core.domain.MediaRevision
 import com.openyt.core.domain.SmartCollection
 import com.openyt.core.domain.MediaInfo
 import com.openyt.core.domain.MediaKind
@@ -171,6 +172,13 @@ class SqlDelightDownloadRepository(
             .executeAsList()
             .groupBy({ it.entry_id }, { it.tag })
         queries.selectAllLibrary().executeAsList().map { row ->
+            val revision = if (row.media_revision_size != null && row.media_revision_mtime != null) {
+                MediaRevision(
+                    sizeBytes = row.media_revision_size,
+                    lastModifiedEpochMillis = row.media_revision_mtime,
+                    contentSha256 = row.media_revision_sha256,
+                )
+            } else null
             LibraryEntry(
                 id = row.id,
                 title = row.title,
@@ -182,6 +190,8 @@ class SqlDelightDownloadRepository(
                 thumbnailUrl = row.thumbnail_url,
                 source = row.source,
                 tags = tags[row.id].orEmpty(),
+                mediaRevision = revision,
+                lastVerifiedEpochMillis = row.last_verified_at,
             )
         }
     }
@@ -197,6 +207,10 @@ class SqlDelightDownloadRepository(
                 size_bytes = entry.sizeBytes,
                 thumbnail_url = entry.thumbnailUrl,
                 source = entry.source,
+                media_revision_size = entry.mediaRevision?.sizeBytes,
+                media_revision_mtime = entry.mediaRevision?.lastModifiedEpochMillis,
+                media_revision_sha256 = entry.mediaRevision?.contentSha256,
+                last_verified_at = entry.lastVerifiedEpochMillis,
             )
             queries.deleteLibraryTagsForEntry(entry.id)
             entry.tags.forEach { tag -> queries.insertLibraryTag(entry.id, tag) }
@@ -206,10 +220,26 @@ class SqlDelightDownloadRepository(
 
     override suspend fun deleteLibraryEntry(id: String) = withContext(Dispatchers.Default) {
         database.transaction {
+            queries.deleteAssetsForEntry(entry_id = id)
             queries.deleteLibraryTagsForEntry(id)
             queries.deleteCollectionEntriesForEntry(entry_id = id)
             queries.deleteLibraryEntry(id)
         }
+        Unit
+    }
+
+    override suspend fun updateLibraryRevision(
+        id: String,
+        revision: MediaRevision,
+        lastVerifiedEpochMillis: Long,
+    ) = withContext(Dispatchers.Default) {
+        queries.updateLibraryRevision(
+            media_revision_size = revision.sizeBytes,
+            media_revision_mtime = revision.lastModifiedEpochMillis,
+            media_revision_sha256 = revision.contentSha256,
+            last_verified_at = lastVerifiedEpochMillis,
+            id = id,
+        )
         Unit
     }
 

@@ -1,0 +1,29 @@
+ALTER TABLE app_settings ADD COLUMN asset_budget_bytes INTEGER NOT NULL DEFAULT 536870912;
+ALTER TABLE app_settings ADD COLUMN storage_reserve_bytes INTEGER NOT NULL DEFAULT 134217728;
+
+ALTER TABLE library_entry ADD COLUMN media_revision_size INTEGER;
+ALTER TABLE library_entry ADD COLUMN media_revision_mtime INTEGER;
+ALTER TABLE library_entry ADD COLUMN media_revision_sha256 TEXT;
+ALTER TABLE library_entry ADD COLUMN last_verified_at INTEGER;
+
+CREATE TABLE offline_asset (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    language TEXT,
+    source_type TEXT,
+    relative_locator TEXT NOT NULL,
+    byte_count INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'PENDING',
+    is_required INTEGER NOT NULL DEFAULT 1,
+    is_pinned INTEGER NOT NULL DEFAULT 0,
+    media_revision_size INTEGER NOT NULL,
+    media_revision_mtime INTEGER NOT NULL,
+    media_revision_sha256 TEXT,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    last_verified_at INTEGER,
+    failure_detail TEXT
+);
+
+CREATE INDEX offline_asset_entry_idx ON offline_asset(entry_id);

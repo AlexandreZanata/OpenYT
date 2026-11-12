@@ -37,7 +37,11 @@ CREATE TABLE library_entry (
     size_bytes INTEGER,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
     thumbnail_url TEXT,
-    source TEXT
+    source TEXT,
+    media_revision_size INTEGER,
+    media_revision_mtime INTEGER,
+    media_revision_sha256 TEXT,
+    last_verified_at INTEGER
 );
 
 CREATE TABLE collection (
@@ -66,7 +70,9 @@ CREATE TABLE app_settings (
     file_organization_template TEXT,
     clipboard_suggestions INTEGER NOT NULL DEFAULT 0,
     download_notifications INTEGER NOT NULL DEFAULT 0,
-    default_profile_id TEXT
+    default_profile_id TEXT,
+    asset_budget_bytes INTEGER NOT NULL DEFAULT 536870912,
+    storage_reserve_bytes INTEGER NOT NULL DEFAULT 134217728
 );
 
 selectSettings:
@@ -77,13 +83,13 @@ INSERT OR REPLACE INTO app_settings(
     id, theme_mode, language, max_concurrent, downloads_directory, storage_tree_uri,
     speed_limit_bytes_per_second, download_window_start_minutes, download_window_end_minutes,
     organization_preset, file_organization_template, clipboard_suggestions, download_notifications,
-    default_profile_id
+    default_profile_id, asset_budget_bytes, storage_reserve_bytes
 )
 VALUES (
     1, :theme_mode, :language, :max_concurrent, :downloads_directory, :storage_tree_uri,
     :speed_limit_bytes_per_second, :download_window_start_minutes, :download_window_end_minutes,
     :organization_preset, :file_organization_template, :clipboard_suggestions, :download_notifications,
-    :default_profile_id
+    :default_profile_id, :asset_budget_bytes, :storage_reserve_bytes
 );
 
 updateDefaultProfileId:
@@ -137,8 +143,22 @@ selectAllLibrary:
 SELECT * FROM library_entry ORDER BY created_at DESC, id ASC;
 
 insertLibraryEntry:
-INSERT OR REPLACE INTO library_entry(id, title, author, kind, file_path, size_bytes, thumbnail_url, source)
-VALUES (:id, :title, :author, :kind, :file_path, :size_bytes, :thumbnail_url, :source);
+INSERT OR REPLACE INTO library_entry(
+    id, title, author, kind, file_path, size_bytes, thumbnail_url, source,
+    media_revision_size, media_revision_mtime, media_revision_sha256, last_verified_at
+)
+VALUES (
+    :id, :title, :author, :kind, :file_path, :size_bytes, :thumbnail_url, :source,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256, :last_verified_at
+);
+
+updateLibraryRevision:
+UPDATE library_entry SET
+    media_revision_size = :media_revision_size,
+    media_revision_mtime = :media_revision_mtime,
+    media_revision_sha256 = :media_revision_sha256,
+    last_verified_at = :last_verified_at
+WHERE id = :id;
 
 updateLibraryPath:
 UPDATE library_entry SET file_path = ? WHERE id = ?;
@@ -283,3 +303,65 @@ VALUES (:profile_id, :destination_directory, :storage_tree_uri);
 
 deleteProfileBinding:
 DELETE FROM profile_destination_binding WHERE profile_id = :profile_id;
+
+CREATE TABLE offline_asset (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    language TEXT,
+    source_type TEXT,
+    relative_locator TEXT NOT NULL,
+    byte_count INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'PENDING',
+    is_required INTEGER NOT NULL DEFAULT 1,
+    is_pinned INTEGER NOT NULL DEFAULT 0,
+    media_revision_size INTEGER NOT NULL,
+    media_revision_mtime INTEGER NOT NULL,
+    media_revision_sha256 TEXT,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    last_verified_at INTEGER,
+    failure_detail TEXT
+);
+
+CREATE INDEX offline_asset_entry_idx ON offline_asset(entry_id);
+
+selectAssetsForEntry:
+SELECT * FROM offline_asset WHERE entry_id = :entry_id ORDER BY kind ASC, language ASC, id ASC;
+
+selectAssetById:
+SELECT * FROM offline_asset WHERE id = :id;
+
+selectAllAssets:
+SELECT * FROM offline_asset ORDER BY created_at DESC, id ASC;
+
+insertAsset:
+INSERT OR REPLACE INTO offline_asset(
+    id, entry_id, kind, language, source_type, relative_locator, byte_count, sha256,
+    state, is_required, is_pinned, media_revision_size, media_revision_mtime,
+    media_revision_sha256, created_at, last_verified_at, failure_detail
+) VALUES (
+    :id, :entry_id, :kind, :language, :source_type, :relative_locator, :byte_count, :sha256,
+    :state, :is_required, :is_pinned, :media_revision_size, :media_revision_mtime,
+    :media_revision_sha256, :created_at, :last_verified_at, :failure_detail
+);
+
+updateAssetState:
+UPDATE offline_asset SET
+    state = :state,
+    last_verified_at = :last_verified_at,
+    failure_detail = :failure_detail
+WHERE id = :id;
+
+updateAssetPin:
+UPDATE offline_asset SET is_pinned = :is_pinned WHERE id = :id;
+
+deleteAsset:
+DELETE FROM offline_asset WHERE id = :id;
+
+deleteAssetsForEntry:
+DELETE FROM offline_asset WHERE entry_id = :entry_id;
+
+invalidateAssetsForEntry:
+UPDATE offline_asset SET state = :state WHERE entry_id = :entry_id;
+

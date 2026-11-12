@@ -124,6 +124,22 @@ Suggested groups: `OfflineReadinessTest`, `AssetRepositoryTest`,
 `AssetPublicationTest`, `OfflineLibraryUiTest`, host `OfflineLibraryLocalTest`.
 
 - **NX-O01:** revision/required-asset readiness semantics and schema upgrade.
+  - Implemented by `com.openyt.core.domain.OfflineReadinessTest` (10 tests in `:core:desktopTest` and `:core:testDebugUnitTest`) and `com.openyt.data.OfflineAssetRepositoryTest` (7 tests in `:data:desktopTest`).
+  - Covers:
+    - Schema v19->v20 migration, backfilling `asset_budget_bytes` (512 MiB) and `storage_reserve_bytes` (128 MiB) defaults, preserving existing settings, tasks, and library entries;
+    - Missing media detection marking readiness as `UNAVAILABLE` with `RELINK_MEDIA` recovery action;
+    - Changed bytes at same path detecting size/mtime hint mismatch and marking readiness as `STALE` with `REVERIFY` recovery action;
+    - Subtitle-only entries successfully achieving `READY` readiness without video/audio stream requirements;
+    - Optional artwork missing does not fail nonexistent requirements (imported media without requested artwork remains `READY`);
+    - Required artwork missing blocks readiness with `INCOMPLETE` state and suggests `FETCH_ARTWORK`;
+    - Required artwork verified yields `READY` status;
+    - Old records with unknown asset state remain `PENDING` (never green) until verified;
+    - Remote `thumbnailUrl` presence never fakes offline readiness;
+    - Display name is never used as a content identifier;
+    - Deleting a library entry cascades to delete asset metadata records in SQLite without auto-deleting user files on disk;
+    - Invalidating assets for an entry transitions asset states to `STALE`;
+    - Asynchronous file inspection and streaming SHA-256 digest computation off the UI thread via `JvmMediaFileInspector`.
+  - Status: **VERIFIED**.
 - **NX-O02:** confirmed bounded artifact receipts, no unrelated file attachment.
 - **NX-O03:** staging/journal/cancel/crash/disk-full, source preservation.
 - **NX-O04:** bounded artwork fetch/subtitle import and verified local preference.

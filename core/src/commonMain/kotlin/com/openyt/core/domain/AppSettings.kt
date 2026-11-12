@@ -52,10 +52,14 @@ data class AppSettings(
     val clipboardSuggestions: Boolean = false,
     val downloadNotifications: Boolean = false,
     val defaultProfileId: String? = null,
+    val assetBudgetBytes: Long = DEFAULT_ASSET_BUDGET_BYTES,
+    val storageReserveBytes: Long = DEFAULT_STORAGE_RESERVE_BYTES,
 ) {
     companion object {
         const val MIN_CONCURRENT = 1
         const val MAX_CONCURRENT = 4
         const val DEFAULT_CONCURRENT = 2
+        const val DEFAULT_ASSET_BUDGET_BYTES: Long = 512L * 1024L * 1024L // 512 MiB
+        const val DEFAULT_STORAGE_RESERVE_BYTES: Long = 128L * 1024L * 1024L // 128 MiB
     }
 }

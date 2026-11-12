@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX1 VERIFIED (NX1.1–NX1.6 complete); NX2 ready to start.**
+Updated: 2026-11-12. **NX2.1 VERIFIED; NX2.2 ready to start.**
 
-Baseline: OpenYT 4.0.1; checkout `codex/nx1-6-milestone-evidence`.
-Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, and combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence.
+Baseline: OpenYT 4.0.1; checkout `codex/nx2-1-asset-models`.
+Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, and offline asset domain models, media revision drift detection, readiness calculator, and SQLDelight schema 20 migration verified.
 
-Current task: NX1.6 completed. First ready task: **NX2.1**.
+Current task: NX2.1 completed. First ready task: **NX2.2**.
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -33,7 +33,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 
 ## NX2 — durable offline library
 
-- [ ] [NX2.1 — model assets, revisions and readiness](02_OFFLINE_LIBRARY.md#nx2-1) — PENDING.
+- [x] [NX2.1 — model assets, revisions and readiness](02_OFFLINE_LIBRARY.md#nx2-1) — VERIFIED (Pure KMP domain models & readiness calculator, SQLDelight schema 19->20 migration, asset repository with cascade deletion, and off-UI thread digest inspection; 17 contract tests passing).
 - [ ] [NX2.2 — confirm engine-produced companion artifacts](02_OFFLINE_LIBRARY.md#nx2-2) — PENDING.
 - [ ] [NX2.3 — implement owned storage and durable local operations](02_OFFLINE_LIBRARY.md#nx2-3) — PENDING.
 - [ ] [NX2.4 — fetch artwork and import subtitle assets safely](02_OFFLINE_LIBRARY.md#nx2-4) — PENDING.
@@ -508,6 +508,31 @@ Known limits / blocked checks / decisions needed:
 - Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
 Next ready task and why its prerequisites are satisfied:
 - NX2.1 — model assets, revisions and readiness: Download Profiles milestone (NX1) is complete and VERIFIED; offline library assets domain modeling can begin.
+```
+
+```
+Task: NX2.1 — model assets, revisions and readiness
+Date: 2026-11-12
+Host: Linux x86_64 (Pop!_OS 24.04 LTS), JDK 21.0.8, Android SDK 34-37
+Command: ./gradlew :core:desktopTest --tests '*OfflineReadinessTest*' :data:desktopTest --tests '*OfflineAssetRepositoryTest*' :core:compileDebugKotlinAndroid :data:compileDebugKotlinAndroid --console=plain
+Result: VERIFIED (17 contract tests passed; schema 19->20 migration and reopen verified; Android and desktop compilation successful)
+Evidence:
+- OfflineReadinessTest: 10 tests passed covering missing media (marking UNAVAILABLE with RELINK_MEDIA action), changed bytes at same path (detecting size/mtime hint mismatch and marking STALE with REVERIFY action), changed content digest at same path, subtitle-only entries succeeding without video/audio codecs, optional vs required artwork semantics, old records with unknown asset state remaining PENDING until verified, remote thumbnailUrl never faking offline readiness, independence from display name, and actionable structured library-operation failures.
+- OfflineAssetRepositoryTest: 7 tests passed covering schema 19->20 upgrade with backfilled default asset budget (512 MiB) and storage reserve (128 MiB), database reopen fidelity, CRUD operations, cascade deletion of offline assets when library entry is deleted without auto-deleting user files on disk, invalidation marking assets STALE, custom budget/reserve settings persistence, and JvmMediaFileInspector streaming SHA-256 and metadata inspection off the UI thread.
+- Regression: :core:desktopTest, :engine-ytdlp:desktopTest, :data:desktopTest, :media-ffmpeg:desktopTest, :desktopApp:test, :androidApp:assembleDebug, :androidApp:assembleDebugAndroidTest (BUILD SUCCESSFUL, 212 tasks).
+- Linux offline validation: ./scripts/validate-linux.sh --scenario all --no-build --offline (validation passed).
+Behavior changed:
+- Added pure KMP domain models: AssetKind, AssetState, MediaRevision, OfflineAsset, ReadinessStatus, RecoveryAction, MissingRequirement, OfflineReadiness, and structured LibraryOperationFailure hierarchy.
+- Updated LibraryEntry with optional mediaRevision hints and lastVerifiedEpochMillis.
+- Added assetBudgetBytes (512 MiB default) and storageReserveBytes (128 MiB default) to AppSettings.
+- Implemented MediaFileInspector port and JvmMediaFileInspector streaming SHA-256 computation on Dispatchers.IO.
+- Implemented OfflineReadinessCalculator computing deterministic readiness strictly from verified evidence.
+- Created SQLDelight migration 19.sqm creating table offline_asset and altering library_entry and app_settings.
+- Implemented SqlDelightOfflineAssetRepository and MemoryOfflineAssetRepository.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
+Next ready task and why its prerequisites are satisfied:
+- NX2.2 — confirm engine-produced companion artifacts: Offline asset models, revisions, and persistence (NX2.1) are complete and VERIFIED; engine completion artifact receipt handling can begin.
 ```
 
 ## Native Matrix
