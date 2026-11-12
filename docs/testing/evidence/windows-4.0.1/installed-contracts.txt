@@ -1,0 +1,6 @@
+Shortcut metadata: {"link":"C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\OpenYT\\OpenYT.lnk","target":"C:\\Program Files\\OpenYT\\OpenYT.exe","icon":",0"}
+Shortcut metadata: {"link":"C:\\Users\\Public\\Desktop\\OpenYT.lnk","target":"C:\\Program Files\\OpenYT\\OpenYT.exe","icon":",0"}
+PASS msi: installed shortcut target/icon/launch, exact external-open handler, Explorer selection including first-open MP4 folder, visible bundled VLC decoded playback
+Shortcut metadata: {"link":"C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\OpenYT\\OpenYT.lnk","target":"C:\\Program Files\\OpenYT\\OpenYT.exe","icon":",0"}
+Shortcut metadata: {"link":"C:\\Users\\Public\\Desktop\\OpenYT.lnk","target":"C:\\Program Files\\OpenYT\\OpenYT.exe","icon":",0"}
+PASS exe: installed shortcut target/icon/launch, exact external-open handler, Explorer selection including first-open MP4 folder, visible bundled VLC decoded playback

@@ -2,7 +2,14 @@
 
 Updated: 2026-11-11
 
-## Current delivery: 4.0.0
+## Current delivery: 4.0.1
+
+Windows playback now bundles verified VLC 3.0.24 libraries. Native Unicode shell
+actions select/open files, both installers create desktop/Start-menu shortcuts,
+and shared UI reports action failures. See [Windows contracts](../testing/WINDOWS_DESKTOP_CONTRACTS.md)
+and [4.0.1 release notes](../releases/v4.0.1.md).
+
+## 4.0.0 foundation
 
 The expansion roadmap is consolidated in 4.0.0: persisted playback and desktop
 mini-player/Android PiP; subtitles, audio presets, normalization, segments and
@@ -602,7 +609,7 @@ Validation:
 - Upstream sources may change or require authentication; a catalog entry is not
   a guarantee that a particular URL is downloadable.
 - Subscriptions check while the app is running. There is no background server.
-- Desktop embedded playback needs installed VLC/libvlc; the system player remains
+- Linux/macOS embedded playback needs installed VLC/libvlc; the system player remains
   available when it is absent.
 - Lossless trimming may align the start to a nearby keyframe.
 - Windows and macOS lack Authenticode/notarization certificates. Native CI smoke

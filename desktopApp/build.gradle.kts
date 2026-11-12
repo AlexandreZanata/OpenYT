@@ -34,6 +34,7 @@ val prepareBundledTools by tasks.registering {
     inputs.property("architecture", architecture)
     inputs.property("linuxFfmpeg", "8.1.3-27-g8dca1586f4-20261031")
     inputs.property("macFfmpeg", "9.0.2-20260920")
+    inputs.property("windowsVlc", "3.0.24")
     outputs.dir(bundledToolsDir)
     doLast {
         val directory = bundledToolsDir.get().asFile.apply { mkdirs() }
@@ -92,6 +93,7 @@ val prepareBundledTools by tasks.registering {
         listOf(ytDlpName, ffmpegName, ffprobeName, denoName).forEach {
             File(directory, it).setExecutable(true)
         }
+        if (platform == "windows") prepareWindowsVlc(directory)
         rootProject.file("LICENSE").copyTo(File(directory, "LICENSE"), overwrite = true)
         rootProject.file("THIRD_PARTY_NOTICES.md")
             .copyTo(File(directory, "THIRD_PARTY_NOTICES.md"), overwrite = true)
@@ -157,6 +159,9 @@ compose.desktop {
             }
             windows {
                 iconFile.set(project.file("packaging/icons/openyt.ico"))
+                shortcut = true
+                menu = true
+                menuGroup = "OpenYT"
             }
             macOS {
                 iconFile.set(project.file("packaging/icons/openyt.icns"))
@@ -189,6 +194,45 @@ tasks.matching {
 val YT_DLP_VERSION = "2026.10.26"
 val FFMPEG_STATIC_VERSION = "b6.1.1"
 val DENO_VERSION = "2.9.8"
+
+fun prepareWindowsVlc(directory: File) {
+    val archive = File(directory, "vlc.zip")
+    try {
+        download("https://ftp.osuosl.org/pub/videolan/vlc/3.0.24/win64/vlc-3.0.24-win64.zip", archive)
+        val digest = MessageDigest.getInstance("SHA-256")
+        archive.inputStream().use { input ->
+            val buffer = ByteArray(65536)
+            while (true) { val count = input.read(buffer); if (count < 0) break; digest.update(buffer, 0, count) }
+        }
+        check(digest.digest().joinToString("") { "%02x".format(it) } ==
+            "fcf30850371ad10c9373cc4f0f4501e7dee49e3e9ae9f20c72fb2661a1ca6323") { "VLC archive checksum mismatch" }
+        val target = File(directory, "vlc").apply { deleteRecursively(); mkdirs() }.canonicalFile
+        ZipInputStream(archive.inputStream().buffered()).use { zip ->
+            var entry = zip.nextEntry
+            while (entry != null) {
+                val relative = entry.name.removePrefix("vlc-3.0.24/")
+                val discPlugin = relative.substringAfterLast('/').let { it.contains("dvd", true) || it.contains("bluray", true) }
+                val needed = relative in setOf("libvlc.dll", "libvlccore.dll", "COPYING.txt", "AUTHORS.txt", "THANKS.txt") || relative.startsWith("plugins/")
+                if (!entry.isDirectory && needed && !discPlugin) {
+                    val output = File(target, relative).canonicalFile
+                    check(output.toPath().startsWith(target.toPath())) { "Invalid VLC archive path" }
+                    output.parentFile.mkdirs()
+                    output.outputStream().use { zip.copyTo(it) }
+                }
+                entry = zip.nextEntry
+            }
+        }
+        check(File(target, "libvlc.dll").isFile && File(target, "plugins/codec").isDirectory) { "Incomplete VLC runtime" }
+        rootProject.file("desktopApp/packaging/licenses/vlc-COPYING.LIB").copyTo(File(target, "COPYING.LIB"), overwrite = true)
+        File(target, "SOURCE.txt").writeText("Unmodified VLC 3.0.24 runtime and plugins (disc access excluded).\nSource: https://download.videolan.org/pub/videolan/vlc/3.0.24/vlc-3.0.24.tar.xz\nhttps://code.videolan.org/videolan/vlc/-/tree/3.0.24\n")
+    } finally { archive.delete() }
+}
+
+tasks.register<Jar>("windowsContractHarnessJar") {
+    dependsOn(tasks.testClasses)
+    archiveFileName.set("windows-contract-harness.jar")
+    from(sourceSets.test.get().output)
+}
 
 fun hostPlatform(): String {
     val os = System.getProperty("os.name").orEmpty().lowercase()

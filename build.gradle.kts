@@ -41,13 +41,20 @@ tasks.register("releaseSbom") {
                 .incoming.resolutionResult.allComponents.mapNotNull { it.id as? org.gradle.api.artifacts.component.ModuleComponentIdentifier } }
             .distinctBy { it.toString() }
         val components = modules.sortedBy { it.toString() }.map { id ->
-            mapOf("type" to "library", "group" to id.group, "name" to id.module, "version" to id.version,
+            mapOf<String, Any>("type" to "library", "group" to id.group, "name" to id.module, "version" to id.version,
                 "purl" to "pkg:maven/${id.group}/${id.module}@${id.version}")
-        } + buildList {
+        } + buildList<Map<String, Any>> {
             add(mapOf("type" to "application", "name" to "yt-dlp", "version" to "2026.10.26"))
             add(mapOf("type" to "application", "name" to "FFmpeg", "version" to ffmpegVersion))
             add(mapOf("type" to "application", "name" to "FFprobe", "version" to ffprobeVersion))
             add(mapOf("type" to "application", "name" to "Deno", "version" to "2.9.8"))
+            if (suffix == ".exe") {
+                val dll = File(toolDirectory, "vlc/libvlc.dll")
+                val digest = MessageDigest.getInstance("SHA-256").digest(dll.readBytes()).joinToString("") { "%02x".format(it) }
+                add(mapOf("type" to "library", "name" to "libVLC", "version" to "3.0.24",
+                    "hashes" to listOf(mapOf("alg" to "SHA-256", "content" to digest)),
+                    "licenses" to listOf(mapOf("license" to mapOf("id" to "LGPL-2.1-or-later")))))
+            }
             if (targets.any { it.first == ":androidApp" }) {
                 add(mapOf("type" to "application", "name" to "yt-dlp-Android", "version" to "2025.11.12"))
                 add(mapOf("type" to "application", "name" to "FFmpeg-Android", "version" to "7.1.1"))

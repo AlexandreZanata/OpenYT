@@ -7,6 +7,9 @@ import java.io.File
 
 class DesktopMediaActions(
     private val desktop: Desktop? = if (Desktop.isDesktopSupported()) Desktop.getDesktop() else null,
+    private val platform: String = System.getProperty("os.name").orEmpty(),
+    private val windowsOpen: (File) -> Boolean = WindowsShell::open,
+    private val windowsReveal: (File) -> Boolean = WindowsShell::reveal,
 ) : MediaActions {
     override val canShare: Boolean = false
     override val canOpen: Boolean = true
@@ -17,6 +20,7 @@ class DesktopMediaActions(
     override fun open(media: ShareableMedia): Boolean {
         val file = File(media.path)
         if (!file.isFile) return false
+        if (platform.contains("windows", true)) return runCatching { windowsOpen(file) }.getOrDefault(false)
         val opened = runCatching {
             desktop?.open(file)
             desktop != null
@@ -27,15 +31,22 @@ class DesktopMediaActions(
     override fun reveal(media: ShareableMedia): Boolean {
         val file = File(media.path)
         if (!file.exists()) return false
+        if (platform.contains("windows", true)) return runCatching { windowsReveal(file) }.getOrDefault(false)
         val revealed = runCatching {
-            desktop?.browseFileDirectory(file)
-            desktop != null
+            if (desktop?.isSupported(Desktop.Action.BROWSE_FILE_DIR) == true) {
+                desktop.browseFileDirectory(file)
+                true
+            } else false
         }.getOrDefault(false)
-        return revealed || openPath(file.parentFile?.absolutePath ?: return false)
+        val parent = file.absoluteFile.parentFile ?: return false
+        return revealed || runCatching {
+            desktop?.open(parent)
+            desktop != null
+        }.getOrDefault(false) || openPath(parent.absolutePath)
     }
 
     private fun openPath(path: String): Boolean = runCatching {
-        if (System.getProperty("os.name").orEmpty().lowercase().contains("linux")) {
+        if (platform.contains("linux", true)) {
             ProcessBuilder("xdg-open", path).start()
             true
         } else {

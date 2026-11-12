@@ -11,7 +11,9 @@ import com.openyt.ui.i18n.AppStrings
 import com.openyt.ui.i18n.EnStrings
 import com.openyt.ui.i18n.FeatureText
 import java.awt.BorderLayout
-import java.awt.Desktop
+import com.openyt.core.application.MediaActions
+import com.openyt.core.domain.ShareableMedia
+import com.openyt.desktop.share.DesktopMediaActions
 import java.awt.Dimension
 import java.awt.Rectangle
 import java.awt.event.WindowAdapter
@@ -38,7 +40,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.runBlocking
-import uk.co.caprica.vlcj.factory.discovery.NativeDiscovery
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
 import uk.co.caprica.vlcj.player.component.EmbeddedMediaPlayerComponent
@@ -48,6 +49,8 @@ class DesktopPlaybackLauncher(
     private val store: PlaybackStore = MemoryPlaybackStore(),
     private val strings: () -> AppStrings = { EnStrings },
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    private val mediaActions: MediaActions = DesktopMediaActions(),
+    private val runtimeAvailable: () -> Boolean = DesktopVlcRuntime::discover,
 ) : PlaybackLauncher {
     override val canPlay: Boolean = true
     private var window: JFrame? = null
@@ -90,7 +93,7 @@ class DesktopPlaybackLauncher(
     fun isVlcAvailable(): Boolean {
         if (!vlcChecked) {
             vlcChecked = true
-            vlcAvailable = runCatching { NativeDiscovery().discover() }.getOrDefault(false)
+            vlcAvailable = runCatching { runtimeAvailable() }.getOrDefault(false)
         }
         return vlcAvailable
     }
@@ -144,7 +147,18 @@ class DesktopPlaybackLauncher(
     fun close() {
         val finish = {
             checkpoint()
-            window?.dispose()
+            val frame = window
+            val player = component
+            component = null
+            window = null
+            loadedMedia = null
+            mini = false
+            fullBounds = null
+            seekSlider = null
+            timeLabel = null
+            // Native teardown must finish before the surface/JVM can disappear.
+            // windowClosed is queued after dispose() and can race JVM shutdown.
+            try { player?.release() } finally { frame?.dispose() }
             Unit
         }
         if (SwingUtilities.isEventDispatchThread()) finish() else SwingUtilities.invokeAndWait(finish)
@@ -161,15 +175,20 @@ class DesktopPlaybackLauncher(
         player.mediaPlayer().events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
             override fun finished(mediaPlayer: MediaPlayer) {
                 SwingUtilities.invokeLater {
+                    if (component !== player) return@invokeLater
                     if (queue.hasNext) select(queue.next()) else checkpoint()
                 }
             }
             override fun error(mediaPlayer: MediaPlayer) {
-                SwingUtilities.invokeLater { loadedMedia = null; showPlaybackError() }
+                SwingUtilities.invokeLater {
+                    if (component !== player) return@invokeLater
+                    loadedMedia = null
+                    showPlaybackError()
+                }
             }
         })
         window = JFrame("OpenYT").apply {
-            defaultCloseOperation = WindowConstants.DISPOSE_ON_CLOSE
+            defaultCloseOperation = WindowConstants.DO_NOTHING_ON_CLOSE
             layout = BorderLayout()
             add(buildToolbar(), BorderLayout.NORTH)
             add(player, BorderLayout.CENTER)
@@ -194,13 +213,9 @@ class DesktopPlaybackLauncher(
             setSize(960, 580)
             setLocationRelativeTo(null)
             addWindowListener(object : WindowAdapter() {
-                override fun windowClosing(event: WindowEvent) { checkpoint() }
+                override fun windowClosing(event: WindowEvent) { close() }
                 override fun windowClosed(event: WindowEvent) {
-                    player.release()
-                    loadedMedia = null
-                    component = null
-                    window = null
-                    mini = false
+                    if (window === event.window) close()
                 }
             })
             bind("SPACE") { togglePlayback() }
@@ -310,13 +325,9 @@ class DesktopPlaybackLauncher(
     }
 
     private fun openExternally(item: PlayableMedia) {
-        SwingUtilities.invokeLater {
-            val opened = runCatching {
-                check(File(item.path).isFile)
-                check(Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN))
-                Desktop.getDesktop().open(File(item.path))
-            }.isSuccess
-            if (!opened) showPlaybackError()
+        scope.launch(Dispatchers.IO) {
+            val opened = runCatching { mediaActions.open(ShareableMedia(item.path, item.title, item.kind)) }.getOrDefault(false)
+            if (!opened) SwingUtilities.invokeLater { showPlaybackError() }
         }
     }
 }
