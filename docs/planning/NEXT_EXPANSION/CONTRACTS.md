@@ -228,6 +228,19 @@ Suggested groups: `SubtitleParserTest`, `TimedSearchRepositoryTest`,
     - Database reopen across restarts verifies persistence fidelity of track index records, cues, and FTS virtual tables.
   - Status: **VERIFIED**.
 - **NX-S04:** literal bounded query/pagination/cancellation and scoped results.
+  - Contract & Invariants:
+    - Scoped search: `TimedSearchScope.Library`, `Collection(collectionId)`, and `Entry(entryId)` return strictly scoped matches without cross-entry contamination;
+    - Explicit filters: language filter (e.g. `language = "pt"`) and `trackId` filter isolate target tracks;
+    - Deterministic pagination: deterministic tie-breaking sort `ORDER BY entry_id ASC, start_ms ASC, track_id ASC, cue_id ASC` guarantees gapless, duplicate-free pagination across pages;
+    - Query validation: pure Kotlin bounds enforcement rejects blank/whitespace queries (`InvalidQueryReason.EMPTY`), queries exceeding 256 characters (`EXCEEDS_LENGTH_LIMIT`), and queries exceeding 8 tokens (`EXCEEDS_TOKEN_LIMIT`);
+    - Literal FTS token escaping: double quotes, boolean operators (`AND`, `OR`, `NOT`, `NEAR`), wildcards (`*`), colons, and SQL-like injection strings (`'; DROP TABLE; --`) are treated literally without syntax errors or unescaped execution;
+    - Accent matching & excerpt highlighting: bidirectional diacritic folding ("música" $\leftrightarrow$ "musica", "café" $\leftrightarrow$ "cafe", "açúcar" $\leftrightarrow$ "acucar") with character-exact `TextHighlightRange` offsets and length-bounded excerpt centering with ellipsis (`...`);
+    - CJK & unspaced text behavior: continuous unspaced CJK characters are tokenized by SQLite `unicode61` as contiguous tokens; exact tokens match reliably;
+    - Deleted entry isolation: deleting an entry from `library_entry` immediately excludes all its cues from Library and Collection searches, and returns `IndexUnavailable(ENTRY_NOT_FOUND)` on Entry search;
+    - Distinct typed states: `TimedSearchResult.IndexUnavailable` (typed reasons: `NO_SUBTITLE_TRACKS`, `INDEX_PENDING_OR_STALE`, `INDEX_FAILED`, `ENTRY_NOT_FOUND`, `COLLECTION_EMPTY`) vs `TimedSearchResult.Success(items = emptyList(), totalMatches = 0)` are distinct typed states;
+    - Cancellation: coroutine cooperative cancellation (`ensureActive()`) aborts superseded searches without leaking database or thread pool resources;
+    - Performance budget: measured 100,000-cue synthetic corpus p95 search latency through `SqlDelightTimedSearchRepository` passed at 73.96 ms (budget $\le 500$ ms).
+  - Status: **VERIFIED**.
 - **NX-S05:** actual prepared-player seek, entry identity and legacy queue bridge.
 - **NX-S06:** missing-index vs no-match UI and correct accessible timestamp action.
 - **NX-S07:** offline search phrase to real player time and native close/reopen.

@@ -619,6 +619,155 @@ SELECT count(*) FROM subtitle_cue WHERE track_id NOT IN (SELECT track_id FROM su
 countOrphanedSubtitleFtsCues:
 SELECT count(*) FROM subtitle_cue_fts WHERE track_id NOT IN (SELECT track_id FROM subtitle_track_index);
 
+selectLibraryEntryById:
+SELECT * FROM library_entry WHERE id = :id;
+
+countLibraryEntries:
+SELECT count(*) FROM library_entry;
+
+countEntriesInCollection:
+SELECT count(*) FROM collection_entry WHERE collection_id = :collection_id;
+
+searchSubtitleCuesLibrary:
+SELECT
+    c.cue_id,
+    c.track_id,
+    c.entry_id,
+    c.start_ms,
+    c.end_ms,
+    c.display_text,
+    c.plain_text,
+    c.speaker,
+    i.language,
+    i.timebase_offset_ms,
+    le.title AS entry_title
+FROM subtitle_cue_fts f
+INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+INNER JOIN subtitle_cue c ON c.id = (f.track_id || ':' || f.revision || ':' || f.cue_id)
+INNER JOIN library_entry le ON le.id = i.entry_id
+WHERE f.plain_text MATCH :match_query
+  AND i.active_revision > 0
+  AND i.state IN ('READY', 'STALE')
+  AND (:language IS NULL OR i.language = :language)
+  AND (:track_id IS NULL OR c.track_id = :track_id)
+ORDER BY c.entry_id ASC, c.start_ms ASC, c.track_id ASC, c.cue_id ASC
+LIMIT :limit OFFSET :offset;
+
+countSubtitleCuesLibrary:
+SELECT count(*)
+FROM subtitle_cue_fts f
+INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+INNER JOIN library_entry le ON le.id = i.entry_id
+WHERE f.plain_text MATCH :match_query
+  AND i.active_revision > 0
+  AND i.state IN ('READY', 'STALE')
+  AND (:language IS NULL OR i.language = :language)
+  AND (:track_id IS NULL OR f.track_id = :track_id);
+
+searchSubtitleCuesEntry:
+SELECT
+    c.cue_id,
+    c.track_id,
+    c.entry_id,
+    c.start_ms,
+    c.end_ms,
+    c.display_text,
+    c.plain_text,
+    c.speaker,
+    i.language,
+    i.timebase_offset_ms,
+    le.title AS entry_title
+FROM subtitle_cue_fts f
+INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+INNER JOIN subtitle_cue c ON c.id = (f.track_id || ':' || f.revision || ':' || f.cue_id)
+INNER JOIN library_entry le ON le.id = i.entry_id
+WHERE f.plain_text MATCH :match_query
+  AND i.entry_id = :entry_id
+  AND i.active_revision > 0
+  AND i.state IN ('READY', 'STALE')
+  AND (:language IS NULL OR i.language = :language)
+  AND (:track_id IS NULL OR c.track_id = :track_id)
+ORDER BY c.start_ms ASC, c.track_id ASC, c.cue_id ASC
+LIMIT :limit OFFSET :offset;
+
+countSubtitleCuesEntry:
+SELECT count(*)
+FROM subtitle_cue_fts f
+INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+INNER JOIN library_entry le ON le.id = i.entry_id
+WHERE f.plain_text MATCH :match_query
+  AND i.entry_id = :entry_id
+  AND i.active_revision > 0
+  AND i.state IN ('READY', 'STALE')
+  AND (:language IS NULL OR i.language = :language)
+  AND (:track_id IS NULL OR f.track_id = :track_id);
+
+searchSubtitleCuesCollection:
+SELECT
+    c.cue_id,
+    c.track_id,
+    c.entry_id,
+    c.start_ms,
+    c.end_ms,
+    c.display_text,
+    c.plain_text,
+    c.speaker,
+    i.language,
+    i.timebase_offset_ms,
+    le.title AS entry_title
+FROM subtitle_cue_fts f
+INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+INNER JOIN subtitle_cue c ON c.id = (f.track_id || ':' || f.revision || ':' || f.cue_id)
+INNER JOIN library_entry le ON le.id = i.entry_id
+WHERE f.plain_text MATCH :match_query
+  AND i.entry_id IN (SELECT entry_id FROM collection_entry WHERE collection_id = :collection_id)
+  AND i.active_revision > 0
+  AND i.state IN ('READY', 'STALE')
+  AND (:language IS NULL OR i.language = :language)
+  AND (:track_id IS NULL OR c.track_id = :track_id)
+ORDER BY c.entry_id ASC, c.start_ms ASC, c.track_id ASC, c.cue_id ASC
+LIMIT :limit OFFSET :offset;
+
+countSubtitleCuesCollection:
+SELECT count(*)
+FROM subtitle_cue_fts f
+INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+INNER JOIN library_entry le ON le.id = i.entry_id
+WHERE f.plain_text MATCH :match_query
+  AND i.entry_id IN (SELECT entry_id FROM collection_entry WHERE collection_id = :collection_id)
+  AND i.active_revision > 0
+  AND i.state IN ('READY', 'STALE')
+  AND (:language IS NULL OR i.language = :language)
+  AND (:track_id IS NULL OR f.track_id = :track_id);
+
+countIndexesInLibrary:
+SELECT
+    count(*) AS total,
+    coalesce(sum(CASE WHEN i.state IN ('READY', 'STALE') AND i.active_revision > 0 THEN 1 ELSE 0 END), 0) AS ready,
+    coalesce(sum(CASE WHEN i.state = 'FAILED' THEN 1 ELSE 0 END), 0) AS failed
+FROM subtitle_track_index i
+INNER JOIN library_entry le ON le.id = i.entry_id;
+
+countIndexesForEntry:
+SELECT
+    count(*) AS total,
+    coalesce(sum(CASE WHEN i.state IN ('READY', 'STALE') AND i.active_revision > 0 THEN 1 ELSE 0 END), 0) AS ready,
+    coalesce(sum(CASE WHEN i.state = 'FAILED' THEN 1 ELSE 0 END), 0) AS failed
+FROM subtitle_track_index i
+INNER JOIN library_entry le ON le.id = i.entry_id
+WHERE i.entry_id = :entry_id;
+
+countIndexesInCollection:
+SELECT
+    count(*) AS total,
+    coalesce(sum(CASE WHEN i.state IN ('READY', 'STALE') AND i.active_revision > 0 THEN 1 ELSE 0 END), 0) AS ready,
+    coalesce(sum(CASE WHEN i.state = 'FAILED' THEN 1 ELSE 0 END), 0) AS failed
+FROM subtitle_track_index i
+INNER JOIN library_entry le ON le.id = i.entry_id
+WHERE i.entry_id IN (SELECT entry_id FROM collection_entry WHERE collection_id = :collection_id);
+
+
+
 
 
 

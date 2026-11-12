@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX3.3 VERIFIED; subtitle cue persistence, atomic index revision rebuild, FTS4 synchronization, and crash recovery complete with 15 contract tests.**
+Updated: 2026-11-12. **NX3.4 VERIFIED; bounded text search with scoped pagination, literal FTS token escaping, accent matching, and 100k-cue performance budget complete with 20 contract tests.**
 
 Baseline: OpenYT 4.0.1; checkout `codex/nx2-3-owned-storage`.
-Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, SQLDelight schema 21 migration verified, FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms, pure Kotlin bounded SRT/VTT parser with safe markup stripping, speaker extraction, and timebase offset shifting verified, and subtitle cue persistence with atomic revision rebuild, FTS4 virtual table synchronization, and crash recovery verified.
+Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, SQLDelight schema 21 migration verified, FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms, pure Kotlin bounded SRT/VTT parser with safe markup stripping, speaker extraction, and timebase offset shifting verified, subtitle cue persistence with atomic revision rebuild, FTS4 virtual table synchronization, and crash recovery verified, and bounded text search with scoped pagination, literal FTS token escaping, accent matching, and 100k-cue performance budget verified.
 
-Current task: NX3.3 verified; subtitle cue persistence, atomic index revision rebuild, FTS4 virtual table synchronization, and crash recovery complete. Next ready task is NX3.4 (expose bounded text search).
+Current task: NX3.4 verified; bounded text search with scoped pagination and typed unavailability states complete. Next ready task is NX3.5 (add entry-aware timed playback without losing history).
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -45,7 +45,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 - [x] [NX3.1 — prove indexing capability on the shipped databases](03_TIMED_SEARCH.md#nx3-1) — VERIFIED (Pure KMP FtsCapabilityReport, SQLDelight SqliteFtsCapabilityProbe, FTS4 + unicode61 creation, binding, accent folding, CRUD, Android driver factory support, and measured 100,000-cue synthetic corpus p95 budget passed at 0.899 ms; 13 tests passing).
 - [x] [NX3.2 — parse and normalize timed subtitle tracks](03_TIMED_SEARCH.md#nx3-2) — VERIFIED (Pure Kotlin TimedSubtitleParser, TimedCue/ParsedSubtitleTrack domain models, bounded 10 MiB/100k cue limits, safe markup stripping, speaker extraction, and timebase offset shifting; 9 contract tests passing).
 - [x] [NX3.3 — persist cues and atomically rebuild an index revision](03_TIMED_SEARCH.md#nx3-3) — VERIFIED (SQLDelight schema 21->22 migration, SqlDelightSubtitleIndexRepository, SubtitleIndexRebuilder, atomic revision swap, 1:1 B-tree and FTS count reconciliation, journaled crash recovery, and cancellation cleanup; 15 contract tests passing).
-- [ ] [NX3.4 — expose bounded text search](03_TIMED_SEARCH.md#nx3-4) — PENDING.
+- [x] [NX3.4 — expose bounded text search](03_TIMED_SEARCH.md#nx3-4) — VERIFIED (Pure KMP query validation/use case, scoped search repository with deterministic tie-breaking pagination, literal FTS token escaping, accent-folded excerpt highlighting, and measured 100k-cue synthetic corpus budget passed at 73.96 ms; 20 contract tests passing).
 - [ ] [NX3.5 — add entry-aware timed playback without losing history](03_TIMED_SEARCH.md#nx3-5) — PENDING.
 - [ ] [NX3.6 — deliver result navigation and empty/error states](03_TIMED_SEARCH.md#nx3-6) — PENDING.
 - [ ] [NX3.7 — prove search-to-playback end to end](03_TIMED_SEARCH.md#nx3-7) — PENDING.
@@ -777,6 +777,49 @@ Known limits / blocked checks / decisions needed:
 - Windows x64 and macOS native offline runs remain BLOCKED by unavailable native hosts.
 Next ready task and why its prerequisites are satisfied:
 - NX3.4 — expose bounded text search: Subtitle cue persistence and atomic index revisions (NX3.3) are complete and VERIFIED; query validation, FTS token escaping, pagination, and scoped search can begin.
+```
+
+```
+Task: NX3.4 — expose bounded text search
+Branch: codex/nx3-4-bounded-search
+Status: VERIFIED
+Evidence:
+- Tests:
+  - com.openyt.core.application.TimedSearchQueryValidatorTest (8 tests in :core:desktopTest, all passed):
+    - rejectsEmptyOrBlankQueries
+    - enforcesCharacterLengthLimit (256 char bound)
+    - enforcesTokenCountLimit (8 token bound)
+    - escapesQuotesOperatorsAndSqlSyntaxLiterally
+    - stripsDiacriticsBidirectionallyForAccents
+    - extractsExcerptWithAccurateHighlightsOnShortText
+    - extractsExcerptAndTruncatesLongTextWithEllipsis
+    - handlesCjkAndUnspacedTokensSafely
+  - com.openyt.core.application.TimedSearchUseCaseTest (3 tests in :core:desktopTest, all passed):
+    - rejectsInvalidQueriesBeforeCallingRepository
+    - delegatesValidQueriesToRepository
+    - honorsCooperativeCancellation
+  - com.openyt.data.search.SqlDelightTimedSearchRepositoryTest (9 tests in :data:desktopTest, all passed):
+    - scopedSearchSupportsLibraryCollectionAndEntryScopes
+    - filtersByExplicitLanguageAndTrackId
+    - paginationIsDeterministicAndHandlesTies
+    - deletedEntryImmediatelyExcludesCuesFromSearch
+    - literalTreatmentOfQuotesOperatorsAndSqlSyntax
+    - cjkAndUnspacedTextSearchBehavior
+    - distinctTypedStatesForUnavailableIndexVsZeroMatches
+    - coroutineCancellationTerminatesCooperatively
+    - measuredSyntheticCorpusBudgetUnder500ms (100k-cue SQLite p95 latency: 73.96 ms <= 500 ms budget)
+- Full regression: 212 actionable tasks passed (BUILD SUCCESSFUL).
+- Linux offline validation: all offline scenarios passed with 4 network-dependent skips.
+Behavior changed:
+- Added pure KMP domain models TimedSearchScope, TimedSearchFilter, TimedSearchPagination, TimedSearchExcerpt, TextHighlightRange, TimedSearchMatch, TimedSearchIndexStatus, TimedSearchResult, IndexUnavailableReason, and InvalidQueryReason in core/domain.
+- Added TimedSearchQueryValidator, TimedSearchRepository, and TimedSearchUseCase in core/application enforcing max 256 character length, max 8 tokens, literal FTS word escaping, bidirectional accent stripping, and highlighted text excerpts.
+- Added scoped FTS4 search and count queries in data/src/commonMain/sqldelight/com/openyt/data/db/Download.sq with $O(1)$ primary-key cue joins, deterministic tie-breaking order (entry_id ASC, start_ms ASC, track_id ASC, cue_id ASC), and index status counting.
+- Added SqlDelightTimedSearchRepository in data/ implementing scoped text search (Library, Collection, Entry), explicit language and track filtering, deterministic pagination, immediate exclusion of deleted library entries, cooperative coroutine cancellation, and distinct typed states distinguishing unavailable indexes from empty results.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device (Xiaomi 2311DRK48G); APK and test APK assembly pass.
+- Windows x64 and macOS native offline runs remain BLOCKED by unavailable native hosts.
+Next ready task and why its prerequisites are satisfied:
+- NX3.5 — add entry-aware timed playback without losing history: Bounded text search with scoped pagination and typed unavailability states (NX3.4) is complete and VERIFIED; playback session control port and entry-aware seek can begin.
 ```
 
 ## Native Matrix
