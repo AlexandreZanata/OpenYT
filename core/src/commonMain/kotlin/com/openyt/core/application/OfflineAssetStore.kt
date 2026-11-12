@@ -20,4 +20,9 @@ interface OfflineAssetStore {
     ): Result<OfflineAsset>
 
     suspend fun getAssetsForEntry(entryId: String): List<OfflineAsset>
+
+    /**
+     * Resolves the absolute host path for a stored asset given its [relativeLocator].
+     */
+    fun resolveAssetPath(relativeLocator: String): String
 }

@@ -306,6 +306,9 @@ class DurableAssetOperator(
     override suspend fun getAssetsForEntry(entryId: String): List<OfflineAsset> =
         assetRepository.loadAssetsForEntry(entryId)
 
+    override fun resolveAssetPath(relativeLocator: String): String =
+        stagingPort.resolveTargetLocator(relativeLocator)
+
     private fun currentTimeMillis(): Long =
         kotlin.time.TimeSource.Monotonic.markNow().elapsedNow().inWholeMilliseconds + 1700000000000L
 }

@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX2.3 VERIFIED; NX2.4 ready to start.**
+Updated: 2026-11-12. **NX2.4 VERIFIED; NX2.5 ready to start.**
 
 Baseline: OpenYT 4.0.1; checkout `codex/nx2-3-owned-storage`.
 Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, and owned storage, journaled durable local operations, and SQLDelight schema 21 migration verified.
 
-Current task: NX2.3 completed. First ready task: **NX2.4**.
+Current task: NX2.4 completed. First ready task: **NX2.5**.
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -36,7 +36,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 - [x] [NX2.1 — model assets, revisions and readiness](02_OFFLINE_LIBRARY.md#nx2-1) — VERIFIED (Pure KMP domain models & readiness calculator, SQLDelight schema 19->20 migration, asset repository with cascade deletion, and off-UI thread digest inspection; 17 contract tests passing).
 - [x] [NX2.2 — confirm engine-produced companion artifacts](02_OFFLINE_LIBRARY.md#nx2-2) — VERIFIED (Backward-compatible receipt contract, strict path containment, safe asset store copy, multi-track extraction, and coordinator resilience; 34 contract tests passing).
 - [x] [NX2.3 — implement owned storage and durable local operations](02_OFFLINE_LIBRARY.md#nx2-3) — VERIFIED (Pure KMP operation models, SQLDelight schema 20->21 migration, durable asset operator, journaled staging, atomic promotion, bounds & failure injection checks; 20 contract tests passing).
-- [ ] [NX2.4 — fetch artwork and import subtitle assets safely](02_OFFLINE_LIBRARY.md#nx2-4) — PENDING.
+- [x] [NX2.4 — fetch artwork and import subtitle assets safely](02_OFFLINE_LIBRARY.md#nx2-4) — VERIFIED (Bounded HTTP(S) artwork fetch, credential stripping, subtitle validation/import into owned storage, and local-artwork preference; 39 contract tests passing).
 - [ ] [NX2.5 — show offline readiness and storage actions](02_OFFLINE_LIBRARY.md#nx2-5) — PENDING.
 - [ ] [NX2.6 — prove offline behavior and close milestone 1](02_OFFLINE_LIBRARY.md#nx2-6) — PENDING.
 
@@ -588,6 +588,33 @@ Known limits / blocked checks / decisions needed:
 - Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
 Next ready task and why its prerequisites are satisfied:
 - NX2.4 — fetch artwork and import subtitle assets safely: Owned storage and durable local operations (NX2.3) are complete and VERIFIED; safe external artwork fetching and subtitle importing into durable store can begin.
+```
+
+```
+Task: NX2.4 — fetch artwork and import subtitle assets safely
+Date: 2026-11-12
+Host: Linux x86_64 (Pop!_OS 24.04 LTS), JDK 21.0.8, Android SDK 34-37
+Command: ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :desktopApp:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --console=plain
+Result: VERIFIED (39 contract tests passed; bounded HTTP fetch, redirect/credential handling, subtitle validation, owned-storage import, and local-artwork preference verified; Android and desktop compilation successful)
+Evidence:
+- ArtworkFetchServiceTest: 7 tests passed covering atomic staging/promotion, credential stripping before network access, concurrent duplicate deduplication, failed fetches preserving existing verified artwork, cancellation cleanup, rejected non-HTTP schemes without network calls, and disk-reserve enforcement.
+- SubtitleImportServiceTest: 6 tests passed covering SRT and WebVTT import, invalid encoding rejection, missing source files, revoked permission mapping, and failed imports preserving existing verified subtitles.
+- SubtitleValidatorTest: 7 tests passed covering SRT/VTT detection, BOM and CRLF normalization, binary rejection, missing cues, empty payloads, and size limits.
+- SafeUrlSanitizerTest: 4 tests passed covering HTTP(S)-only validation, embedded credential stripping, log masking, and invalid authorities.
+- JvmArtworkFetchPortTest: 9 tests passed against a loopback HTTP server covering successful JPEG/PNG fetch, redirect following, redirect loops, disallowed redirect schemes, expired 404/410 URLs, oversized payload abort, corrupt-image rejection, and offline hosts.
+- ArtworkAndSubtitleIntegrationTest: 6 tests passed on real filesystem and SQLite covering artwork surviving database restart with physical owned-storage bytes, failed fetch preserving existing verified assets, SRT/VTT file and byte imports, revoked permission handling, and verified local artwork preferred over remote URLs.
+- Regression: :core:desktopTest, :engine-ytdlp:desktopTest, :data:desktopTest, :media-ffmpeg:desktopTest, :desktopApp:test, :androidApp:assembleDebug, :androidApp:assembleDebugAndroidTest (BUILD SUCCESSFUL, 212 tasks).
+Behavior changed:
+- Added ArtworkFetchPort and FetchedArtworkMetadata, SafeUrlSanitizer, ArtworkFetchService with in-flight request deduplication, SubtitleValidator, and SubtitleImportService.
+- Added structured AssetOperationFailure variants for offline networks, redirect loops, expired URLs, oversized assets, corrupt images, and invalid subtitles with SQLDelight serialization.
+- Added AssetStagingPort.stageBytesAndHash and resolveTargetLocator, OfflineAssetStore.resolveAssetPath, and staging containment checks.
+- Implemented JvmArtworkFetchPort with manual redirect handling, byte bounds, streaming SHA-256, image magic validation, cancellation, and no-credential transport.
+- Added local-artwork preference helpers and MediaThumbnail localArtworkPath parameter.
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device.
+- Host picker wiring and visible offline-readiness UI are delivered by NX2.5; this task verified the asset services and storage boundary.
+Next ready task and why its prerequisites are satisfied:
+- NX2.5 — show offline readiness and storage actions: Safe artwork fetching and subtitle importing (NX2.4) are complete and VERIFIED; UI readiness, pinning, and storage actions can begin.
 ```
 
 ## Native Matrix

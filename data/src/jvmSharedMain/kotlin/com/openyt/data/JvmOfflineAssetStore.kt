@@ -42,4 +42,7 @@ class JvmOfflineAssetStore(
 
     override suspend fun getAssetsForEntry(entryId: String): List<OfflineAsset> =
         operator.getAssetsForEntry(entryId)
+
+    override fun resolveAssetPath(relativeLocator: String): String =
+        File(assetsDirectory, relativeLocator).absolutePath
 }

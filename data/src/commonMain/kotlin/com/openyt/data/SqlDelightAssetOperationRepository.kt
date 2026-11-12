@@ -129,6 +129,12 @@ class SqlDelightAssetOperationRepository(
             is AssetOperationFailure.SourceMissing -> "SOURCE_MISSING:${failure.path}:${failure.message}"
             is AssetOperationFailure.VerificationFailed -> "VERIFICATION_FAILED:${failure.reason}"
             is AssetOperationFailure.Canceled -> "CANCELED"
+            is AssetOperationFailure.NetworkOffline -> "NETWORK_OFFLINE:${failure.message}"
+            is AssetOperationFailure.RedirectLoop -> "REDIRECT_LOOP:${failure.redirectCount}:${failure.url}"
+            is AssetOperationFailure.ExpiredUrl -> "EXPIRED_URL:${failure.statusCode}:${failure.url}"
+            is AssetOperationFailure.OversizedAsset -> "OVERSIZED_ASSET:${failure.actualBytes}:${failure.maxBytes}"
+            is AssetOperationFailure.CorruptImage -> "CORRUPT_IMAGE:${failure.reason}"
+            is AssetOperationFailure.InvalidSubtitle -> "INVALID_SUBTITLE:${failure.reason}"
             is AssetOperationFailure.Unexpected -> "UNEXPECTED:${failure.detail ?: ""}:${failure.message}"
         }
 
@@ -158,6 +164,27 @@ class SqlDelightAssetOperationRepository(
                     reason = parts.drop(1).joinToString(":"),
                 )
                 "CANCELED" -> AssetOperationFailure.Canceled
+                "NETWORK_OFFLINE" -> AssetOperationFailure.NetworkOffline(
+                    message = parts.getOrNull(1) ?: "Network is offline or host unreachable",
+                )
+                "REDIRECT_LOOP" -> AssetOperationFailure.RedirectLoop(
+                    redirectCount = parts.getOrNull(1)?.toIntOrNull() ?: 0,
+                    url = parts.drop(2).joinToString(":"),
+                )
+                "EXPIRED_URL" -> AssetOperationFailure.ExpiredUrl(
+                    statusCode = parts.getOrNull(1)?.toIntOrNull() ?: 404,
+                    url = parts.drop(2).joinToString(":"),
+                )
+                "OVERSIZED_ASSET" -> AssetOperationFailure.OversizedAsset(
+                    actualBytes = parts.getOrNull(1)?.toLongOrNull() ?: 0L,
+                    maxBytes = parts.getOrNull(2)?.toLongOrNull() ?: 0L,
+                )
+                "CORRUPT_IMAGE" -> AssetOperationFailure.CorruptImage(
+                    reason = parts.drop(1).joinToString(":"),
+                )
+                "INVALID_SUBTITLE" -> AssetOperationFailure.InvalidSubtitle(
+                    reason = parts.drop(1).joinToString(":"),
+                )
                 "UNEXPECTED" -> AssetOperationFailure.Unexpected(
                     detail = parts.getOrNull(1)?.ifEmpty { null },
                     message = parts.getOrNull(2) ?: raw,

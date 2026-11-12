@@ -106,6 +106,29 @@ class JvmAssetStagingPort(
         }
     }
 
+    override suspend fun stageBytesAndHash(
+        operationId: String,
+        bytes: ByteArray,
+        stagingPath: String,
+    ): Result<StagedArtifact> = withContext(Dispatchers.IO) {
+        if (simulatedRevokedPermission) {
+            return@withContext Result.failure(SecurityException("Storage permission revoked"))
+        }
+        val stagingFile = File(stagingPath)
+        try {
+            ensureWithinStaging(stagingFile)
+            stagingFile.parentFile?.mkdirs()
+            stagingFile.writeBytes(bytes)
+            val digest = MessageDigest.getInstance("SHA-256")
+            digest.update(bytes)
+            val sha256 = digest.digest().joinToString("") { "%02x".format(it) }
+            Result.success(StagedArtifact(stagingFile.absolutePath, bytes.size.toLong(), sha256))
+        } catch (e: Exception) {
+            stagingFile.delete()
+            Result.failure(e)
+        }
+    }
+
     override suspend fun promote(stagingPath: String, targetLocator: String): Result<String> = withContext(Dispatchers.IO) {
         val stagingFile = File(stagingPath)
         val targetFile = File(assetsDirectory, targetLocator)
@@ -170,6 +193,17 @@ class JvmAssetStagingPort(
             }
         }
         digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    override fun resolveTargetLocator(targetLocator: String): String =
+        File(assetsDirectory, targetLocator).absolutePath
+
+    private fun ensureWithinStaging(file: File) {
+        val root = stagingDirectory.canonicalFile
+        val target = file.canonicalFile
+        val contained = target.path == root.path ||
+            target.path.startsWith(root.path + File.separator)
+        require(contained) { "Staging path escapes owned staging directory: ${file.absolutePath}" }
     }
 
     private fun sanitizeId(id: String): String =

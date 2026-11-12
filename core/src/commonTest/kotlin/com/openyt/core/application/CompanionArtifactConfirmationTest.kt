@@ -158,6 +158,7 @@ class CompanionArtifactConfirmationTest {
             throw IllegalStateException("Disk I/O failed while storing artifact ${receipt.filePath}")
         }
         override suspend fun getAssetsForEntry(entryId: String): List<OfflineAsset> = emptyList()
+        override fun resolveAssetPath(relativeLocator: String): String = "/throwing/$relativeLocator"
     }
 
     private fun sampleMedia(id: String = "test-media") = MediaInfo(

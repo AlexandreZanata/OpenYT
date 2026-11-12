@@ -57,11 +57,54 @@ sealed interface AssetOperationFailure {
     }
 
     @Serializable
+    data class NetworkOffline(
+        override val message: String = "Network is offline or host unreachable",
+    ) : AssetOperationFailure
+
+    @Serializable
+    data class RedirectLoop(
+        val url: String,
+        val redirectCount: Int,
+        override val message: String = "HTTP redirect loop detected ($redirectCount redirects) for $url",
+    ) : AssetOperationFailure
+
+    @Serializable
+    data class ExpiredUrl(
+        val url: String,
+        val statusCode: Int,
+        override val message: String = "HTTP resource expired or not found ($statusCode) for $url",
+    ) : AssetOperationFailure
+
+    @Serializable
+    data class OversizedAsset(
+        val actualBytes: Long,
+        val maxBytes: Long,
+        override val message: String = "Asset size exceeds maximum limit ($actualBytes > $maxBytes bytes)",
+    ) : AssetOperationFailure
+
+    @Serializable
+    data class CorruptImage(
+        val reason: String,
+        override val message: String = "Image file is corrupt or invalid format: $reason",
+    ) : AssetOperationFailure
+
+    @Serializable
+    data class InvalidSubtitle(
+        val reason: String,
+        override val message: String = "Subtitle file is invalid or corrupt: $reason",
+    ) : AssetOperationFailure
+
+    @Serializable
     data class Unexpected(
         val detail: String?,
         override val message: String = "Unexpected error: ${detail ?: "unknown"}",
     ) : AssetOperationFailure
+
+    fun toException(): AssetOperationException = AssetOperationException(this)
 }
+
+class AssetOperationException(val failure: AssetOperationFailure) : IllegalStateException(failure.message)
+
 
 @Serializable
 data class AssetOperation(

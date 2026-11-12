@@ -75,6 +75,13 @@ data class OfflineAsset(
     val isVerified: Boolean get() = state == AssetState.VERIFIED
 }
 
+fun List<OfflineAsset>.findVerifiedArtwork(): OfflineAsset? =
+    firstOrNull { it.kind == AssetKind.ARTWORK && it.isVerified }
+
+fun List<OfflineAsset>.findVerifiedSubtitles(): List<OfflineAsset> =
+    filter { it.kind == AssetKind.SUBTITLE && it.isVerified }
+
+
 @Serializable
 enum class ReadinessStatus {
     READY,

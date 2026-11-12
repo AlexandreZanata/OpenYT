@@ -16,10 +16,16 @@ interface AssetStagingPort {
         byteLimit: Long? = null,
         onBytesWritten: ((Long) -> Unit)? = null,
     ): Result<StagedArtifact>
+    suspend fun stageBytesAndHash(
+        operationId: String,
+        bytes: ByteArray,
+        stagingPath: String,
+    ): Result<StagedArtifact>
     suspend fun promote(stagingPath: String, targetLocator: String): Result<String>
     suspend fun cleanupStaging(operationId: String)
     suspend fun cleanupOrphanedStaging(activeOperationIds: Set<String>)
     fun fileExists(path: String): Boolean
     fun fileSize(path: String): Long
     suspend fun computeSha256(path: String): String?
+    fun resolveTargetLocator(targetLocator: String): String
 }

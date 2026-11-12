@@ -52,4 +52,7 @@ class MemoryOfflineAssetStore(
 
     override suspend fun getAssetsForEntry(entryId: String): List<OfflineAsset> =
         repository.loadAssetsForEntry(entryId)
+
+    override fun resolveAssetPath(relativeLocator: String): String =
+        "/memory/assets/$relativeLocator"
 }

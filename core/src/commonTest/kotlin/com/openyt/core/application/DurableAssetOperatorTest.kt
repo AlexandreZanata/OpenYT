@@ -79,6 +79,19 @@ class DurableAssetOperatorTest {
             return Result.success(staged)
         }
 
+        override suspend fun stageBytesAndHash(
+            operationId: String,
+            bytes: ByteArray,
+            stagingPath: String,
+        ): Result<StagedArtifact> {
+            if (shouldSimulateRevokedPermission) {
+                return Result.failure(SecurityException("Storage permission revoked"))
+            }
+            val artifact = StagedArtifact(stagingPath, bytes.size.toLong(), "sha-${bytes.size}")
+            stagedFiles[stagingPath] = artifact
+            return Result.success(artifact)
+        }
+
         override suspend fun promote(stagingPath: String, targetLocator: String): Result<String> {
             if (shouldFailPromotion) {
                 return Result.failure(IllegalStateException("Simulated promotion failure"))
@@ -100,6 +113,7 @@ class DurableAssetOperatorTest {
         override fun fileExists(path: String): Boolean = existingFiles.containsKey(path)
         override fun fileSize(path: String): Long = existingFiles[path] ?: 0L
         override suspend fun computeSha256(path: String): String? = "sha-$path"
+        override fun resolveTargetLocator(targetLocator: String): String = "/assets/$targetLocator"
     }
 
     private fun sampleRevision() = MediaRevision(sizeBytes = 1048576L, lastModifiedEpochMillis = 1000L)
