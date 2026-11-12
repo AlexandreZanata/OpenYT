@@ -180,6 +180,19 @@ Suggested groups: `SubtitleParserTest`, `TimedSearchRepositoryTest`,
 `EntryPlaybackIdentityTest`, `TimedSearchUiTest`, host `TimedSeekLocalTest`.
 
 - **NX-S01:** shipped FTS4/unicode61 viability and measured 100k-cue query budget.
+  - Implemented by `com.openyt.data.search.SqliteFtsCapabilityProbeTest` (6 tests in `:data:desktopTest`), `com.openyt.core.domain.FtsCapabilityReportTest` (2 tests in `:core:desktopTest`), and `com.openyt.android.AndroidFtsCapabilityTest` (5 tests in `:androidApp:assembleDebugAndroidTest`).
+  - Covers:
+    - Pure KMP probe models `FtsCapabilityReport` and `FtsFunctionalVerification` with JSON serialization round-trip and budget verification;
+    - Virtual table creation `CREATE VIRTUAL TABLE USING fts4(entry_id, track_id, start_ms, end_ms, plain_text, tokenize=unicode61)` verified across SQLDelight JDBC driver (SQLite 3.53.4) and Android framework driver (`createOpenYtDriver`);
+    - Parameterized binding and SQL injection prevention across special symbols, single/double quotes, code blocks, emojis, and comment delimiters;
+    - Bidirectional Unicode diacritics folding and tokenization with Portuguese accents ("música" matches "musica", "coração" matches "coracao", "não" matches "nao", "órgão", "dedicação", "açúcar") and English accented loanwords ("naïve", "café", "résumé");
+    - Case-insensitive tokenization and multi-word query matching;
+    - Incremental updates (`UPDATE ... SET plain_text = ? WHERE rowid = ?`) and deletions (`DELETE FROM ... WHERE rowid = ?`) verifying instant index updates without orphaned entries;
+    - Graceful error handling and rejection on invalid or unsupported tokenizers;
+    - Synthetic 100,000-cue benchmark fixture with transactional batch insertion (batch size 5,000), 5 warmup queries, and 30 measured warm queries across high, medium, and low-frequency terms;
+    - Query p95 latency budget measurement: 0.899 ms on desktop Linux x86_64 (far below the <= 500 ms target budget);
+    - Android instrumented probe test suite verifying SQLite FTS4 + unicode61 with target budget <= 1,000 ms.
+  - Status: **VERIFIED** on Linux x86_64; Android device blocked by OEM USB install security restrictions.
 - **NX-S02:** bounded SRT/VTT parse and explicit local/source timebase mapping.
 - **NX-S03:** atomic index revisions, invalidation and crash/restart behavior.
 - **NX-S04:** literal bounded query/pagination/cancellation and scoped results.
