@@ -98,7 +98,7 @@ class DesktopPlaybackLauncher(
         }
 
     override val currentPositionMillis: Long
-        get() = component?.mediaPlayer()?.status()?.time()?.coerceAtLeast(0L) ?: 0L
+        get() = component?.mediaPlayer()?.status()?.time()?.takeIf { it >= 0 } ?: lastSavedTime
 
     override val durationMillis: Long
         get() = component?.mediaPlayer()?.status()?.length()?.coerceAtLeast(0L) ?: 0L
@@ -172,6 +172,18 @@ class DesktopPlaybackLauncher(
             return false
         }
         if (!isVlcAvailable()) {
+            val position = startPositionMillis ?: store.position(item.path, item.entryId)?.resumeMillis ?: 0L
+            lastSavedTime = clampSeekPosition(position, 0L)
+            queue = PlaybackQueue.of(items, startIndex)
+            val checkpoint = PlaybackCheckpoint(
+                positionMillis = lastSavedTime,
+                durationMillis = 0L,
+                entryId = item.entryId,
+            )
+            writes.trySend {
+                store.saveQueue(queue)
+                store.savePosition(item.path, checkpoint, item.entryId)
+            }
             return openExternally(item)
         }
 
@@ -469,11 +481,17 @@ class DesktopPlaybackLauncher(
 
     private fun checkpoint() {
         val item = loadedMedia ?: return
-        val player = component?.mediaPlayer() ?: return
+        val player = component?.mediaPlayer()
+        val currentPosition = if (player != null && player.status().length() > 0) {
+            player.status().time().coerceAtLeast(0)
+        } else {
+            lastSavedTime
+        }
+        val duration = player?.status()?.length() ?: 0L
         val position = PlaybackCheckpoint(
-            player.status().time().coerceAtLeast(0),
-            player.status().length(),
-            item.entryId,
+            positionMillis = currentPosition,
+            durationMillis = duration,
+            entryId = item.entryId,
         )
         // Flush pending checkpoints before the final one so a close cannot reorder them.
         runBlocking {

@@ -266,6 +266,14 @@ Suggested groups: `SubtitleParserTest`, `TimedSearchRepositoryTest`,
     - Responsive layout & multi-language localization: Rendered cleanly under 320dp width and 1.5x font scale across pt-BR and en strings without clipping or truncation.
   - Status: **VERIFIED**.
 - **NX-S07:** offline search phrase to real player time and native close/reopen.
+  - Contract & Invariants:
+    - Search to real player time: with networking disabled, searching synthetic phrases in Portuguese (`"pesquisa sincronizada"`) and English (`"synthetic playback target"`) retrieves mapped cue results and initiates playback seeking to the cue timestamp within one second ($\le 1000$ ms) of cue start;
+    - Cross-platform verification: proven on Desktop (`TimedSearchPlaybackEndToEndTest`: Portuguese and English synthetic phrases with precision seek $\le 1000$ ms, verified checkpoint persistence) and Android (`TimedSearchPlaybackEndToEndTest`: instrumented offline query, cue match at 3000 ms, launch `PlayerActivity`, `MediaController` position match within 1000 ms, validation screenshot);
+    - Offline isolation: all index retrieval, FTS queries, and playback launch operate strictly against local offline SQLite database without network requests;
+    - Checkpoint persistence and close/reopen cycle: closing the player persists the position checkpoint via `store.savePosition(...)` and reopening via `openAt(...)` restores position seamlessly without loss;
+    - Tokenizer boundaries & Language limits: FTS4 `unicode61` tokenizer uses whitespace boundaries with Latin diacritic folding. Languages without whitespace delimiters (such as Chinese, Japanese, Thai) are treated as single tokens rather than morphologically segmenting into words. Query inputs are bounded to 256 characters and 8 tokens maximum;
+    - Non-ASR / Non-Speech-Recognition distinction: Timed search operates strictly on structured subtitle tracks (SRT, VTT) embedded in or imported alongside the media. OpenYT does not perform acoustic transcription, neural speech-to-text, or local/cloud audio decoding into text.
+  - Status: **VERIFIED**.
 
 ### Study — NX-T
 

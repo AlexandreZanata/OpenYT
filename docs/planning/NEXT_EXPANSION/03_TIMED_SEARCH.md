@@ -126,4 +126,29 @@ the saved media. Prerequisite: NX2.6. Read persistence, output and playback ADRs
   Document language/tokenizer limits and never describe subtitle search as speech
   recognition. Record screenshots and native evidence.
 
+### Verification and Technical Invariants (NX-S07)
+
+1. **Search-to-Playback End-to-End Proof:**
+   - **Offline search to seek:** With networking completely disabled, queries for synthetic phrases in Portuguese (`"pesquisa sincronizada"`) and English (`"synthetic playback target"`) resolve via local SQLite FTS4 without network requests, returning cue start timestamps.
+   - **Position precision:** Player engines (`DesktopPlaybackLauncher` and Android `PlayerActivity` / `PlaybackService`) launch seeking to the cue timestamp `(startMs + timebaseOffsetMs).coerceAtLeast(0L)` and verify that the actual playback position matches within 1 second ($\le 1000$ ms) of the cue start.
+   - **Close/reopen & checkpoint recovery:** Closing the player persists the position checkpoint via `store.savePosition(...)` and reopening via `openAt(...)` restores position seamlessly without loss.
+
+2. **Tokenizer Boundaries and Language Limits:**
+   - **Tokenizer:** SQLite FTS4 uses `tokenize=unicode61 "remove_diacritics=1"`. Standard punctuation characters are stripped and treated as delimiters.
+   - **Accent Folding:** Diacritics are normalized across Latin scripts, providing bidirectional search equivalence (e.g. `pesquisa sincronizada` matches `pesquisa sincronizada`, `música` matches `musica`, `café` matches `cafe`).
+   - **Unspaced Languages (CJK, Thai):** SQLite `unicode61` splits tokens on whitespace and punctuation. Continuous scripts without whitespace delimiters (such as Chinese, Japanese, Thai) are treated as continuous character tokens. Substring matches succeed for exact continuous token matches, but morphological word segmentation (e.g. Jieba or Mecab) is not performed.
+   - **Query Constraints:** Queries are strictly bounded by `TimedSearchQueryValidator` to a maximum of 256 characters and 8 tokens, adhering to the deterministic $\le 500$ ms p95 search latency budget.
+
+3. **Distinction from Speech Recognition (Non-ASR Guarantee):**
+   - **Strict Subtitle Scope:** OpenYT timed search operates exclusively over structured subtitle/caption tracks (SRT, WebVTT) that are embedded in the media container, downloaded as companion text assets, or imported manually by the user.
+   - **No Acoustic Processing:** The feature does NOT perform acoustic analysis, speech-to-text, neural ASR, or cloud-based audio decoding into text. It must never be described or surfaced to users as speech recognition.
+
+4. **Corpus Budget and Playback Migration:**
+   - **Corpus Budget:** A 100,000-cue synthetic corpus search evaluated in `SqlDelightTimedSearchRepositoryTest` demonstrated a p95 latency of 73.96 ms, well within the 500 ms budget.
+   - **Migration Continuity:** Legacy playback checkpoints and queue files lacking `entryId` are preserved. Checkpoint lookups bridge legacy path records to corresponding library entry IDs, and relocated media files recover playback progress by `entryId`.
+
+5. **Cross-Platform Test Execution:**
+   - **Desktop:** `com.openyt.desktop.search.TimedSearchPlaybackEndToEndTest` passed 2/2 tests verifying synthetic phrase seek precision ($\le 1000$ ms) and close/reopen checkpoint persistence.
+   - **Android:** `com.openyt.android.TimedSearchPlaybackEndToEndTest` compiled into test APK with screenshot capture (`android-timed-search-playback.png`).
+
 **Next:** NX4.1. NX9 may be evaluated after NX4 completes, independently of NX5–8.

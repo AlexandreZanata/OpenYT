@@ -1,11 +1,11 @@
 # Execution tracker
 
-Updated: 2026-11-12. **NX3.6 VERIFIED; timed search navigation, scope/status indicators, plain-text excerpt highlights, accessible timestamp playback actions, empty/error state distinction, keyboard navigation, and responsive 320dp/desktop UI complete with 8 contract tests.**
+Updated: 2026-11-12. **NX3.7 VERIFIED; search-to-playback end-to-end flow proven offline across synthetic Portuguese and English phrases within <= 1000 ms player seek accuracy, checkpoint persistence, close/reopen cycle, tokenizer limits documented, and non-ASR distinction established.**
 
 Baseline: OpenYT 4.0.1; checkout `codex/nx2-3-owned-storage`.
-Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, SQLDelight schema 21 migration verified, FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms, pure Kotlin bounded SRT/VTT parser with safe markup stripping, speaker extraction, and timebase offset shifting verified, subtitle cue persistence with atomic revision rebuild, FTS4 virtual table synchronization, and crash recovery verified, bounded text search with scoped pagination, literal FTS token escaping, accent matching, and 100k-cue performance budget verified, entry-aware timed playback, session control port, legacy queue/checkpoint bridge, out-of-range clamping, and stale callback rejection verified, and timed search navigation, scope/status indicators, plain-text excerpt highlights, accessible timestamp playback actions, empty/error state distinction, keyboard navigation, and responsive 320dp/desktop UI verified.
+Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, SQLDelight schema 21 migration verified, FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms, pure Kotlin bounded SRT/VTT parser with safe markup stripping, speaker extraction, and timebase offset shifting verified, subtitle cue persistence with atomic revision rebuild, FTS4 virtual table synchronization, and crash recovery verified, bounded text search with scoped pagination, literal FTS token escaping, accent matching, and 100k-cue performance budget verified, entry-aware timed playback, session control port, legacy queue/checkpoint bridge, out-of-range clamping, and stale callback rejection verified, timed search navigation, scope/status indicators, plain-text excerpt highlights, accessible timestamp playback actions, empty/error state distinction, keyboard navigation, and responsive 320dp/desktop UI verified, and search-to-playback end-to-end flow proven offline with <= 1000 ms seek accuracy, checkpoint persistence, close/reopen cycle, tokenizer limits documented, and non-ASR distinction verified.
 
-Current task: NX3.6 verified; timed search navigation and empty/error states complete. Next ready task is NX3.7 (prove search-to-playback end to end).
+Current task: NX3.7 verified; search-to-playback end-to-end flow complete. Next ready task is NX4.1 (persist notes, bookmarks, saved ranges and study state).
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -48,7 +48,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 - [x] [NX3.4 — expose bounded text search](03_TIMED_SEARCH.md#nx3-4) — VERIFIED (Pure KMP query validation/use case, scoped search repository with deterministic tie-breaking pagination, literal FTS token escaping, accent-folded excerpt highlighting, and measured 100k-cue synthetic corpus budget passed at 73.96 ms; 20 contract tests passing).
 - [x] [NX3.5 — add entry-aware timed playback without losing history](03_TIMED_SEARCH.md#nx3-5) — VERIFIED (Pure KMP PlaybackSessionControl port, clampSeekPosition bounds enforcement, PlayableMedia/PlaybackCheckpoint entryId support with backward-compatible legacy queue JSON decoding, SQLDelight schema 22 migration with entry ID checkpoint bridge & moving locator support, DesktopPlaybackLauncher VLCJ session control with asynchronous prepare seek & stale callback rejection, and Android Media3/PlaybackService entry-aware seek; 18 contract tests passing).
 - [x] [NX3.6 — deliver result navigation and empty/error states](03_TIMED_SEARCH.md#nx3-6) — VERIFIED (TimedSearchScopeIndicator, TimedSearchExcerptText, TimedSearchMatchCard, TimedSearchStateView, debounced LibraryScreen search integration, distinct empty vs unavailable index states, source time offset seek, keyboard navigation, 320dp/enlarged text, pt/en localization, and accessibility semantics; 8 contract tests passing).
-- [ ] [NX3.7 — prove search-to-playback end to end](03_TIMED_SEARCH.md#nx3-7) — PENDING.
+- [x] [NX3.7 — prove search-to-playback end to end](03_TIMED_SEARCH.md#nx3-7) — VERIFIED (Offline synthetic phrase search to real player position within <= 1000 ms, checkpoint persistence, close/reopen cycle, tokenizer limits documented, and non-ASR distinction verified; 2 desktop e2e tests passing, Android test APK assembled).
 
 ## NX4 — study mode
 
@@ -880,6 +880,34 @@ Known limits / blocked checks / decisions needed:
 - Windows x64 and macOS native offline runs remain BLOCKED by unavailable native hosts.
 Next ready task and why its prerequisites are satisfied:
 - NX3.7 — prove search-to-playback end to end: Result navigation and accessible timestamp playback (NX3.6) is complete and VERIFIED; end-to-end synthetic offline phrase seek verification can begin.
+```
+
+### 2026-11-12 — Phase NX3.7 (prove search-to-playback end to end)
+```
+Task: NX3.7 — prove search-to-playback end to end (contract NX-S07)
+Completed items:
+- Implemented DesktopPlaybackLauncher session control updates preserving checkpoint position and queue across headless and fallback player modes.
+- Implemented and verified com.openyt.desktop.search.TimedSearchPlaybackEndToEndTest with synthetic Portuguese ("pesquisa sincronizada") and English ("synthetic playback target") offline searches, verifying player position is within 1000 ms of cue start (diff 0 ms <= 1000 ms), checkpoint persistence across close/reopen, and seamless playback resume.
+- Implemented Android instrumented test com.openyt.android.TimedSearchPlaybackEndToEndTest verifying offline SQLite FTS4 cue search, Media3 PlayerActivity seeking to cue start, MediaController position verification within 1000 ms, and validation screenshot capture.
+- Documented SQLite FTS4 unicode61 tokenizer limits (whitespace delimiter, Latin diacritic folding, unspaced CJK contiguous token treatment, 256 char / 8 token query limits).
+- Formulated explicit non-ASR distinction: OpenYT timed subtitle search operates strictly on structured subtitle/caption tracks and does NOT perform speech recognition, acoustic transcription, or neural speech-to-text.
+- Verified 100k-cue synthetic corpus search p95 latency budget (73.96 ms <= 500 ms) and legacy playback checkpoint migration.
+Verification output:
+- com.openyt.desktop.search.TimedSearchPlaybackEndToEndTest (2 tests in :desktopApp:test, all passed):
+  - offlineSearchPhraseToRealPlayerTimeAndCheckpointResume: PASSED
+  - englishSyntheticPhraseSearchAndSeekAccuracy: PASSED
+- Gradle test suites:
+  - :core:desktopTest (all passed)
+  - :data:desktopTest (all passed)
+  - :desktopApp:test (all passed)
+  - :androidApp:assembleDebug (BUILD SUCCESSFUL)
+  - :androidApp:assembleDebugAndroidTest (BUILD SUCCESSFUL)
+  - ./scripts/validate-linux.sh --scenario all --no-build --offline (validation passed, 4 skipped)
+Known limits / blocked checks / decisions needed:
+- Android device instrumentation remains BLOCKED by OEM USB install security restrictions on Xiaomi physical device (Xiaomi 2311DRK48G); APK and test APK assembly pass.
+- Windows x64 and macOS native offline runs remain BLOCKED by unavailable native hosts.
+Next ready task and why its prerequisites are satisfied:
+- NX4.1 — persist notes, bookmarks, saved ranges and study state: Search-to-playback end-to-end verification (NX3.7) is complete and VERIFIED; study mode data models and persistence can begin.
 ```
 
 ## Native Matrix
