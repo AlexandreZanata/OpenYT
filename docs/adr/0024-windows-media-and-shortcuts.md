@@ -57,6 +57,7 @@ References:
 - [VideoLAN redistribution documentation](https://docs.videolan.me/vlc-user/en/support/faq/legalconcerns.html)
 - [VLC 3.0.24 corresponding source](https://download.videolan.org/pub/videolan/vlc/3.0.24/vlc-3.0.24.tar.xz)
 - [SHOpenFolderAndSelectItems](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shopenfolderandselectitems)
+- [ShellFolderView.SelectItem](https://learn.microsoft.com/en-us/windows/win32/shell/shellfolderview-selectitem)
 - [Compose native distribution options](https://kotlinlang.org/docs/multiplatform/compose-native-distribution.html)
 
 ## Evidence and limits

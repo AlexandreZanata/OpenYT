@@ -83,7 +83,9 @@ default app or reveals the file in the file manager. No direct third-party SDK i
 embedded and no broad storage permission is required.
 
 Windows uses native Unicode shell calls through the existing JNA dependency,
-with COM apartment ownership and explicit result handling. Shared file-action
+with COM apartment ownership and explicit result handling. Reveal confirms the
+loaded Explorer view's actual selection, including a first-open video folder,
+instead of treating an accepted shell request as completion. Shared file-action
 buttons report failures without blocking the UI. Windows packages include a
 checksum-pinned libVLC runtime; other desktop hosts discover installed libVLC.
 See [ADR-0024](../adr/0024-windows-media-and-shortcuts.md).

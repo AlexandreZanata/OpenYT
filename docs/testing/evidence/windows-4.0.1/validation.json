@@ -1,0 +1,53 @@
+{
+  "kind": "local-windows-candidate",
+  "source": {
+    "sourceCommit": "97a9c61",
+    "archive": "openyt-source-97a9c61.zip",
+    "sha256": "583f55967e6f04d7eb366aee9e4318a69b45d708e04e7a60ce419a01e9bed0a5",
+    "fullCommit": "97a9c6161f809075c975f96b12ad5c4fbb8ff199"
+  },
+  "os": {
+    "family": "Windows",
+    "version": "10.0.26200.0",
+    "build": "26200",
+    "displayVersion": "25H2",
+    "edition": "Professional",
+    "architecture": "AMD64"
+  },
+  "powershell": "5.1.26100.7920",
+  "version": "4.0.1",
+  "runtime": "JAVA_VERSION=\"21.0.13\"",
+  "assets": [
+    {
+      "name": "OpenYT-4.0.1.msi",
+      "bytes": 307417996,
+      "sha256": "8470a874b5c176834775f8b16f25e269ba4b6a762979fd55eff42e4472ecf140"
+    },
+    {
+      "name": "OpenYT-4.0.1.exe",
+      "bytes": 308054528,
+      "sha256": "306e03e1fd66e35a8390d1f24d946c117ae7d618ad0844058073263ed7fef8a4"
+    }
+  ],
+  "sourceHashes": {
+    "desktopApp/src/main/kotlin/com/openyt/desktop/share/WindowsShell.kt": "01c9227881e4d75bc9a9f5b239346bd661e0e44e6954a64abb504a9c35f37f17",
+    "desktopApp/src/main/kotlin/com/openyt/desktop/share/WindowsExplorerSelection.kt": "8cd955299c85ac73709fe5a3dccf9b0e292fe8ed964b797a3e642289825baf43",
+    "desktopApp/src/test/kotlin/com/openyt/desktop/contract/WindowsContractHarness.kt": "bd689f6e4406f03dd887b27bff7a786e4a320e228d9c97c0ead1a5ab30afb3a7",
+    "scripts/validate-windows.ps1": "0212711dcee9a5aa9bd1cd0bbc64a0cafb39751ed2ed3304030ec1372ac6fe23"
+  },
+  "installedApplicationSha256": "8a47ca73f01c4262f71c27e1e1c264e6e23d01419e30a33e99d2e73f0504194a",
+  "vlcSha256": "c0b1bedbc8e11267b39111733920a6af73d08791e333e4f8902eaffe4daf6db9",
+  "temporaryTestFilesRemoved": true,
+  "originalProfileBackupExists": false,
+  "recordedAtHostUtc": "2026-11-12T00:00:53.995439+00:00",
+  "verification": {
+    "localDeterministicTests": {
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0
+    },
+    "installedMsi": "passed",
+    "installedExe": "passed",
+    "ciRun": "https://github.com/AlexandreZanata/OpenYT/actions/runs/43122277215"
+  }
+}

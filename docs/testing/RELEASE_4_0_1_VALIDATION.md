@@ -1,71 +1,120 @@
-# OpenYT 4.0.1 candidate validation
+# OpenYT 4.0.1 validation
 
-Updated: 2026-11-11. **Candidate only: not published.**
+Updated: 2026-11-11.
 
-Implementation and regression requirements are in
-[ADR-0024](../adr/0024-windows-media-and-shortcuts.md) and
-[Windows desktop contracts](WINDOWS_DESKTOP_CONTRACTS.md).
+This record covers the Windows playback, Explorer selection and installer fixes.
+Published packages are listed on [Releases](https://github.com/AlexandreZanata/OpenYT/releases).
+Implementation and requirements are in [ADR-0024](../adr/0024-windows-media-and-shortcuts.md)
+and the [Windows desktop contracts](WINDOWS_DESKTOP_CONTRACTS.md).
 
-## Executed locally
+## Native Windows validation
 
-- Full deterministic suites: 216 discovered, 205 executed successfully, 11
-  opt-in skips, zero failures/errors. Includes eight new path/action, external
-  fallback and Library/Downloads failure-message tests.
-- Android debug APK assembled successfully. This is a build result, not a
-  physical-device installation claim.
-- Linux DEB 4.0.1 built and extracted into isolated application/data directories.
-  `validate-linux.sh --scenario all --no-build --offline` passed. Four external
-  network scenarios were deliberately skipped. Metadata, cookies, library,
-  archive, folder import, storage, bulk operations, playback discovery/queue and
-  GUI startup checks passed.
-- Real Linux VLC playback passed, including decoded video, mini-player and
-  checkpoint/resume. The latest test harness compiled successfully.
-- Bugbot reported one P2 inherited VLC_PLUGIN_PATH isolation issue. The bundled
-  Windows runtime now clears that MSVCRT variable before discovery; the native
-  contract injects a conflicting value and checks the native environment.
+The existing local Windows 11 Pro x64 VM was started on the Linux host. Tests used
+four virtual CPUs, 6 GiB RAM, Windows build 26200, Windows PowerShell 5.1, Temurin
+21.0.13 for Gradle/jpackage and Temurin 17.0.21 for the Kotlin JVM toolchain.
 
-## Windows CI findings and pending verification
+Both installers and the test harness were rebuilt on Windows from product commit
+`97a9c6161f809075c975f96b12ad5c4fbb8ff199`. The source archive was checksum-verified
+before extraction. The final run used the normal packaging configuration.
 
-[CI 43092772390](https://github.com/AlexandreZanata/OpenYT/actions/runs/43092772390)
-compiled Windows and built both MSI and EXE. The installer created desktop and
-Start-menu shortcuts with the expected launcher targets. The first native
-contract stopped at icon-reference validation: an empty IconLocation is a valid
-reference to the target executable's embedded icon. The contract was corrected
-to resolve that default and compare the image with the OpenYT ICO.
+Both actual MSI and EXE passed:
 
-[CI 43094336545](https://github.com/AlexandreZanata/OpenYT/actions/runs/43094336545)
-again built both installers but failed the installed-contract step. It remained
-stuck in evidence upload; job-log retrieval returned HTTP 502/read timeouts.
-Normal and forced cancellation requests were accepted but did not promptly
-finalize the run. Its exact second failure could not be diagnosed from available
-logs. Do not interpret it as a passed Windows contract.
+- Installed version and source-catalog CLI checks.
+- Desktop and Start-menu shortcut existence, launcher target, branded icon pixels
+  and an application window opened through the actual desktop shortcut.
+- External open reaching a temporary associated handler with the exact unchanged
+  Unicode path, including spaces, accents, percent, ampersand and punctuation.
+- Explorer selecting the requested file and a real MP4 on the first opening of a
+  newly created folder containing only that video.
+- Bundled libVLC 3.0.24 discovery, exclusion of conflicting external plugins,
+  playback time advancement, visible decoded RGB test-pattern regions and a
+  420-pixel always-on-top mini-player.
+- MSI uninstall preserving the media fixture, followed by EXE installation and a
+  complete repeat of the installed contracts.
 
-Subsequent test-tool changes explicitly load Windows imaging support, preserve
-shortcut metadata and native diagnostics, and bound evidence uploads to two
-minutes. A diagnostic dispatch can skip uploads. Product behavior remains
-unapproved until the native contracts actually pass.
+[Native contract output](evidence/windows-4.0.1/installed-contracts.txt) and the
+[validation receipt](evidence/windows-4.0.1/validation.json) retain the result,
+source identity and local installer hashes. These hashes describe the tested local
+builds; official packages have their own signed release manifest.
 
-## GitHub Actions service blocker
+![Installed Windows player showing the decoded test pattern](evidence/windows-4.0.1/exe-playback.png)
 
-The independent diagnostic
-[43096258303](https://github.com/AlexandreZanata/OpenYT/actions/runs/43096258303)
-failed at startup without creating jobs. Its public annotation states:
-"An unexpected error has occurred and we've been automatically notified."
-GitHub request ID: `b4ce1198-de0f-11f1-8167-e76c4c007139`.
+## Regression discovered by the real session
 
-Diagnostic [43096894389](https://github.com/AlexandreZanata/OpenYT/actions/runs/43096894389)
-and the separate release candidate
-[43097538295](https://github.com/AlexandreZanata/OpenYT/actions/runs/43097538295)
-also failed at startup without executing jobs. This prevents obtaining the
-remaining Windows evidence. No protected-branch checks or release gates have
-been bypassed.
+A new folder containing only an MP4 opened without retaining selection even when
+SHOpenFolderAndSelectItems returned S_OK. Two fresh MP4 folders reproduced the
+failure; TXT passed. Explicit parent/child PIDLs reproduced the same failure in
+three further folders. A mixed folder containing test logs did not expose it.
 
-## Exit criteria before publication
+The Kotlin adapter now waits for a loaded Explorer view, selects/focuses the file
+through ShellFolderView.SelectItem when necessary, and requires three consecutive
+observations of the actual selection. The corrected Kotlin implementation passed
+both fresh MP4 cases and TXT through the installed runtime before repackaging.
+The final MSI/EXE contracts then passed the fresh-video-folder regression.
 
-1. Obtain the failed Windows contract's diagnostics and resolve the actual cause.
-2. Pass both installed MSI/EXE contracts: branded shortcut launch, exact Unicode
-   external-open handler, Explorer selection and decoded bundled-VLC playback.
-3. Pass the normal PR suite, integrate through dev into main, and let the release
-   workflow validate all native packages and publish 4.0.1 with available signing.
-4. Run `scripts/verify-release.py v4.0.1 --commit <tested-main-sha>` and attach the
-   final workflow/evidence links. Until then, the stable release remains 4.0.0.
+The validation tools were also corrected:
+
+- Decode the reference ICO's PNG entry directly; GDI+ Icon.ToBitmap corrupted its
+  reference pixels despite the installed icon being correct.
+- Retain process handles so short-lived CLI exit codes remain readable.
+- Keep the temporary test JAR local to the alternate launcher instead of relying
+  on an SMB/provider-qualified classpath.
+- Capture the inherited Java VLC environment before native discovery clears it.
+- Inspect the actual video canvas for substantial RGB pattern regions, rather
+  than accepting arbitrary colored pixels from an overlapping Explorer window.
+
+The first EXE packaging attempt reported WiX exit 103. Diagnostic and normal
+repeats succeeded; both final installers were produced with the normal task
+configuration. No release gate was removed to obtain a successful result.
+
+## Manual interface checks
+
+Library Play, reopening the video, switching to the mini-player, retaining it
+above the main window, and Show in folder were exercised through the Windows
+interface. Screenshots use generated media and a separate application profile.
+The original profile was backed up inside the guest; no user media or database
+was copied into the repository.
+
+![Windows Library and manually opened floating player](evidence/windows-4.0.1/manual-mini-player.png)
+
+![Exact generated MP4 selected in Windows Explorer](evidence/windows-4.0.1/manual-explorer-selection.png)
+
+The VM remains running with OpenYT 4.0.1 installed. Temporary harness files are
+removed from the installation. Local evidence does not claim testing every
+Windows edition, GPU or third-party file-manager replacement.
+
+## Deterministic and cross-platform checks
+
+Eight file-action, external-fallback and Library/Downloads failure-message tests
+passed locally after the selection fix, with zero skips, errors or failures.
+
+The preceding 4.0.1 validation executed 205 deterministic tests successfully,
+with 11 opt-in skips out of 216 discovered tests. Android debug assembly, an
+isolated Linux DEB smoke run and real Linux VLC playback/mini-player/checkpoint
+checks also passed. Four offline Linux scenarios requiring external networks
+were deliberately skipped.
+
+[CI 43122277215](https://github.com/AlexandreZanata/OpenYT/actions/runs/43122277215)
+passed for the corrected product commit: Linux/Windows/macOS desktop checks,
+unit tests and Android build, Android emulator instrumentation, native media
+regressions and both installed Windows contracts. PR
+[#46](https://github.com/AlexandreZanata/OpenYT/pull/46) integrated the fix into dev.
+
+Earlier diagnostic and release-candidate runs failed at startup without jobs,
+including [43097538295](https://github.com/AlexandreZanata/OpenYT/actions/runs/43097538295).
+The successful PR run supersedes that earlier infrastructure blocker. Protected
+branch checks and native release requirements remain enabled.
+
+## Release verification
+
+The release workflow repeats native package checks before publication. Official
+assets and their source commit are identified by the signed release manifest.
+Verify a published 4.0.1 with:
+
+```bash
+python3 scripts/verify-release.py v4.0.1 --commit <release-main-sha>
+```
+
+Android and manifest signing use the configured release keys. Windows
+Authenticode and macOS notarization availability remain explicit in
+[the release policy](../adr/0022-verified-release-manifests.md).

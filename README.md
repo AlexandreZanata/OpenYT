@@ -129,6 +129,20 @@ window for video and supports background audio.
   <img src="docs/assets/v4/android-pip.png" width="240" alt="OpenYT Android video playing in a real system PiP window on an emulator">
 </p>
 
+<details>
+<summary><strong>See the installed Windows app</strong></summary>
+
+The Windows MSI and EXE are tested for branded shortcuts, visible playback and
+exact file selection in Explorer, including the first opening of a video-only
+folder. This capture uses generated media in a real Windows 11 session.
+
+![OpenYT Library and floating player in the validated Windows 11 session](docs/testing/evidence/windows-4.0.1/manual-mini-player.png)
+
+See the [native validation record](docs/testing/RELEASE_4_0_1_VALIDATION.md) for
+Explorer screenshots, contract results and build fingerprints.
+
+</details>
+
 ### Follow the OS language and choose your theme
 
 New installations use **System** language: Portuguese locales select Brazilian
@@ -167,10 +181,13 @@ audio preset. The output is a new file, and the original is preserved.
 
 ## Download and install
 
-Get **[OpenYT 4.0.1 from Releases](https://github.com/AlexandreZanata/OpenYT/releases/latest)**.
+Get **[the latest stable OpenYT from Releases](https://github.com/AlexandreZanata/OpenYT/releases/latest)**.
 The release includes Android APK, Linux DEB/RPM/AppImage/Flatpak/Arch packages,
 Windows MSI/EXE, macOS DMG, the browser handoff extension, per-host software
 inventories and signed checksums.
+
+See the [4.0.1 Windows validation record](docs/testing/RELEASE_4_0_1_VALIDATION.md)
+for installed MSI/EXE contracts and real interface evidence.
 
 ### Android
 

@@ -10,6 +10,10 @@ For an existing path with spaces, accents, percent, ampersand, parentheses and a
 hash, Show in folder must open Explorer and select that exact item. Success
 cannot mean merely starting explorer.exe. The native contract invokes the real
 adapter and polls Shell.Application's selected items. Unicode paths remain data.
+Each installer also reveals a real MP4 in a newly created folder containing only
+that video. A folder full of logs or unknown extensions does not cover Explorer's
+first-load video view. An accepted native request is insufficient: the Kotlin
+adapter confirms a stable selection and uses the loaded COM view when necessary.
 
 ## W02 — Open reaches the associated application
 
@@ -25,9 +29,13 @@ and license/source notices. Discovery must load libVLC from that directory and
 report version 3.0.24. Bundled FFmpeg generates an MP4 at a Unicode path. The real
 player must open, advance its playback time, show decoded colored video, and
 switch to a 420-pixel always-on-top mini-player. A screenshot is retained.
+The contract polls the actual video canvas for substantial red, green and blue
+regions from the generated test pattern. Explorer icons or the Windows wallpaper
+cannot satisfy it. Both the canvas and the complete player are captured.
 The process starts with a conflicting inherited VLC_PLUGIN_PATH. The harness
 checks that the actual CRT environment used by this VLC no longer includes that
 external path, preventing plugins from another installation from being mixed in.
+The Java environment precondition is captured before native discovery clears it.
 
 ## W04 — Both installers create usable branded shortcuts
 
@@ -38,6 +46,9 @@ deleting the user-media fixture, install the actual EXE and repeat all installed
 contracts. Checking only Gradle flags or installer existence is insufficient.
 An empty shortcut IconLocation uses the target executable's embedded icon. The
 test resolves this default and compares the extracted image with OpenYT's ICO.
+The reference is decoded directly from its 32px PNG entry: Windows GDI+'s
+Icon.ToBitmap can corrupt PNG-compressed reference entries. The comparison still
+requires at least 90% matching visible pixels with an RGB tolerance of eight.
 
 ## W05 — Action failures are visible
 
@@ -72,12 +83,15 @@ Normal pull-request runs retain the full cross-platform suite. Windows evidence
 uploads have a bounded timeout so an upload failure cannot indefinitely delay
 the native test result.
 
-The test-only harness runs from a temporary alternate launcher/config beside the
+The test-only harness runs from a temporary alternate launcher/config and local
+test JAR beside the
 installed application. It uses the installed JVM, shipping jars and native DLLs;
 only its main class and additional test JAR differ. The original launcher/config
 are unchanged, and the temporary files are removed. No test command or harness
 is shipped in the product. Logs and screenshots live in
 `build/windows-validation/` and the `windows-installed-contracts` CI artifact.
+Process handles are retained before waiting, so short-lived CLI exit codes remain
+observable in Windows PowerShell as well as PowerShell 7.
 
 The required Windows matrix check runs these contracts for pull requests. The
 release Windows job repeats them before publishing; a failed contract fails the
