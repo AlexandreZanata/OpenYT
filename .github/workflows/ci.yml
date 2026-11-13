@@ -115,7 +115,7 @@ jobs:
           --console=plain --stacktrace
 
       - name: Packaged local expansion contracts
-        run: env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE xvfb-run -a python3 scripts/validate-expansion.py desktopApp/build/compose/binaries/main/deb/*.deb
+        run: env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a python3 scripts/validate-expansion.py desktopApp/build/compose/binaries/main/deb/*.deb
 
       - name: Compile browser handoff contracts
         run: |

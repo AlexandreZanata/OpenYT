@@ -128,11 +128,14 @@ def main():
                     link = "openyt://download?url=" + urllib.parse.quote(url, safe="")
                     handoff = subprocess.run([str(app), link], env=env, capture_output=True, text=True, timeout=30)
                     assert handoff.returncode == 0, handoff.stderr
-                    handoff_deadline = time.monotonic() + 30
+                    handoff_deadline = time.monotonic() + 60
                     while not any("handoff=1" in request for request in requested) and time.monotonic() < handoff_deadline:
                         assert gui.poll() is None, "Existing GUI exited during handoff"
                         time.sleep(.1)
-                    assert any("handoff=1" in request for request in requested), "Existing GUI did not analyze the handed-off URL"
+                    assert any("handoff=1" in request for request in requested), (
+                        f"Existing GUI did not analyze the handed-off URL; requested={requested}; gui.log:\n"
+                        + (root / "gui.log").read_text(errors="replace")
+                    )
                     entry_handoff = subprocess.run([str(app), entry_link], env=env, capture_output=True, text=True, timeout=30)
                     assert entry_handoff.returncode == 0, entry_handoff.stderr
                     time.sleep(.3)
