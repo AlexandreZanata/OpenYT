@@ -42,6 +42,7 @@ import com.openyt.core.application.CookieRepository
 import com.openyt.core.application.DiagnosticsFormatter
 import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.DownloadProfileRepository
 import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.OrganizationPlanner
@@ -55,14 +56,16 @@ import com.openyt.core.application.UpdateState
 import com.openyt.core.application.UrlOpener
 import com.openyt.core.domain.AppLanguage
 import com.openyt.core.domain.AppSettings
+import com.openyt.core.domain.DownloadProfile
 import com.openyt.core.domain.OrganizationPreset
 import com.openyt.core.domain.DownloadWindow
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.EngineCapabilities
 import com.openyt.core.domain.ThemeMode
+import com.openyt.ui.components.ProfileEditorDialog
+import com.openyt.ui.components.SubscriptionsDialog
 import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.i18n.FeatureText
-import com.openyt.ui.components.SubscriptionsDialog
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -83,6 +86,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     subscriptions: SubscriptionController? = null,
     toolUpdater: com.openyt.core.application.ToolUpdater? = null,
+    profileRepository: DownloadProfileRepository? = null,
 ) {
     val strings = LocalStrings.current
     var showSubscriptions by remember { mutableStateOf(false) }
@@ -107,6 +111,9 @@ fun SettingsScreen(
     val updateState by updateController.state.collectAsState()
     var installingUpdate by remember { mutableStateOf(false) }
     var installMessage by remember { mutableStateOf<String?>(null) }
+    var profiles by remember { mutableStateOf<List<DownloadProfile>>(DownloadProfile.BuiltIns) }
+    var editingProfile by remember { mutableStateOf<DownloadProfile?>(null) }
+    var showEditorDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(engine) {
         capabilities = engine.capabilities()
@@ -116,6 +123,18 @@ fun SettingsScreen(
     }
     LaunchedEffect(cookieRepository) {
         hasCookies = cookieRepository?.isConfigured() == true
+    }
+
+    fun reloadProfiles() {
+        if (profileRepository != null) {
+            scope.launch {
+                profiles = profileRepository.loadProfiles()
+            }
+        }
+    }
+
+    LaunchedEffect(profileRepository) {
+        reloadProfiles()
     }
 
     Column(
@@ -348,6 +367,124 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+        }
+
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    strings.features[FeatureText.PROFILES_HEADER],
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.semantics { heading() },
+                )
+                Text(
+                    strings.features[FeatureText.PROFILE_DEFAULT],
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = settings.defaultProfileId == null,
+                        onClick = {
+                            settingsController.setDefaultProfileId(null)
+                            scope.launch { profileRepository?.setDefaultProfileId(null) }
+                        },
+                        label = { Text(strings.features[FeatureText.PROFILE_NONE_DEFAULT]) },
+                    )
+                    profiles.forEach { profile ->
+                        val label = when (profile.id) {
+                            DownloadProfile.BUILTIN_STUDY -> strings.features[FeatureText.PROFILE_STUDY]
+                            DownloadProfile.BUILTIN_AUDIO -> strings.features[FeatureText.PROFILE_AUDIO]
+                            DownloadProfile.BUILTIN_SAVE_SPACE -> strings.features[FeatureText.PROFILE_SAVE_SPACE]
+                            DownloadProfile.BUILTIN_TV -> strings.features[FeatureText.PROFILE_TV]
+                            else -> profile.name
+                        }
+                        FilterChip(
+                            selected = settings.defaultProfileId == profile.id,
+                            onClick = {
+                                settingsController.setDefaultProfileId(profile.id)
+                                scope.launch { profileRepository?.setDefaultProfileId(profile.id) }
+                            },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+
+                HorizontalDivider()
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        strings.features[FeatureText.CUSTOM_PROFILES],
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Button(
+                        onClick = {
+                            editingProfile = null
+                            showEditorDialog = true
+                        },
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Text(
+                            strings.features[FeatureText.ADD_PROFILE],
+                            modifier = Modifier.padding(start = 4.dp),
+                        )
+                    }
+                }
+
+                val customProfiles = profiles.filter { !it.isBuiltIn }
+                if (customProfiles.isEmpty()) {
+                    Text(
+                        strings.features[FeatureText.IMMUTABLE_PROFILE_HINT],
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    customProfiles.forEach { custom ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(custom.name, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "${custom.kind.name.lowercase()} • ${if (custom.kind == com.openyt.core.domain.MediaKind.VIDEO) "${custom.maxHeight ?: 1080}p" else custom.audioPreset.extension}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(onClick = {
+                                    editingProfile = custom
+                                    showEditorDialog = true
+                                }) {
+                                    Text(strings.features[FeatureText.EDIT_PROFILE])
+                                }
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        profileRepository?.deleteCustomProfile(custom.id)
+                                        reloadProfiles()
+                                        if (settings.defaultProfileId == custom.id) {
+                                            settingsController.setDefaultProfileId(null)
+                                        }
+                                    }
+                                }) {
+                                    Text(
+                                        strings.features[FeatureText.DELETE_PROFILE],
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -641,6 +778,29 @@ fun SettingsScreen(
         )
     }
     if (showSubscriptions && subscriptions != null) SubscriptionsDialog(subscriptions) { showSubscriptions = false }
+    if (showEditorDialog) {
+        ProfileEditorDialog(
+            profile = editingProfile,
+            onDismiss = { showEditorDialog = false },
+            onSave = { saved ->
+                scope.launch {
+                    profileRepository?.saveCustomProfile(saved)
+                    reloadProfiles()
+                    showEditorDialog = false
+                }
+            },
+            onDelete = { id ->
+                scope.launch {
+                    profileRepository?.deleteCustomProfile(id)
+                    reloadProfiles()
+                    if (settings.defaultProfileId == id) {
+                        settingsController.setDefaultProfileId(null)
+                    }
+                    showEditorDialog = false
+                }
+            },
+        )
+    }
 
 }
 

@@ -33,6 +33,9 @@ class SqlDelightSettingsRepository(
             downloadWindowEndMinutes = row?.download_window_end_minutes?.toInt(),
             organizationPreset = parsePreset(row?.organization_preset),
             fileOrganizationTemplate = row?.file_organization_template,
+            defaultProfileId = row?.default_profile_id,
+            assetBudgetBytes = row?.asset_budget_bytes ?: AppSettings.DEFAULT_ASSET_BUDGET_BYTES,
+            storageReserveBytes = row?.storage_reserve_bytes ?: AppSettings.DEFAULT_STORAGE_RESERVE_BYTES,
         )
     }
 
@@ -50,6 +53,9 @@ class SqlDelightSettingsRepository(
             download_window_end_minutes = settings.downloadWindowEndMinutes?.toLong(),
             organization_preset = settings.organizationPreset.name,
             file_organization_template = settings.fileOrganizationTemplate,
+            default_profile_id = settings.defaultProfileId,
+            asset_budget_bytes = settings.assetBudgetBytes,
+            storage_reserve_bytes = settings.storageReserveBytes,
         )
         Unit
     }

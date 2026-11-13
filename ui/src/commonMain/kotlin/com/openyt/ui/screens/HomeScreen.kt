@@ -48,11 +48,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.DownloadProfileRepository
 import com.openyt.core.application.EnqueuePlaylistUseCase
 import com.openyt.core.application.InspectMediaUseCase
 import com.openyt.core.application.OrganizationPlanner
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.DownloadFailure
+import com.openyt.core.domain.DownloadProfile
+import com.openyt.core.domain.DownloadProfileResolver
 import com.openyt.core.domain.DownloadRequest
 import com.openyt.core.domain.EngineResult
 import com.openyt.core.domain.Inspection
@@ -64,7 +67,10 @@ import com.openyt.core.domain.PlaylistEntry
 import com.openyt.core.domain.PlaylistEntrySelection
 import com.openyt.core.domain.PlaylistInfo
 import com.openyt.ui.components.BrandMark
+import com.openyt.ui.components.DownloadProfileSelector
 import com.openyt.ui.components.MediaThumbnail
+import com.openyt.ui.components.ProfileEditorDialog
+import com.openyt.ui.components.ProfilePlanPreviewCard
 import com.openyt.ui.components.ProviderIcon
 import com.openyt.ui.components.SourcesDialog
 import com.openyt.ui.components.DownloadOptionsEditor
@@ -96,6 +102,8 @@ fun HomeScreen(
     onSharedUrlConsumed: () -> Unit = {},
     showBrand: Boolean = false,
     mediaPreview: MediaPreview? = null,
+    profileRepository: DownloadProfileRepository? = null,
+    systemLanguageTag: String = "pt",
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalStrings.current
@@ -110,7 +118,11 @@ fun HomeScreen(
         url = shared
         state = HomeState.Loading
         try {
-            state = when (val result = inspectMedia(shared)) {
+            val result = inspectMedia(shared)
+            if (result is EngineResult.Failure) {
+                println("OpenYT[handoff]: inspectMedia failed for $shared: ${result.failure}")
+            }
+            state = when (result) {
                 is EngineResult.Success -> HomeState.Ready(result.value, shared)
                 is EngineResult.Failure -> HomeState.Error(result.failure)
             }
@@ -194,6 +206,8 @@ fun HomeScreen(
                     downloadsDirectory = downloadsDirectory,
                     organizationPreset = organizationPreset,
                     fileNameTemplate = fileNameTemplate,
+                    profileRepository = profileRepository,
+                    systemLanguageTag = systemLanguageTag,
                     onDownloadStarted = onDownloadStarted,
                 )
 
@@ -222,11 +236,31 @@ private fun MediaSummary(
     downloadsDirectory: String,
     organizationPreset: OrganizationPreset,
     fileNameTemplate: String?,
+    profileRepository: DownloadProfileRepository?,
+    systemLanguageTag: String,
     onDownloadStarted: () -> Unit,
 ) {
     val strings = LocalStrings.current
     val hasVideo = media.formats.any { it.kind == MediaKind.VIDEO }
     val hasAudio = media.formats.any { it.kind == MediaKind.AUDIO }
+
+    var profiles by remember { mutableStateOf(DownloadProfile.BuiltIns) }
+    var showProfileEditor by remember { mutableStateOf(false) }
+    var editingProfile by remember { mutableStateOf<DownloadProfile?>(null) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(profileRepository) {
+        if (profileRepository != null) {
+            val loaded = profileRepository.loadProfiles()
+            if (loaded.isNotEmpty()) {
+                profiles = loaded
+            }
+        }
+    }
+
+    var selectedProfileId by rememberSaveable(media.webpageUrl) {
+        mutableStateOf<String?>(DownloadProfile.BUILTIN_STUDY)
+    }
 
     var options by remember(media) { mutableStateOf(DownloadOptions(liveDurationSeconds = if (media.isLive) 60 else null)) }
     var optionsValid by remember(media) { mutableStateOf(true) }
@@ -272,102 +306,159 @@ private fun MediaSummary(
 
             HorizontalDivider()
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = kind == MediaKind.VIDEO,
-                    onClick = { kind = MediaKind.VIDEO },
-                    enabled = hasVideo,
-                    label = { Text(strings.kindVideo) },
-                )
-                FilterChip(
-                    selected = kind == MediaKind.AUDIO,
-                    onClick = { kind = MediaKind.AUDIO },
-                    enabled = hasAudio,
-                    label = { Text(strings.kindAudio) },
-                )
-            }
-
-            if (media.subtitles.isNotEmpty()) {
-                FilterChip(kind == MediaKind.SUBTITLE, { kind = MediaKind.SUBTITLE }, label = { Text(strings.features[FeatureText.SUBTITLES]) })
-            }
-            DownloadOptionsEditor(media, kind, options, { options = it }, { optionsValid = it },
-                onPreview = mediaPreview?.let { preview ->
-                    { segment ->
-                        previewMessage = strings.features[FeatureText.WORKING]
-                        previewScope.launch {
-                            val result = try { preview.preview(media, sourceUrl, segment) }
-                                catch (e: kotlinx.coroutines.CancellationException) { throw e }
-                                catch (_: Exception) { null }
-                            previewMessage = if (result is EngineResult.Success) null else strings.features[FeatureText.PLAYBACK_FAILED]
-                        }
-                    }
+            // Profile Selection Section
+            DownloadProfileSelector(
+                profiles = profiles,
+                selectedProfileId = selectedProfileId,
+                onSelectProfile = { selectedProfileId = it },
+                onManageProfiles = {
+                    editingProfile = null
+                    showProfileEditor = true
                 },
             )
-            previewMessage?.let { Text(it) }
 
-            Box(Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = { menuOpen = true },
-                    enabled = formats.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        selected?.let(::formatLabel) ?: strings.bestAvailable,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+            if (selectedProfileId != null) {
+                val currentProfile = profiles.firstOrNull { it.id == selectedProfileId }
+                    ?: DownloadProfile.BuiltIns.first()
+                val effectiveProfile = if (currentProfile.id == DownloadProfile.BUILTIN_STUDY) {
+                    DownloadProfile.study(systemLanguageTag.take(2))
+                } else {
+                    currentProfile
+                }
+                val resolution = remember(effectiveProfile, media) {
+                    DownloadProfileResolver.resolve(effectiveProfile, media)
+                }
+
+                ProfilePlanPreviewCard(
+                    resolution = resolution,
+                    downloadsDirectory = downloadsDirectory,
+                    onDownloadPlan = { plan ->
+                        val template = OrganizationPlanner.singleTemplate(organizationPreset, fileNameTemplate)
+                        coordinator.enqueuePlan(
+                            media = media,
+                            plan = plan,
+                            destinationDirectory = downloadsDirectory,
+                            fileNameTemplate = template,
+                        )
+                        onDownloadStarted()
+                    },
+                    onSelectProfile = { selectedProfileId = it },
+                )
+            } else {
+                // Manual format selection flow (preserved)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = kind == MediaKind.VIDEO,
+                        onClick = { kind = MediaKind.VIDEO },
+                        enabled = hasVideo,
+                        label = { Text(strings.kindVideo) },
+                    )
+                    FilterChip(
+                        selected = kind == MediaKind.AUDIO,
+                        onClick = { kind = MediaKind.AUDIO },
+                        enabled = hasAudio,
+                        label = { Text(strings.kindAudio) },
                     )
                 }
-                DropdownMenu(
-                    expanded = menuOpen,
-                    onDismissRequest = { menuOpen = false },
-                    modifier = Modifier.heightIn(max = 320.dp),
-                    scrollState = rememberScrollState(),
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(strings.bestAvailable) },
-                        onClick = {
-                            selectedFormatId = null
-                            menuOpen = false
-                        },
-                    )
-                    formats.forEach { format ->
+
+                if (media.subtitles.isNotEmpty()) {
+                    FilterChip(kind == MediaKind.SUBTITLE, { kind = MediaKind.SUBTITLE }, label = { Text(strings.features[FeatureText.SUBTITLES]) })
+                }
+                DownloadOptionsEditor(media, kind, options, { options = it }, { optionsValid = it },
+                    onPreview = mediaPreview?.let { preview ->
+                        { segment ->
+                            previewMessage = strings.features[FeatureText.WORKING]
+                            previewScope.launch {
+                                val result = try { preview.preview(media, sourceUrl, segment) }
+                                    catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                                    catch (_: Exception) { null }
+                                previewMessage = if (result is EngineResult.Success) null else strings.features[FeatureText.PLAYBACK_FAILED]
+                            }
+                        }
+                    },
+                )
+                previewMessage?.let { Text(it) }
+
+                Box(Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { menuOpen = true },
+                        enabled = formats.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            selected?.let(::formatLabel) ?: strings.bestAvailable,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuOpen,
+                        onDismissRequest = { menuOpen = false },
+                        modifier = Modifier.heightIn(max = 320.dp),
+                        scrollState = rememberScrollState(),
+                    ) {
                         DropdownMenuItem(
-                            text = { Text(formatLabel(format)) },
+                            text = { Text(strings.bestAvailable) },
                             onClick = {
-                                selectedFormatId = format.id
+                                selectedFormatId = null
                                 menuOpen = false
                             },
                         )
+                        formats.forEach { format ->
+                            DropdownMenuItem(
+                                text = { Text(formatLabel(format)) },
+                                onClick = {
+                                    selectedFormatId = format.id
+                                    menuOpen = false
+                                },
+                            )
+                        }
                     }
                 }
-            }
 
-            Text(
-                strings.downloadHint,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+                Text(
+                    strings.downloadHint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
 
-            Button(
-                onClick = {
-                    coordinator.enqueue(
-                        media = media,
-                        request = DownloadRequest(
-                            url = sourceUrl,
-                            kind = kind,
-                            formatId = selectedFormatId,
-                            destinationDirectory = downloadsDirectory,
-                            fileNameTemplate = OrganizationPlanner.singleTemplate(organizationPreset, fileNameTemplate),
-                            options = options,
-                        ),
-                    )
-                    onDownloadStarted()
-                },
-                enabled = optionsValid && (formats.isNotEmpty() || (kind == MediaKind.SUBTITLE && options.subtitle != null)),
-            ) {
-                Text(strings.downloadButton)
+                Button(
+                    onClick = {
+                        coordinator.enqueue(
+                            media = media,
+                            request = DownloadRequest(
+                                url = sourceUrl,
+                                kind = kind,
+                                formatId = selectedFormatId,
+                                destinationDirectory = downloadsDirectory,
+                                fileNameTemplate = OrganizationPlanner.singleTemplate(organizationPreset, fileNameTemplate),
+                                options = options,
+                            ),
+                        )
+                        onDownloadStarted()
+                    },
+                    enabled = optionsValid && (formats.isNotEmpty() || (kind == MediaKind.SUBTITLE && options.subtitle != null)),
+                ) {
+                    Text(strings.downloadButton)
+                }
             }
         }
+    }
+
+    if (showProfileEditor) {
+        ProfileEditorDialog(
+            profile = editingProfile,
+            onSave = { newProfile ->
+                scope.launch {
+                    profileRepository?.saveCustomProfile(newProfile)
+                    val refreshed = profileRepository?.loadProfiles() ?: (profiles + newProfile)
+                    profiles = refreshed
+                    selectedProfileId = newProfile.id
+                    showProfileEditor = false
+                }
+            },
+            onDismiss = { showProfileEditor = false },
+        )
     }
 }
 

@@ -1,0 +1,7 @@
+WEBVTT - Inert Traversal Test
+
+00:00:00.000 --> 00:00:02.000
+Path payload: ../../etc/passwd and ..\..\windows\system32\config\SAM
+
+00:00:02.500 --> 00:00:05.000
+Escaped path: \u002e\u002e/\u002e\u002e/secret.key

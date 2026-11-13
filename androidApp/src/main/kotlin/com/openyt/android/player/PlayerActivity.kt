@@ -1,8 +1,8 @@
 package com.openyt.android.player
 
-import android.Manifest
 import android.app.PictureInPictureParams
 import android.content.ComponentName
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
@@ -12,7 +12,6 @@ import android.util.Rational
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -56,19 +55,11 @@ class PlayerActivity : ComponentActivity() {
     private var title by mutableStateOf("")
     private var playbackFailed by mutableStateOf(false)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
     private val container get() = (application as OpenYtApplication).container
     private val strings get() = stringsFor(container.settingsController.settings.value.language, resources.configuration.locales[0].toLanguageTag())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        val paths = intent.getStringArrayListExtra(EXTRA_PATHS).orEmpty()
-        val titles = intent.getStringArrayListExtra(EXTRA_TITLES).orEmpty()
-        val kinds = intent.getStringArrayListExtra(EXTRA_KINDS).orEmpty()
-        val startIndex = intent.getIntExtra(EXTRA_START_INDEX, 0).coerceIn(0, paths.lastIndex.coerceAtLeast(0))
         val future = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlaybackService::class.java))).buildAsync()
         controllerFuture = future
         future.addListener({
@@ -84,44 +75,7 @@ class PlayerActivity : ComponentActivity() {
                 override fun onIsPlayingChanged(isPlaying: Boolean) { updatePip() }
                 override fun onPlayerError(error: PlaybackException) { playbackFailed = true; updatePip() }
             })
-            scope.launch {
-                if (paths.isNotEmpty()) {
-                    val uris = paths.map { Uri.fromFile(File(it)) }
-                    val sameQueue = connected.mediaItemCount == uris.size &&
-                        uris.indices.all { connected.getMediaItemAt(it).localConfiguration?.uri == uris[it] }
-                    if (sameQueue && connected.currentMediaItemIndex != startIndex) {
-                        connected.seekTo(startIndex, container.playbackStore.position(paths[startIndex])?.resumeMillis ?: 0)
-                    }
-                    if (!sameQueue) {
-                        val position = container.playbackStore.position(paths[startIndex])?.resumeMillis ?: 0
-                        connected.setMediaItems(paths.mapIndexed { index, path ->
-                            MediaItem.Builder().setUri(uris[index])
-                                .setMediaMetadata(MediaMetadata.Builder()
-                                    .setTitle(titles.getOrNull(index) ?: File(path).name)
-                                    .setExtras(Bundle().apply { putString("openyt.kind", kinds.getOrNull(index) ?: MediaKind.VIDEO.name) })
-                                    .build())
-                                .build()
-                        }, startIndex, position)
-                    }
-                } else if (connected.mediaItemCount == 0) {
-                    val saved = container.playbackStore.loadQueue()
-                    if (saved != null && saved.items.isNotEmpty()) {
-                        val position = container.playbackStore.position(saved.current!!.path)?.resumeMillis ?: 0
-                        connected.setMediaItems(saved.items.map {
-                            MediaItem.Builder().setUri(Uri.fromFile(File(it.path)))
-                                .setMediaMetadata(MediaMetadata.Builder().setTitle(it.title)
-                                    .setExtras(Bundle().apply { putString("openyt.kind", it.kind.name) }).build())
-                                .build()
-                        }, saved.currentIndex, position)
-                    }
-                }
-                title = connected.mediaMetadata.title?.toString().orEmpty()
-                if (connected.mediaItemCount > 0) {
-                    if (connected.playbackState == Player.STATE_IDLE) connected.prepare()
-                    connected.play()
-                } else playbackFailed = true
-                updatePip()
-            }
+            scope.launch { applyPlaybackIntent(this@PlayerActivity.intent, connected) }
         }, ContextCompat.getMainExecutor(this))
         setContent {
             OpenYtTheme(darkTheme = true) {
@@ -144,6 +98,78 @@ class PlayerActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val connected = controller
+        if (connected != null && !isFinishing && !isDestroyed) {
+            scope.launch { applyPlaybackIntent(intent, connected) }
+        }
+    }
+
+    private suspend fun applyPlaybackIntent(targetIntent: Intent, connected: MediaController) {
+        val paths = targetIntent.getStringArrayListExtra(EXTRA_PATHS).orEmpty()
+        val titles = targetIntent.getStringArrayListExtra(EXTRA_TITLES).orEmpty()
+        val kinds = targetIntent.getStringArrayListExtra(EXTRA_KINDS).orEmpty()
+        val entryIds = targetIntent.getStringArrayListExtra(EXTRA_ENTRY_IDS).orEmpty()
+        val requestedPosition = targetIntent.getLongExtra(EXTRA_START_POSITION_MILLIS, -1L)
+        val startIndex = targetIntent.getIntExtra(EXTRA_START_INDEX, 0).coerceIn(0, paths.lastIndex.coerceAtLeast(0))
+        playbackFailed = false
+        if (paths.isNotEmpty()) {
+            val uris = paths.map { Uri.fromFile(File(it)) }
+            val sameQueue = connected.mediaItemCount == uris.size &&
+                uris.indices.all { connected.getMediaItemAt(it).localConfiguration?.uri == uris[it] }
+            val currentEntryId = entryIds.getOrNull(startIndex)?.takeIf { it.isNotBlank() }
+            val initialPosition = if (requestedPosition >= 0L) {
+                requestedPosition
+            } else {
+                container.playbackStore.position(paths[startIndex], currentEntryId)?.resumeMillis ?: 0L
+            }
+            AndroidPlaybackSessionBridge.markExplicitStartUri(
+                if (requestedPosition >= 0L) uris[startIndex].toString() else null,
+            )
+            if (sameQueue && connected.currentMediaItemIndex != startIndex) {
+                connected.seekTo(startIndex, initialPosition)
+            } else if (sameQueue && requestedPosition >= 0L) {
+                connected.seekTo(initialPosition)
+            }
+            if (!sameQueue) {
+                connected.setMediaItems(paths.mapIndexed { index, path ->
+                    val entryId = entryIds.getOrNull(index)?.takeIf { it.isNotBlank() }
+                    MediaItem.Builder().setUri(uris[index])
+                        .setMediaMetadata(MediaMetadata.Builder()
+                            .setTitle(titles.getOrNull(index) ?: File(path).name)
+                            .setExtras(Bundle().apply {
+                                putString("openyt.kind", kinds.getOrNull(index) ?: MediaKind.VIDEO.name)
+                                entryId?.let { putString("openyt.entryId", it) }
+                            })
+                            .build())
+                        .build()
+                }, startIndex, initialPosition)
+            }
+        } else if (connected.mediaItemCount == 0) {
+            val saved = container.playbackStore.loadQueue()
+            if (saved != null && saved.items.isNotEmpty()) {
+                val position = container.playbackStore.position(saved.current!!.path, saved.current!!.entryId)?.resumeMillis ?: 0L
+                connected.setMediaItems(saved.items.map {
+                    MediaItem.Builder().setUri(Uri.fromFile(File(it.path)))
+                        .setMediaMetadata(MediaMetadata.Builder().setTitle(it.title)
+                            .setExtras(Bundle().apply {
+                                putString("openyt.kind", it.kind.name)
+                                it.entryId?.let { eid -> putString("openyt.entryId", eid) }
+                            }).build())
+                        .build()
+                }, saved.currentIndex, position)
+            }
+        }
+        title = connected.mediaMetadata.title?.toString().orEmpty()
+        if (connected.mediaItemCount > 0) {
+            if (connected.playbackState == Player.STATE_IDLE) connected.prepare()
+            connected.play()
+        } else playbackFailed = true
+        updatePip()
     }
 
     private fun supportsPip(): Boolean = packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
@@ -194,6 +220,8 @@ class PlayerActivity : ComponentActivity() {
         const val EXTRA_PATHS = "com.openyt.android.player.PATHS"
         const val EXTRA_TITLES = "com.openyt.android.player.TITLES"
         const val EXTRA_KINDS = "com.openyt.android.player.KINDS"
+        const val EXTRA_ENTRY_IDS = "com.openyt.android.player.ENTRY_IDS"
+        const val EXTRA_START_POSITION_MILLIS = "com.openyt.android.player.START_POSITION_MILLIS"
         const val EXTRA_START_INDEX = "com.openyt.android.player.START_INDEX"
     }
 }

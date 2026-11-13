@@ -29,6 +29,8 @@ interface DownloadRepository {
 
     suspend fun deleteLibraryEntry(id: String)
 
+    suspend fun updateLibraryRevision(id: String, revision: com.openyt.core.domain.MediaRevision, lastVerifiedEpochMillis: Long) = Unit
+
     suspend fun updateLibraryMetadata(id: String, title: String, author: String?)
 
     suspend fun updateLibraryPath(id: String, filePath: String)

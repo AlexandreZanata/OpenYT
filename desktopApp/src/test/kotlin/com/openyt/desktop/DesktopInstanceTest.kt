@@ -19,6 +19,13 @@ class DesktopInstanceTest {
                 assertTrue(first.takeLinks().isEmpty())
                 assertTrue(DesktopInstance.forward(root, null))
                 assertEquals(listOf<String?>(null), first.takeLinks())
+                assertTrue(DesktopInstance.forwardRoute(root, com.openyt.core.application.OpenYtRoute.LibraryEntry("study-entry-1", 42_500L)))
+                assertEquals(
+                    listOf<com.openyt.core.application.OpenYtRoute?>(
+                        com.openyt.core.application.OpenYtRoute.LibraryEntry("study-entry-1", 42_500L),
+                    ),
+                    first.takeRoutes(),
+                )
                 assertFalse(DesktopInstance.forward(root, "file:///private"))
             }
             assertNotNull(DesktopInstance.acquire(root, false)).use {

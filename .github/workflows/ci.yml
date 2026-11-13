@@ -59,17 +59,27 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Unit tests and Android build
+      - name: Unit tests
         run: >
           ./gradlew
           :core:desktopTest
+          :ui:desktopTest
           :engine-ytdlp:desktopTest
           :data:desktopTest
           :media-ffmpeg:desktopTest
           :desktopApp:test
+          --max-workers=2
+          --console=plain
+          --stacktrace
+
+      - name: Android build and Linux package
+        run: >
+          ./gradlew
+          :data:verifyCommonMainOpenYtDatabaseMigration
           :androidApp:assembleDebug
           :androidApp:assembleDebugAndroidTest
           :desktopApp:packageDeb
+          :desktopApp:windowsContractHarnessJar
           --console=plain
           --stacktrace
 
@@ -105,7 +115,7 @@ jobs:
           --console=plain --stacktrace
 
       - name: Packaged local expansion contracts
-        run: env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE xvfb-run -a python3 scripts/validate-expansion.py desktopApp/build/compose/binaries/main/deb/*.deb
+        run: env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE LIBGL_ALWAYS_SOFTWARE=1 SKIKO_RENDER_API=SOFTWARE xvfb-run -a python3 scripts/validate-expansion.py desktopApp/build/compose/binaries/main/deb/*.deb
 
       - name: Compile browser handoff contracts
         run: |
@@ -121,7 +131,7 @@ jobs:
         run: |
           bash scripts/install-ci-packages.sh libvlc5 vlc-plugin-base vlc-plugin-video-output xvfb
           ./gradlew :media-ffmpeg:desktopTest --console=plain
-          env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE xvfb-run -a ./gradlew :desktopApp:test --tests '*DesktopMediaTaggerTest' --tests '*DesktopPlaybackLocalTest' --console=plain
+          env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE xvfb-run -a ./gradlew :desktopApp:test --tests '*DesktopMediaTaggerTest' --tests '*DesktopPlaybackLocalTest' --tests '*StudyPlaybackLocalTest' --console=plain
 
       - uses: actions/upload-artifact@v4
         if: always()

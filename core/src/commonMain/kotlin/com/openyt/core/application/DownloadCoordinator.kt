@@ -10,6 +10,8 @@ import com.openyt.core.domain.DownloadStatus
 import com.openyt.core.domain.DownloadTask
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaInfo
+import com.openyt.core.domain.ResolvedDownloadPlan
+import com.openyt.core.domain.toDownloadRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.updateAndGet
@@ -42,6 +44,7 @@ class DownloadCoordinator(
     private val retryDelayMillis: (Int) -> Long = ::defaultRetryDelayMillis,
     private val timeOfDayMinutes: () -> Int = { 0 },
     private val cookieRepository: CookieRepository? = null,
+    private val assetStore: OfflineAssetStore? = null,
 ) {
     init {
         require(initialMaxConcurrentDownloads > 0) { "initialMaxConcurrentDownloads must be positive" }
@@ -157,6 +160,23 @@ class DownloadCoordinator(
             }
             pendingInsertions.update { it - task.id }
         }
+    }
+
+    fun enqueuePlan(
+        media: MediaInfo,
+        plan: ResolvedDownloadPlan,
+        destinationDirectory: String,
+        fileNameTemplate: String? = null,
+        exportTargetUri: String? = null,
+        priority: DownloadPriority = DownloadPriority.NORMAL,
+    ): String {
+        val request = plan.toDownloadRequest(
+            url = media.webpageUrl,
+            destinationDirectory = destinationDirectory,
+            fileNameTemplate = fileNameTemplate ?: "%(title)s.%(ext)s",
+            exportTargetUri = exportTargetUri,
+        )
+        return enqueue(media = media, request = request, priority = priority)
     }
 
     suspend fun awaitPersistence(): Boolean {
@@ -456,6 +476,26 @@ class DownloadCoordinator(
                 listOf(entry) + entries.filterNot { it.id == entry.id }
             }
             persist { repository?.insertLibraryEntry(entry) }
+
+            if (applied.artifacts.isNotEmpty() && assetStore != null) {
+                val mediaRevision = com.openyt.core.domain.MediaRevision(
+                    sizeBytes = applied.sizeBytes ?: 0L,
+                    lastModifiedEpochMillis = 0L,
+                )
+                val allowedRoots = listOf(updated.request.destinationDirectory)
+                for (artifact in applied.artifacts) {
+                    scope.launch {
+                        runCatching {
+                            assetStore.storeConfirmedArtifact(
+                                entryId = entry.id,
+                                receipt = artifact,
+                                mediaRevision = mediaRevision,
+                                allowedRoots = allowedRoots,
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // Observers may flush persistence and exit immediately on a terminal state.

@@ -26,7 +26,9 @@ import coil3.compose.AsyncImage
 fun MediaThumbnail(
     url: String?,
     modifier: Modifier = Modifier,
+    localArtworkPath: String? = null,
 ) {
+    val model = localArtworkPath?.takeIf { it.isNotBlank() } ?: url
     val shape = RoundedCornerShape(12.dp)
     Box(
         modifier = modifier
@@ -40,9 +42,9 @@ fun MediaThumbnail(
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.align(Alignment.Center).size(32.dp),
         )
-        if (!url.isNullOrBlank()) {
+        if (!model.isNullOrBlank()) {
             AsyncImage(
-                model = url,
+                model = model,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),

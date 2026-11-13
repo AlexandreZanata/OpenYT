@@ -1,0 +1,11 @@
+1
+00:00:01,000 --> 00:00:04,500
+Introdução à biblioteca pessoal de mídia do OpenYT.
+
+2
+00:00:03,000 --> 00:00:07,000
+Lição prática: pesquisa sincronizada e anotações com acentuação.
+
+3
+00:00:07,500 --> 00:00:09,800
+Preservação offline concluída com sucesso.

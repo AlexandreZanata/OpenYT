@@ -9,10 +9,12 @@ import com.openyt.android.diagnostics.AndroidUpdateChecker
 import com.openyt.android.diagnostics.AndroidUpdateInstaller
 import com.openyt.android.probe.AndroidMediaProbe
 import com.openyt.android.saf.AndroidSafExporter
-import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.CompletedDownloadHandler
 import com.openyt.core.application.DiagnosticsProvider
+import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.DownloadProfileRepository
 import com.openyt.core.application.DownloadRepository
+import com.openyt.core.application.SafExportRouter
 import com.openyt.core.application.LibraryArchiveService
 import com.openyt.core.application.BulkFileService
 import com.openyt.core.application.FolderImportService
@@ -27,9 +29,31 @@ import com.openyt.data.EncryptedCookieRepository
 import com.openyt.data.FileBulkFileOperator
 import com.openyt.data.FileFolderScanner
 import com.openyt.data.SqlDelightDownloadRepository
+import com.openyt.data.SqlDelightDownloadProfileRepository
 import com.openyt.data.SqlDelightSettingsRepository
+import com.openyt.data.SqlDelightOfflineAssetRepository
+import com.openyt.data.SqlDelightAssetOperationRepository
+import com.openyt.data.JvmOfflineAssetStore
+import com.openyt.data.JvmMediaFileInspector
+import com.openyt.data.JvmArtworkFetchPort
+import com.openyt.core.application.ArtworkFetchService
+import com.openyt.core.application.SubtitleImportService
+import com.openyt.core.application.SubtitleIndexRepository
+import com.openyt.core.application.TimedSearchRepository
+import com.openyt.core.application.TimedSearchUseCase
+import com.openyt.core.application.OfflineAssetRepository
+import com.openyt.core.application.FileAvailability
+import com.openyt.core.application.PlaybackLauncher
+import com.openyt.core.application.StudyAbRepeatController
+import com.openyt.core.application.StudyCaptureAndNavigationService
+import com.openyt.core.application.StudyEditorCoordinator
+import com.openyt.core.application.StudyRepository
+import com.openyt.core.application.StudyService
 import com.openyt.data.SqlDelightPlaybackStore
+import com.openyt.data.SqlDelightStudyRepository
 import com.openyt.data.SqlDelightSubscriptions
+import com.openyt.data.SqlDelightSubtitleIndexRepository
+import com.openyt.data.search.SqlDelightTimedSearchRepository
 import com.openyt.data.RssFeedReader
 import com.openyt.core.automation.SubscriptionController
 import com.openyt.core.application.MemoryPlaybackStore
@@ -80,8 +104,87 @@ class AppContainer(context: Context) {
         .onFailure { android.util.Log.e("OpenYT", "database initialization failed: ${'$'}{it.message}") }
 
     val repository: DownloadRepository? = database.getOrNull()?.let(::SqlDelightDownloadRepository)
+    val profileRepository: DownloadProfileRepository? =
+        database.getOrNull()?.let(::SqlDelightDownloadProfileRepository)
+
+    val offlineAssetsDirectory: File =
+        File(appContext.filesDir, "offline-assets").apply { mkdirs() }
+    val offlineAssetRepository: OfflineAssetRepository? =
+        database.getOrNull()?.let(::SqlDelightOfflineAssetRepository)
+    val offlineAssetStore: JvmOfflineAssetStore? = run {
+        val db = database.getOrNull() ?: return@run null
+        val assetRepository = offlineAssetRepository ?: return@run null
+        JvmOfflineAssetStore(
+            assetsDirectory = offlineAssetsDirectory,
+            repository = assetRepository,
+            operationRepository = SqlDelightAssetOperationRepository(db),
+        )
+    }
+    val artworkFetchService: ArtworkFetchService? = run {
+        val store = offlineAssetStore ?: return@run null
+        val assetRepository = offlineAssetRepository ?: return@run null
+        ArtworkFetchService(
+            operator = store.operator,
+            fetchPort = JvmArtworkFetchPort(),
+            assetRepository = assetRepository,
+            stagingPort = store.stagingPort,
+        )
+    }
+    val subtitleImportService: SubtitleImportService? = run {
+        val store = offlineAssetStore ?: return@run null
+        val assetRepository = offlineAssetRepository ?: return@run null
+        SubtitleImportService(
+            operator = store.operator,
+            assetRepository = assetRepository,
+            stagingPort = store.stagingPort,
+            fileInspector = JvmMediaFileInspector(),
+        )
+    }
+    val subtitleIndexRepository: SubtitleIndexRepository? =
+        database.getOrNull()?.let(::SqlDelightSubtitleIndexRepository)
+    val timedSearchRepository: TimedSearchRepository? =
+        database.getOrNull()?.let(::SqlDelightTimedSearchRepository)
+    val timedSearchUseCase: TimedSearchUseCase? =
+        timedSearchRepository?.let(::TimedSearchUseCase)
+    val renderingCacheBytes: () -> Long = { appContext.cacheDir.directorySize() }
 
     val playbackStore = database.getOrNull()?.let(::SqlDelightPlaybackStore) ?: MemoryPlaybackStore()
+
+    val studyRepository: StudyRepository? =
+        database.getOrNull()?.let(::SqlDelightStudyRepository)
+    val studyService: StudyService? =
+        studyRepository?.let { repo ->
+            StudyService(
+                repository = repo,
+                nowEpochMillis = { System.currentTimeMillis() },
+                nextId = { java.util.UUID.randomUUID().toString() },
+            )
+        }
+    val studyEditorCoordinator: StudyEditorCoordinator = StudyEditorCoordinator()
+
+    fun createStudyCaptureAndNavigationService(
+        playbackLauncher: PlaybackLauncher?,
+    ): StudyCaptureAndNavigationService? {
+        val service = studyService ?: return null
+        return StudyCaptureAndNavigationService(
+            studyService = service,
+            playbackLauncher = playbackLauncher,
+            playbackStore = playbackStore,
+            entryProvider = { coordinator.library.value },
+            fileAvailability = FileAvailability { File(it).isFile },
+            mediaProbe = mediaProbe,
+            nowEpochMillis = { System.currentTimeMillis() },
+        )
+    }
+
+    fun createStudyAbRepeatController(
+        playbackLauncher: PlaybackLauncher?,
+        scope: CoroutineScope = appScope,
+    ): StudyAbRepeatController =
+        StudyAbRepeatController(
+            playbackLauncher = playbackLauncher,
+            scope = scope,
+        )
 
     val settingsRepository: SettingsRepository? =
         database.getOrNull()?.let(::SqlDelightSettingsRepository)
@@ -92,26 +195,25 @@ class AppContainer(context: Context) {
     val mediaTagger = AndroidMediaTagger(appContext)
 
     private val safExporter = AndroidSafExporter(appContext)
+    private val safExportRouter = SafExportRouter(
+        exporter = safExporter,
+        fallbackTreeUri = { settingsController.settings.value.storageTreeUri },
+        onWarning = { warning ->
+            android.util.Log.w("OpenYT", warning.message)
+        },
+    )
 
     val coordinator: DownloadCoordinator = DownloadCoordinator(
         engine = engine,
         scope = appScope,
         repository = repository,
         cookieRepository = cookieRepository,
+        assetStore = offlineAssetStore,
         timeOfDayMinutes = {
             val now = Calendar.getInstance()
             now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
         },
-        completedHandler = CompletedDownloadHandler { task ->
-            val tree = settingsController.settings.value.storageTreeUri
-            val path = task.filePath
-            if (tree != null && path != null) {
-                val exported = safExporter.export(path, tree)
-                if (!exported) {
-                    android.util.Log.w("OpenYT", "SAF export failed")
-                }
-            }
-        },
+        completedHandler = safExportRouter,
     )
 
     val subscriptions = database.getOrNull()?.let { database ->
@@ -150,3 +252,10 @@ private fun cleanStaleTemporaryFiles(directory: File) {
 }
 
 private const val STALE_TEMP_MILLIS = 7L * 24 * 60 * 60 * 1000
+
+private fun File.directorySize(): Long =
+    if (isDirectory) {
+        listFiles()?.sumOf { it.directorySize() } ?: 0L
+    } else {
+        length()
+    }

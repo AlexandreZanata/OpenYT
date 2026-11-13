@@ -1,0 +1,53 @@
+CREATE TABLE study_note (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    timestamp_ms INTEGER NOT NULL,
+    end_ms INTEGER,
+    body TEXT NOT NULL,
+    media_revision_size INTEGER,
+    media_revision_mtime INTEGER,
+    media_revision_sha256 TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX study_note_entry_time_idx
+    ON study_note(entry_id, timestamp_ms, end_ms, created_at, id);
+
+CREATE TABLE study_bookmark (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    timestamp_ms INTEGER NOT NULL,
+    label TEXT NOT NULL,
+    media_revision_size INTEGER,
+    media_revision_mtime INTEGER,
+    media_revision_sha256 TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX study_bookmark_entry_time_idx
+    ON study_bookmark(entry_id, timestamp_ms, created_at, id);
+
+CREATE TABLE study_range (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    start_ms INTEGER NOT NULL,
+    end_ms INTEGER NOT NULL,
+    label TEXT,
+    media_revision_size INTEGER,
+    media_revision_mtime INTEGER,
+    media_revision_sha256 TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX study_range_entry_time_idx
+    ON study_range(entry_id, start_ms, end_ms, created_at, id);
+
+CREATE TABLE entry_study_state (
+    entry_id TEXT NOT NULL PRIMARY KEY,
+    is_studied INTEGER NOT NULL DEFAULT 0,
+    studied_at INTEGER,
+    updated_at INTEGER NOT NULL
+);

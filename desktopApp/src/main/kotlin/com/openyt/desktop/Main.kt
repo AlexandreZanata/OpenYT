@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import kotlinx.coroutines.launch
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderImportService
@@ -28,10 +29,24 @@ import com.openyt.data.EncryptedCookieRepository
 import com.openyt.data.FileBulkFileOperator
 import com.openyt.data.FileFolderScanner
 import com.openyt.data.SqlDelightDownloadRepository
+import com.openyt.data.SqlDelightDownloadProfileRepository
+import com.openyt.data.SqlDelightOfflineAssetRepository
+import com.openyt.data.SqlDelightAssetOperationRepository
+import com.openyt.data.JvmOfflineAssetStore
+import com.openyt.data.JvmMediaFileInspector
+import com.openyt.data.JvmArtworkFetchPort
+import com.openyt.core.application.ArtworkFetchService
+import com.openyt.core.application.SubtitleImportService
+import com.openyt.core.application.SubtitleIndexRepository
+import com.openyt.core.application.TimedSearchRepository
+import com.openyt.core.application.TimedSearchUseCase
 import com.openyt.data.SqlDelightSettingsRepository
 import com.openyt.data.SqlDelightPlaybackStore
 import com.openyt.data.SqlDelightSubscriptions
+import com.openyt.data.SqlDelightSubtitleIndexRepository
+import com.openyt.data.search.SqlDelightTimedSearchRepository
 import com.openyt.data.RssFeedReader
+import com.openyt.core.application.MemoryDownloadProfileRepository
 import com.openyt.core.automation.SubscriptionController
 import com.openyt.core.application.MemoryPlaybackStore
 import com.openyt.ui.i18n.stringsFor
@@ -51,6 +66,13 @@ import com.openyt.desktop.share.DesktopMediaActions
 import com.openyt.ui.OpenYtApp
 import com.openyt.core.application.EngineMediaPreview
 import com.openyt.core.application.OpenYtLink
+import com.openyt.core.application.OpenYtRoute
+import com.openyt.core.application.StudyAbRepeatController
+import com.openyt.core.application.StudyCaptureAndNavigationService
+import com.openyt.core.application.StudyEditorCoordinator
+import com.openyt.core.application.StudyHostLinkCapability
+import com.openyt.core.application.StudyService
+import com.openyt.data.SqlDelightStudyRepository
 import com.openyt.media.ffmpeg.FfmpegMediaProcessor
 import com.openyt.desktop.downloader.ExecutableLocator
 import com.openyt.ui.components.BrandIconPainter
@@ -66,11 +88,11 @@ import kotlinx.coroutines.cancel
 fun main(args: Array<String>) {
     val cli = args.firstOrNull() == "--cli"
     if (cli && args.getOrNull(1) in setOf("version", "link")) exitProcess(DesktopCli.run(args.drop(1)))
-    val initialUrl = if (cli) null else args.firstNotNullOfOrNull(OpenYtLink::parse)
+    val initialRoute = if (cli) null else args.firstNotNullOfOrNull(OpenYtLink::parseRoute)
     val root = File(defaultDatabasePath()).parentFile
     val instance = runCatching { DesktopInstance.acquire(root, gui = !cli) }.getOrNull()
     if (instance == null) {
-        if (!cli && DesktopInstance.forward(root, initialUrl)) return
+        if (!cli && DesktopInstance.forwardRoute(root, initialRoute)) return
         val text = if (java.util.Locale.getDefault().language == "pt")
             "Não foi possível acessar os dados do OpenYT. Feche outra instância ou verifique o armazenamento."
         else "Could not access OpenYT data. Close another instance or check storage."
@@ -82,10 +104,29 @@ fun main(args: Array<String>) {
         val result = instance.use { DesktopCli.run(args.drop(1)) }
         exitProcess(result)
     }
-    instance.use { launchApp(initialUrl, it) }
+    val deepLinksCheck = kotlinx.coroutines.CompletableDeferred<Boolean>()
+    Thread({
+        val supported = runCatching {
+            val registered = DesktopDeepLinks.register()
+            if (!registered) {
+                System.err.println(
+                    "OpenYT: DesktopDeepLinks.register() returned false (jpackage.app-path=${System.getProperty("jpackage.app-path")})",
+                )
+            }
+            DesktopDeepLinks.isEntryLinkDispatchSupported()
+        }.onFailure { err ->
+            System.err.println("OpenYT: DesktopDeepLinks registration failed: ${err::class.simpleName}: ${err.message}")
+        }.getOrDefault(false)
+        deepLinksCheck.complete(supported)
+    }, "openyt-deeplinks").apply { isDaemon = true; start() }
+    instance.use { launchApp(initialRoute, it, deepLinksCheck) }
 }
 
-private fun launchApp(initialUrl: String?, instance: DesktopInstance) = application {
+private fun launchApp(
+    initialRoute: OpenYtRoute?,
+    instance: DesktopInstance,
+    deepLinksCheck: kotlinx.coroutines.CompletableDeferred<Boolean>,
+) = application {
     val engine = remember { DesktopYtDlpEngine() }
     val scope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
     val database = remember {
@@ -94,18 +135,80 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
             .getOrNull()
     }
     val repository = remember(database) { database?.let(::SqlDelightDownloadRepository) }
+    val offlineAssetsDirectory = remember {
+        File(defaultDatabasePath()).parentFile.resolve("offline-assets").apply { mkdirs() }
+    }
+    val offlineAssetRepository = remember(database) {
+        database?.let(::SqlDelightOfflineAssetRepository)
+    }
+    val offlineAssetStore = remember(database, offlineAssetRepository) {
+        val offlineRepository = offlineAssetRepository
+        if (database != null && offlineRepository != null) {
+            JvmOfflineAssetStore(
+                assetsDirectory = offlineAssetsDirectory,
+                repository = offlineRepository,
+                operationRepository = SqlDelightAssetOperationRepository(database),
+            )
+        } else {
+            null
+        }
+    }
+    val artworkFetchService = remember(offlineAssetStore, offlineAssetRepository) {
+        val store = offlineAssetStore
+        val offlineRepository = offlineAssetRepository
+        if (store != null && offlineRepository != null) {
+            ArtworkFetchService(
+                operator = store.operator,
+                fetchPort = JvmArtworkFetchPort(),
+                assetRepository = offlineRepository,
+                stagingPort = store.stagingPort,
+            )
+        } else {
+            null
+        }
+    }
+    val subtitleImportService = remember(offlineAssetStore, offlineAssetRepository) {
+        val store = offlineAssetStore
+        val offlineRepository = offlineAssetRepository
+        if (store != null && offlineRepository != null) {
+            SubtitleImportService(
+                operator = store.operator,
+                assetRepository = offlineRepository,
+                stagingPort = store.stagingPort,
+                fileInspector = JvmMediaFileInspector(),
+            )
+        } else {
+            null
+        }
+    }
+    val subtitleIndexRepository = remember(database) {
+        database?.let(::SqlDelightSubtitleIndexRepository)
+    }
+    val timedSearchRepository = remember(database) {
+        database?.let(::SqlDelightTimedSearchRepository)
+    }
+    val timedSearchUseCase = remember(timedSearchRepository) {
+        timedSearchRepository?.let(::TimedSearchUseCase)
+    }
+    val previewsDirectory = remember {
+        File(System.getProperty("java.io.tmpdir"), "openyt-previews").apply { mkdirs() }
+    }
+    val profileRepository = remember(database) {
+        database?.let(::SqlDelightDownloadProfileRepository) ?: MemoryDownloadProfileRepository()
+    }
     val settingsController = remember(database) {
         SettingsController(database?.let(::SqlDelightSettingsRepository), scope)
     }
     val cookieRepository = remember {
         EncryptedCookieRepository(File(defaultDatabasePath()).parentFile.resolve("cookies"))
     }
-    val coordinator = remember(engine) {
+    val coordinator = remember(engine, offlineAssetStore) {
         DownloadCoordinator(
             engine = engine,
             scope = scope,
             repository = repository,
             cookieRepository = cookieRepository,
+            assetStore = offlineAssetStore,
             timeOfDayMinutes = {
                 val now = LocalTime.now()
                 now.hour * 60 + now.minute
@@ -158,10 +261,40 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
     val updateInstaller = remember { DesktopUpdateInstaller() }
     val urlOpener = remember { DesktopUrlOpener() }
     val folderPicker = remember { FolderPicker { current -> DesktopFolderPicker.pick(current) } }
-    var sharedUrl by remember { mutableStateOf(initialUrl) }
+    val studyRepository = remember(database) { database?.let(::SqlDelightStudyRepository) }
+    val studyService = remember(studyRepository) {
+        studyRepository?.let { repo ->
+            StudyService(
+                repository = repo,
+                nowEpochMillis = { System.currentTimeMillis() },
+                nextId = { java.util.UUID.randomUUID().toString() },
+            )
+        }
+    }
+    val studyEditorCoordinator = remember { StudyEditorCoordinator() }
+    val studyCaptureService = remember(studyService, playbackLauncher, playbackStore) {
+        studyService?.let { service ->
+            StudyCaptureAndNavigationService(
+                studyService = service,
+                playbackLauncher = playbackLauncher,
+                playbackStore = playbackStore,
+                entryProvider = { coordinator.library.value },
+                fileAvailability = FileAvailability { File(it).isFile },
+                mediaProbe = mediaProbe,
+                nowEpochMillis = { System.currentTimeMillis() },
+            )
+        }
+    }
+    val studyAbRepeatController = remember(playbackLauncher, scope) {
+        StudyAbRepeatController(playbackLauncher = playbackLauncher, scope = scope)
+    }
+    var entryLinksSupported by remember { mutableStateOf(false) }
+    var sharedUrl by remember { mutableStateOf((initialRoute as? OpenYtRoute.Download)?.url) }
+    var pendingEntryRoute by remember { mutableStateOf(initialRoute as? OpenYtRoute.LibraryEntry) }
+    var focusSignal by remember { mutableStateOf(0) }
 
     LaunchedEffect(coordinator, settingsController, libraryController) {
-        kotlinx.coroutines.withContext(Dispatchers.IO) { DesktopDeepLinks.register() }
+        entryLinksSupported = deepLinksCheck.await()
         coordinator.restore()
         settingsController.restore()
         libraryController.restore()
@@ -172,9 +305,30 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
         )
     }
 
+    LaunchedEffect(instance) {
+        val debugHandoff = System.getenv("OPENYT_DEBUG_HANDOFF") == "1"
+        if (debugHandoff) System.err.println("OpenYT[handoff]: polling started")
+        while (true) {
+            val routes = kotlinx.coroutines.withContext(Dispatchers.IO) { instance.takeRoutes() }
+            if (routes.isNotEmpty()) {
+                if (debugHandoff) System.err.println("OpenYT[handoff]: received ${routes.size} route(s): $routes")
+                routes.forEach { route ->
+                    when (route) {
+                        is OpenYtRoute.Download -> sharedUrl = route.url
+                        is OpenYtRoute.LibraryEntry -> pendingEntryRoute = route
+                        null -> Unit
+                    }
+                }
+                focusSignal++
+            }
+            kotlinx.coroutines.delay(300)
+        }
+    }
+
     Window(
         onCloseRequest = {
             notifier.close()
+            studyAbRepeatController.close()
             playbackLauncher.close()
             engine.close()
             scope.cancel()
@@ -190,6 +344,7 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
                 event.key == Key.Q
             ) {
                 notifier.close()
+                studyAbRepeatController.close()
                 playbackLauncher.close()
                 engine.close()
                 scope.cancel()
@@ -223,24 +378,27 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
             onDispose { window.dropTarget = null }
         }
 
-        LaunchedEffect(instance, window) {
-            while (true) {
-                val links = kotlinx.coroutines.withContext(Dispatchers.IO) { instance.takeLinks() }
-                links.forEach { url ->
-                    if (url != null) sharedUrl = url
-                    window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv()
-                    window.toFront()
-                    window.requestFocus()
-                }
-                kotlinx.coroutines.delay(300)
+        LaunchedEffect(focusSignal, window) {
+            if (focusSignal > 0) {
+                window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv()
+                window.toFront()
+                window.requestFocus()
             }
         }
         DisposableEffect(window) {
             val desktop = runCatching { java.awt.Desktop.getDesktop() }.getOrNull()
             val supported = desktop?.isSupported(java.awt.Desktop.Action.APP_OPEN_URI) == true
             if (supported) desktop?.setOpenURIHandler { event ->
-                OpenYtLink.parse(event.uri.toString())?.let { url ->
-                    SwingUtilities.invokeLater { sharedUrl = url; window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv(); window.toFront(); window.requestFocus() }
+                OpenYtLink.parseRoute(event.uri.toString())?.let { route ->
+                    SwingUtilities.invokeLater {
+                        when (route) {
+                            is OpenYtRoute.Download -> sharedUrl = route.url
+                            is OpenYtRoute.LibraryEntry -> pendingEntryRoute = route
+                        }
+                        window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv()
+                        window.toFront()
+                        window.requestFocus()
+                    }
                 }
             }
             onDispose { if (supported) desktop?.setOpenURIHandler(null) }
@@ -275,7 +433,42 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
             bulkFileService = bulkFileService,
             playbackLauncher = playbackLauncher,
             mediaProcessor = remember { FfmpegMediaProcessor({ ExecutableLocator().findFfmpeg() }) },
-            mediaPreview = remember { EngineMediaPreview(engine, playbackLauncher, File(System.getProperty("java.io.tmpdir"), "openyt-previews").apply { mkdirs() }.absolutePath, { java.util.UUID.randomUUID().toString() }) },
+            mediaPreview = remember { EngineMediaPreview(engine, playbackLauncher, previewsDirectory.absolutePath, { java.util.UUID.randomUUID().toString() }) },
+            profileRepository = profileRepository,
+            offlineAssetStore = offlineAssetStore,
+            offlineAssetRepository = offlineAssetRepository,
+            offlineAssetInspector = remember { JvmMediaFileInspector() },
+            subtitlePicker = remember {
+                object : com.openyt.core.application.SubtitlePicker {
+                    override val canPick: Boolean = true
+                    override fun pickSubtitle(onPicked: (com.openyt.core.application.PickedSubtitle?) -> Unit) {
+                        onPicked(DesktopSubtitlePicker.pick())
+                    }
+                }
+            },
+            subtitleImportService = subtitleImportService,
+            artworkFetchService = artworkFetchService,
+            renderingCacheBytes = { previewsDirectory.directorySize() },
+            timedSearchUseCase = timedSearchUseCase,
+            subtitleIndexRepository = subtitleIndexRepository,
+            studyService = studyService,
+            studyCaptureService = studyCaptureService,
+            studyEditorCoordinator = studyEditorCoordinator,
+            studyAbRepeatController = studyAbRepeatController,
+            studyExporter = DesktopTextFileExporter,
+            hostLinkCapability = StudyHostLinkCapability(
+                supportsClickableEntryLinks = entryLinksSupported,
+                hostLabel = "desktop",
+            ),
+            initialEntryRoute = pendingEntryRoute,
+            onEntryRouteConsumed = { pendingEntryRoute = null },
         )
     }
 }
+
+private fun File.directorySize(): Long =
+    if (isDirectory) {
+        listFiles()?.sumOf { it.directorySize() } ?: 0L
+    } else {
+        length()
+    }

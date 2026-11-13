@@ -1,0 +1,34 @@
+package com.openyt.core.application
+
+import com.openyt.core.domain.CompanionArtifactReceipt
+import com.openyt.core.domain.MediaRevision
+import com.openyt.core.domain.OfflineAsset
+
+/**
+ * Port for copying and managing confirmed engine companion artifacts in owned application storage.
+ */
+interface OfflineAssetStore {
+    /**
+     * Stores a validated companion artifact in application storage using a generated ID,
+     * computes its SHA-256 digest, and persists the [OfflineAsset] record.
+     */
+    suspend fun storeConfirmedArtifact(
+        entryId: String,
+        receipt: CompanionArtifactReceipt,
+        mediaRevision: MediaRevision,
+        allowedRoots: List<String>,
+    ): Result<OfflineAsset>
+
+    suspend fun getAssetsForEntry(entryId: String): List<OfflineAsset>
+
+    /**
+     * Resolves the absolute host path for a stored asset given its [relativeLocator].
+     */
+    fun resolveAssetPath(relativeLocator: String): String
+
+    /**
+     * Deletes the owned file backing [asset]. Never touches original user media.
+     * Returns true when the owned file is gone after the call.
+     */
+    suspend fun deleteOwnedAsset(asset: OfflineAsset): Boolean
+}

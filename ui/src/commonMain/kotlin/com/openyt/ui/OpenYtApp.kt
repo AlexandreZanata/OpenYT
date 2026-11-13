@@ -52,6 +52,7 @@ import com.openyt.core.application.BulkFileService
 import com.openyt.core.application.CookieRepository
 import com.openyt.core.application.DiagnosticsProvider
 import com.openyt.core.application.DownloadCoordinator
+import com.openyt.core.application.DownloadProfileRepository
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderImportService
 import com.openyt.core.application.FolderPicker
@@ -123,6 +124,25 @@ fun OpenYtApp(
     mediaProcessor: MediaProcessor? = null,
     mediaPreview: MediaPreview? = null,
     subscriptions: SubscriptionController? = null,
+    profileRepository: DownloadProfileRepository? = null,
+    offlineAssetStore: com.openyt.core.application.OfflineAssetStore? = null,
+    offlineAssetRepository: com.openyt.core.application.OfflineAssetRepository? = null,
+    offlineAssetInspector: com.openyt.core.application.MediaFileInspector? = null,
+    subtitlePicker: com.openyt.core.application.SubtitlePicker? = null,
+    subtitleImportService: com.openyt.core.application.SubtitleImportService? = null,
+    artworkFetchService: com.openyt.core.application.ArtworkFetchService? = null,
+    renderingCacheBytes: () -> Long = { 0L },
+    timedSearchUseCase: com.openyt.core.application.TimedSearchUseCase? = null,
+    subtitleIndexRepository: com.openyt.core.application.SubtitleIndexRepository? = null,
+    studyService: com.openyt.core.application.StudyService? = null,
+    studyCaptureService: com.openyt.core.application.StudyCaptureAndNavigationService? = null,
+    studyEditorCoordinator: com.openyt.core.application.StudyEditorCoordinator? = null,
+    studyAbRepeatController: com.openyt.core.application.StudyAbRepeatController? = null,
+    studyExporter: com.openyt.core.application.TextFileExporter? = null,
+    hostLinkCapability: com.openyt.core.application.StudyHostLinkCapability =
+        com.openyt.core.application.StudyHostLinkCapability(supportsClickableEntryLinks = false),
+    initialEntryRoute: com.openyt.core.application.OpenYtRoute.LibraryEntry? = null,
+    onEntryRouteConsumed: () -> Unit = {},
 ) {
     val ready by coordinator.ready.collectAsState()
     val settings by settingsController.settings.collectAsState()
@@ -213,6 +233,15 @@ fun OpenYtApp(
                     subscriptions = subscriptions,
                     isAppActive = isAppActive,
                     toolUpdater = toolUpdater,
+                    profileRepository = profileRepository,
+                    systemLanguageTag = systemLanguageTag,
+                    offlineAssetStore = offlineAssetStore,
+                    offlineAssetRepository = offlineAssetRepository,
+                    offlineAssetInspector = offlineAssetInspector,
+                    subtitlePicker = subtitlePicker,
+                    subtitleImportService = subtitleImportService,
+                    artworkFetchService = artworkFetchService,
+                    renderingCacheBytes = renderingCacheBytes,
                 )
             }
         }
@@ -255,6 +284,26 @@ private fun AppShell(
     subscriptions: SubscriptionController?,
     isAppActive: Boolean,
     toolUpdater: com.openyt.core.application.ToolUpdater?,
+    profileRepository: DownloadProfileRepository? = null,
+    systemLanguageTag: String = "en",
+    offlineAssetStore: com.openyt.core.application.OfflineAssetStore? = null,
+    offlineAssetRepository: com.openyt.core.application.OfflineAssetRepository? = null,
+    offlineAssetInspector: com.openyt.core.application.MediaFileInspector? = null,
+    subtitlePicker: com.openyt.core.application.SubtitlePicker? = null,
+    subtitleImportService: com.openyt.core.application.SubtitleImportService? = null,
+    artworkFetchService: com.openyt.core.application.ArtworkFetchService? = null,
+    renderingCacheBytes: () -> Long = { 0L },
+    timedSearchUseCase: com.openyt.core.application.TimedSearchUseCase? = null,
+    subtitleIndexRepository: com.openyt.core.application.SubtitleIndexRepository? = null,
+    studyService: com.openyt.core.application.StudyService? = null,
+    studyCaptureService: com.openyt.core.application.StudyCaptureAndNavigationService? = null,
+    studyEditorCoordinator: com.openyt.core.application.StudyEditorCoordinator? = null,
+    studyAbRepeatController: com.openyt.core.application.StudyAbRepeatController? = null,
+    studyExporter: com.openyt.core.application.TextFileExporter? = null,
+    hostLinkCapability: com.openyt.core.application.StudyHostLinkCapability =
+        com.openyt.core.application.StudyHostLinkCapability(supportsClickableEntryLinks = false),
+    initialEntryRoute: com.openyt.core.application.OpenYtRoute.LibraryEntry? = null,
+    onEntryRouteConsumed: () -> Unit = {},
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -274,6 +323,9 @@ private fun AppShell(
 
     LaunchedEffect(initialSharedUrl) {
         if (!initialSharedUrl.isNullOrBlank()) selected = 0
+    }
+    LaunchedEffect(initialEntryRoute) {
+        if (initialEntryRoute != null) selected = 2
     }
 
     BoxWithConstraints(
@@ -334,6 +386,8 @@ private fun AppShell(
                         onSharedUrlConsumed = { clipboardUrl = null; onSharedUrlConsumed() },
                         showBrand = !wide,
                         mediaPreview = mediaPreview,
+                        profileRepository = profileRepository,
+                        systemLanguageTag = systemLanguageTag,
                     )
 
                     1 -> DownloadsScreen(
@@ -356,6 +410,23 @@ private fun AppShell(
                         bulkFileService = bulkFileService,
                         playbackLauncher = playbackLauncher,
                         mediaProcessor = mediaProcessor,
+                        offlineAssetStore = offlineAssetStore,
+                        offlineAssetRepository = offlineAssetRepository,
+                        offlineAssetInspector = offlineAssetInspector,
+                        subtitlePicker = subtitlePicker,
+                        subtitleImportService = subtitleImportService,
+                        artworkFetchService = artworkFetchService,
+                        renderingCacheBytes = renderingCacheBytes,
+                        timedSearchUseCase = timedSearchUseCase,
+                        subtitleIndexRepository = subtitleIndexRepository,
+                        studyService = studyService,
+                        studyCaptureService = studyCaptureService,
+                        studyEditorCoordinator = studyEditorCoordinator,
+                        studyAbRepeatController = studyAbRepeatController,
+                        studyExporter = studyExporter,
+                        hostLinkCapability = hostLinkCapability,
+                        pendingEntryRoute = initialEntryRoute,
+                        onEntryRouteConsumed = onEntryRouteConsumed,
                     )
                     else -> SettingsScreen(
                         toolUpdater = toolUpdater,
@@ -372,6 +443,7 @@ private fun AppShell(
                         folderPicker = folderPicker,
                         cookieRepository = cookieRepository,
                         subscriptions = subscriptions,
+                        profileRepository = profileRepository,
                     )
                 }
                 }

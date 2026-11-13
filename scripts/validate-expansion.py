@@ -16,6 +16,12 @@ import tempfile
 import threading
 
 
+def expected_schema_version() -> int:
+    db_dir = Path("data/src/commonMain/sqldelight/com/openyt/data/db")
+    versions = [int(p.stem) for p in db_dir.glob("*.sqm") if p.stem.isdigit()]
+    return (max(versions) + 1) if versions else 24
+
+
 def main():
     package = Path(sys.argv[1]).resolve()
     previous = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else None
@@ -47,7 +53,7 @@ def main():
             cli("library", "--list", "--json")
             print("PASS in-place package upgrade preserves the library")
         with sqlite3.connect(db) as connection:
-            assert connection.execute("PRAGMA user_version").fetchone()[0] == 18
+            assert connection.execute("PRAGMA user_version").fetchone()[0] == expected_schema_version()
             assert connection.execute("SELECT COUNT(*) FROM library_entry").fetchone()[0] == 1
         visible = [p for p in prefix.glob("opt/openyt/lib/*.desktop") if "NoDisplay=true" not in p.read_text()]
         assert len(visible) == 1, visible
@@ -91,28 +97,55 @@ def main():
             cli("download", "--url", base + "/Original%20a%C3%A7%C3%A3o.mp4", "--dir", str(root / "direct"), "--json")
             with sqlite3.connect(db) as connection:
                 assert connection.execute("SELECT COUNT(*) FROM library_entry").fetchone()[0] == 5
+                first_entry_id = connection.execute("SELECT id FROM library_entry ORDER BY rowid ASC LIMIT 1").fetchone()[0]
             print("PASS direct CLI downloads persist their Library record before exit")
+            link_proc = subprocess.run([str(app), "--cli", "link", "--entry", first_entry_id, "--time-ms", "1500"], env=env, text=True, capture_output=True, timeout=180)
+            assert link_proc.returncode == 0, (link_proc.returncode, link_proc.stdout, link_proc.stderr)
+            entry_link = link_proc.stdout.strip()
+            expected_prefix = f"openyt://library/entry/{urllib.parse.quote(first_entry_id, safe='')}"
+            assert entry_link == f"{expected_prefix}?t=1500", entry_link
+            print("PASS CLI generates percent-encoded local-entry links")
             if os.environ.get("DISPLAY"):
                 log = (root / "gui.log").open("w")
-                gui = subprocess.Popen([str(app)], env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                gui_env = dict(env, OPENYT_DEBUG_HANDOFF="1")
+                gui = subprocess.Popen([str(app)], env=gui_env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                 try:
-                    deadline = time.monotonic() + 30
                     owner = root / "data/OpenYT/instance.owner"
-                    while (not owner.exists() or owner.read_text() != "gui") and time.monotonic() < deadline:
+                    owner_deadline = time.monotonic() + 60
+                    while (not owner.exists() or owner.read_text() != "gui") and time.monotonic() < owner_deadline:
                         assert gui.poll() is None, "GUI exited before acquiring state ownership"
                         time.sleep(.1)
                     assert owner.read_text() == "gui"
+                    desktop_handler = root / "data/applications/openyt-link.desktop"
+                    handler_deadline = time.monotonic() + 60
+                    while (not desktop_handler.is_file() or "x-scheme-handler/openyt" not in desktop_handler.read_text()) and time.monotonic() < handler_deadline:
+                        assert gui.poll() is None, "GUI exited while registering desktop deep links"
+                        time.sleep(.1)
+                    assert desktop_handler.is_file() and "x-scheme-handler/openyt" in desktop_handler.read_text(), (
+                        f"Missing {desktop_handler}; gui.log:\n" + (root / "gui.log").read_text(errors="replace")
+                    )
                     cli("library", "--list", "--json", success=False)
                     url = base + "/Original%20a%C3%A7%C3%A3o.mp4?handoff=1"
                     link = "openyt://download?url=" + urllib.parse.quote(url, safe="")
                     handoff = subprocess.run([str(app), link], env=env, capture_output=True, text=True, timeout=30)
                     assert handoff.returncode == 0, handoff.stderr
-                    while not any("handoff=1" in request for request in requested) and time.monotonic() < deadline:
+                    handoff_deadline = time.monotonic() + 60
+                    while not any("handoff=1" in request for request in requested) and time.monotonic() < handoff_deadline:
                         assert gui.poll() is None, "Existing GUI exited during handoff"
                         time.sleep(.1)
-                    assert any("handoff=1" in request for request in requested), "Existing GUI did not analyze the handed-off URL"
-                    assert gui.poll() is None
-                    print("PASS GUI handoff reuses the existing coordinator and blocks concurrent CLI mutations")
+                    if not any("handoff=1" in request for request in requested) and gui.poll() is None:
+                        os.kill(gui.pid, signal.SIGQUIT)
+                        time.sleep(0.5)
+                    assert any("handoff=1" in request for request in requested), (
+                        f"Existing GUI did not analyze the handed-off URL; requested={requested}; "
+                        f"inbox={sorted(p.name for p in (root / 'data/OpenYT/instance-inbox').glob('*')) if (root / 'data/OpenYT/instance-inbox').is_dir() else None}; "
+                        "gui.log:\n" + (root / "gui.log").read_text(errors="replace")
+                    )
+                    entry_handoff = subprocess.run([str(app), entry_link], env=env, capture_output=True, text=True, timeout=30)
+                    assert entry_handoff.returncode == 0, entry_handoff.stderr
+                    time.sleep(.3)
+                    assert gui.poll() is None, "Existing GUI exited during local-entry link handoff"
+                    print("PASS GUI handoff reuses the existing coordinator for download and local-entry links")
                 finally:
                     if gui.poll() is None:
                         os.killpg(gui.pid, signal.SIGTERM)

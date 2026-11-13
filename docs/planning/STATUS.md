@@ -1,6 +1,15 @@
 # Project status
 
-Updated: 2026-11-11
+Updated: 2026-11-12
+
+## Next expansion: planning only
+
+The [personal media library execution plan](NEXT_EXPANSION/README.md) specifies
+download profiles, durable offline assets, timed search, study tools, portable
+backup, recovery, richer subscription rules and batch clips. Background scheduling
+and local transcription have separate feasibility gates. All new implementation
+tasks are pending in the [execution tracker](NEXT_EXPANSION/PROGRESS.md); preparing
+this plan does not change the current delivery or authorize a release.
 
 ## Current delivery: 4.0.1
 

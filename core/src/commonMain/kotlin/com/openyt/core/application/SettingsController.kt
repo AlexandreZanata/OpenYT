@@ -80,4 +80,7 @@ class SettingsController(
             ),
         )
     }
+
+    fun setDefaultProfileId(id: String?) =
+        update(_settings.value.copy(defaultProfileId = id?.takeIf { it.isNotBlank() }))
 }

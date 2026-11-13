@@ -5,12 +5,27 @@ import com.openyt.core.domain.MediaKind
 
 /** Argument values are owned here and reach platform processes as separate list entries. */
 object YtDlpDownloadOptions {
+    private val SAFE_CONTAINERS = setOf("mp4", "mkv", "webm", "avi", "flv", "mov")
+    private val SAFE_AUDIO_CONTAINERS = setOf("m4a", "mp3", "opus", "flac", "wav", "ogg")
+
     fun arguments(request: DownloadRequest): List<String> = buildList {
         when (request.kind) {
             MediaKind.AUDIO -> {
-                addAll(listOf("-f", request.formatId ?: "bestaudio/best", "-x", "--audio-format", request.options.audioPreset.extension))
+                val targetExt = request.options.profileProvenance?.resolvedContainer
+                    ?.lowercase()
+                    ?.takeIf { SAFE_AUDIO_CONTAINERS.contains(it) }
+                    ?: request.options.audioPreset.extension
+                addAll(listOf("-f", request.formatId ?: "bestaudio/best", "-x", "--audio-format", targetExt))
             }
-            MediaKind.VIDEO -> addAll(listOf("-f", request.formatId ?: "bv*+ba/b"))
+            MediaKind.VIDEO -> {
+                addAll(listOf("-f", request.formatId ?: "bv*+ba/b"))
+                val targetContainer = request.options.profileProvenance?.resolvedContainer
+                    ?.lowercase()
+                    ?.takeIf { SAFE_CONTAINERS.contains(it) }
+                if (targetContainer != null) {
+                    addAll(listOf("--merge-output-format", targetContainer, "--remux-video", targetContainer))
+                }
+            }
             MediaKind.SUBTITLE -> add("--skip-download")
         }
         val subtitle = request.options.subtitle

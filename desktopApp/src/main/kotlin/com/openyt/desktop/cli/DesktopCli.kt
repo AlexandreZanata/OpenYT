@@ -13,6 +13,7 @@ import com.openyt.core.application.LibraryQuery
 import com.openyt.core.application.OrganizationPlanner
 import com.openyt.core.application.PlayableMedia
 import com.openyt.core.application.PlaybackQueue
+import com.openyt.core.application.OpenYtEntryLink
 import com.openyt.core.application.OpenYtLink
 import com.openyt.core.application.MediaProcessingRequest
 import com.openyt.core.application.MediaOperation
@@ -103,7 +104,18 @@ object DesktopCli {
                         if (success) 0 else 1
                     }
                     "sources" -> sources(args)
-                    "link" -> { println(OpenYtLink.create(args.required("url")) ?: throw CliException("invalid URL")); 0 }
+                    "link" -> {
+                        val entryId = args.value("entry")
+                        if (entryId != null) {
+                            val timeMs = args.value("time-ms")?.let {
+                                it.toLongOrNull() ?: throw CliException("invalid --time-ms value")
+                            }
+                            println(OpenYtEntryLink.create(entryId, timeMs) ?: throw CliException("invalid entry link arguments"))
+                        } else {
+                            println(OpenYtLink.create(args.required("url")) ?: throw CliException("invalid URL"))
+                        }
+                        0
+                    }
                     "media" -> processMedia(args)
                     "watch" -> watch(args)
                     else -> usage()
@@ -991,6 +1003,7 @@ object DesktopCli {
               main --cli playback --queue-check [--json]
               main --cli sources [--json]
               main --cli link --url <url>
+              main --cli link --entry <id> [--time-ms <ms>]
               main --cli media --path <path> --operation trim|audio [--start <seconds> --end <seconds>]
                                [--audio-preset m4a|mp3|opus|flac|wav] [--normalize]
               main --cli watch --add --name <name> --url <url> --kind feed|playlist [--minutes 60] [--include-existing]

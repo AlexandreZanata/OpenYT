@@ -1,22 +1,61 @@
 package com.openyt.desktop.contract
 
+import com.openyt.core.application.FileAvailability
+import com.openyt.core.application.OpenYtEntryLink
+import com.openyt.core.application.OpenYtLink
+import com.openyt.core.application.OpenYtRoute
 import com.openyt.core.application.PlayableMedia
+import com.openyt.core.application.PlaybackCheckpoint
+import com.openyt.core.application.PlaybackSessionListener
+import com.openyt.core.application.PlaybackSessionState
+import com.openyt.core.application.StudyAbRepeatController
+import com.openyt.core.application.StudyCaptureAndNavigationService
+import com.openyt.core.application.StudyExportOptions
+import com.openyt.core.application.StudyHostLinkCapability
+import com.openyt.core.application.StudyMarkdownExporter
+import com.openyt.core.application.StudyService
+import com.openyt.core.domain.AbRepeatResult
+import com.openyt.core.domain.AbRepeatStatus
+import com.openyt.core.domain.AppLanguage
+import com.openyt.core.domain.Collection
+import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaKind
+import com.openyt.core.domain.MediaRevision
+import com.openyt.core.domain.SavedStudyRange
 import com.openyt.core.domain.ShareableMedia
+import com.openyt.core.domain.StudyCaptureResult
+import com.openyt.core.domain.StudyNavigationResult
+import com.openyt.core.domain.StudyNote
+import com.openyt.core.domain.StudyResult
+import com.openyt.data.SqlDelightDownloadRepository
+import com.openyt.data.SqlDelightPlaybackStore
+import com.openyt.data.SqlDelightStudyRepository
+import com.openyt.data.createOpenYtDatabase
+import com.openyt.desktop.DesktopDeepLinks
 import com.openyt.desktop.downloader.ExecutableLocator
 import com.openyt.desktop.player.DesktopPlaybackLauncher
 import com.openyt.desktop.player.DesktopVlcRuntime
 import com.openyt.desktop.share.DesktopMediaActions
+import com.openyt.ui.i18n.EnStrings
 import com.sun.jna.NativeLibrary
 import java.awt.Frame
 import java.awt.Robot
 import java.awt.Rectangle
 import java.awt.image.BufferedImage
 import java.io.File
+import java.security.MessageDigest
+import java.util.concurrent.CopyOnWriteArrayList
 import javax.imageio.ImageIO
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
+import kotlin.math.abs
 import kotlin.system.exitProcess
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import uk.co.caprica.vlcj.binding.lib.LibVlc
 import uk.co.caprica.vlcj.player.component.EmbeddedMediaPlayerComponent
 
@@ -30,6 +69,7 @@ object WindowsContractHarness {
                 "open" -> check(DesktopMediaActions().open(ShareableMedia(file.path, "Regression", MediaKind.VIDEO)))
                 "reveal" -> check(DesktopMediaActions().reveal(ShareableMedia(file.path, "Regression", MediaKind.VIDEO)))
                 "play" -> play(file)
+                "study" -> study(file)
                 else -> error("Unknown contract")
             }
             println("PASS ${args[0]} with the installed application runtime")
@@ -110,5 +150,245 @@ object WindowsContractHarness {
         }
         // Explorer icons or the blue Windows wallpaper must not count as video.
         return samples > 0 && minOf(red, green, blue) > samples * 0.03
+    }
+
+    private fun study(file: File) = runBlocking<Unit> {
+        val studyDir = File(file.parentFile, "study-contract").apply { mkdirs() }
+        val dbFile = File(studyDir, "windows-study.db").apply { if (exists()) delete() }
+        if (!file.isFile || file.length() == 0L) {
+            val process = ProcessBuilder(
+                checkNotNull(ExecutableLocator().findFfmpeg()),
+                "-v", "error", "-f", "lavfi", "-i", "testsrc=duration=16:size=320x180:rate=25",
+                "-f", "lavfi", "-i", "sine=frequency=440:duration=16",
+                "-g", "5", "-keyint_min", "5", "-sc_threshold", "0",
+                "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-shortest", "-y", file.absolutePath,
+            ).redirectErrorStream(true).start()
+            val out = process.inputStream.bufferedReader().readText()
+            check(process.waitFor() == 0) { out }
+        }
+        val initialHash = sha256Hex(file)
+        val installedAppExe = System.getProperty("jpackage.app-path")
+            ?.let { File(it).parentFile?.resolve("OpenYT.exe") }
+            ?.takeIf { it.isFile }
+            ?: file
+
+        val scope1 = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val scope2 = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val db1 = createOpenYtDatabase(dbFile.absolutePath)
+        val downloadRepo1 = SqlDelightDownloadRepository(db1)
+        val playbackStore1 = SqlDelightPlaybackStore(db1)
+        val studyRepo1 = SqlDelightStudyRepository(db1)
+        val launcher1 = DesktopPlaybackLauncher(playbackStore1, { EnStrings }, scope1)
+        check(launcher1.isVlcAvailable()) { "Bundled VLC unavailable for Windows study contract" }
+        val ab1 = StudyAbRepeatController(launcher1, scope1)
+        var launcher2: DesktopPlaybackLauncher? = null
+        var ab2: StudyAbRepeatController? = null
+        var clock = 1_700_000_100_000L
+        var seq = 0
+        val studyService1 = StudyService(studyRepo1, nowEpochMillis = { ++clock }, nextId = { "win-study-${++seq}" })
+
+        val entry = LibraryEntry(
+            id = "win-study & item 01",
+            title = "Windows <Study> #1",
+            kind = MediaKind.VIDEO,
+            filePath = file.absolutePath,
+            sizeBytes = file.length(),
+            mediaRevision = MediaRevision(file.length(), file.lastModified(), initialHash),
+        )
+        try {
+            downloadRepo1.insertLibraryEntry(entry)
+            downloadRepo1.insertCollection(Collection("win-col", "Windows M2"))
+            downloadRepo1.addEntryToCollection("win-col", entry.id)
+            val nav1 = StudyCaptureAndNavigationService(
+                studyService = studyService1,
+                playbackLauncher = launcher1,
+                playbackStore = playbackStore1,
+                entryProvider = { downloadRepo1.loadLibrary() },
+                fileAvailability = FileAvailability { File(it).isFile },
+                nowEpochMillis = { ++clock },
+            )
+
+            val media = PlayableMedia(entry.filePath, entry.title, entry.kind, entry.id)
+            check(launcher1.openAt(listOf(media), 0, startPositionMillis = 3_000L)) { "Failed to open media at 3000ms" }
+            var ready = false
+            repeat(150) {
+                val s = launcher1.captureSnapshot()
+                if (s != null && s.state == PlaybackSessionState.PLAYING && (s.knownDurationMillis ?: 0L) >= 14_000L) {
+                    ready = true
+                    return@repeat
+                }
+                delay(100)
+            }
+            check(ready) { "Windows VLC player did not become ready with known duration" }
+
+            val captured = nav1.captureAndCreateNote("Windows note [safe] & <tag>", expectedEntryId = entry.id)
+            check(captured is StudyCaptureResult.Success<StudyNote>) { "Note capture failed: $captured" }
+            val note = captured.value
+
+            val savedRange = (studyService1.saveRange(entry.id, 2_000L, 4_000L, "Win loop", 60_000L)
+                as StudyResult.Success<SavedStudyRange>).value
+
+            val positions = CopyOnWriteArrayList<Pair<Int, Long>>()
+            val unreg = launcher1.registerSessionListener(PlaybackSessionListener { s ->
+                if (s != null && s.state == PlaybackSessionState.PLAYING) {
+                    positions += ab1.state.value.loopCount to s.positionMillis
+                }
+            })
+            check(ab1.activateSavedRange(savedRange, startImmediately = true) is AbRepeatResult.Success)
+            val deadline = System.currentTimeMillis() + 35_000L
+            var checkedMini = false
+            while (ab1.state.value.loopCount < 5 && System.currentTimeMillis() < deadline) {
+                if (ab1.state.value.loopCount >= 1 && !checkedMini) {
+                    checkedMini = true
+                    launcher1.toggleMiniPlayer()
+                    var win: JFrame? = null
+                    SwingUtilities.invokeAndWait {
+                        win = Frame.getFrames().filterIsInstance<JFrame>()
+                            .firstOrNull { it.title.startsWith("OpenYT") && it.isVisible }
+                    }
+                    check(win != null && win!!.isAlwaysOnTop && win!!.width == 420) {
+                        "Mini-player invariant failed during A/B loop"
+                    }
+                }
+                delay(80)
+            }
+            check(ab1.state.value.loopCount >= 5) { "Expected >= 5 Windows A/B loops, got ${ab1.state.value.loopCount}" }
+            repeat(25) {
+                if (positions.any { it.first == 5 && it.second < 3_000L }) return@repeat
+                delay(100)
+            }
+            var maxOvershoot = 0L
+            var maxReturnDelta = 0L
+            for (loopNum in 0..4) {
+                val loopPositions = positions.filter { it.first == loopNum }.map { it.second }
+                val over = ((loopPositions.maxOrNull() ?: 4_000L) - 4_000L).coerceAtLeast(0L)
+                maxOvershoot = maxOf(maxOvershoot, over)
+                check(over <= 1_000L) { "Windows loop $loopNum overshot by ${over}ms" }
+            }
+            for (loopNum in 1..5) {
+                val loopPositions = positions.filter { it.first == loopNum }.map { it.second }
+                check(loopPositions.isNotEmpty()) { "Missing Windows telemetry for loop $loopNum" }
+                val delta = abs(loopPositions.minOrNull()!! - 2_000L)
+                maxReturnDelta = maxOf(maxReturnDelta, delta)
+                check(delta <= 1_000L) { "Windows loop $loopNum returned off target by ${delta}ms" }
+            }
+            println("NX-T06 Windows VLCJ 5-loop maxOvershootMs=$maxOvershoot maxReturnDeltaMs=$maxReturnDelta")
+            unreg()
+            launcher1.stop()
+            delay(200)
+            check(launcher1.state == PlaybackSessionState.IDLE && ab1.state.value.status == AbRepeatStatus.INACTIVE)
+
+            check(studyService1.setEntryStudied(entry.id, true) is StudyResult.Success)
+            playbackStore1.savePosition(
+                entry.filePath,
+                PlaybackCheckpoint(positionMillis = 59_000L, durationMillis = 60_000L, entryId = entry.id),
+                entry.id,
+            )
+            check(playbackStore1.position(entry.filePath, entry.id)?.resumeMillis == 0L)
+            ab1.close()
+            launcher1.close()
+
+            // Reopen database & playback on Windows cleanly
+            val db2 = createOpenYtDatabase(dbFile.absolutePath)
+            val downloadRepo2 = SqlDelightDownloadRepository(db2)
+            val playbackStore2 = SqlDelightPlaybackStore(db2)
+            val studyService2 = StudyService(SqlDelightStudyRepository(db2), nowEpochMillis = { ++clock })
+            launcher2 = DesktopPlaybackLauncher(playbackStore2, { EnStrings }, scope2)
+            ab2 = StudyAbRepeatController(launcher2, scope2)
+            val nav2 = StudyCaptureAndNavigationService(
+                studyService = studyService2,
+                playbackLauncher = launcher2,
+                playbackStore = playbackStore2,
+                entryProvider = { downloadRepo2.loadLibrary() },
+                fileAvailability = FileAvailability { File(it).isFile },
+                nowEpochMillis = { ++clock },
+            )
+            delay(200)
+            check(launcher2.state == PlaybackSessionState.IDLE && ab2.state.value.status == AbRepeatStatus.INACTIVE) {
+                "Windows reopen must never auto-play or auto-loop"
+            }
+            val reopenedBundle = studyService2.loadEntryStudyBundle(entry.id)
+            check(reopenedBundle.studyState.isStudied && reopenedBundle.notes.size == 1 && reopenedBundle.savedRanges.size == 1)
+            check(studyService2.collectionProgress("win-col")?.studiedCount == 1)
+            check(nav2.openNoteTimestamp(note.id) is StudyNavigationResult.Opened)
+
+            var seekMatched = false
+            repeat(80) {
+                val s = launcher2.captureSnapshot()
+                if (s != null && (s.state == PlaybackSessionState.PLAYING || s.state == PlaybackSessionState.PAUSED) &&
+                    abs(s.positionMillis - note.timestampMillis) <= 1_000L
+                ) {
+                    seekMatched = true
+                    return@repeat
+                }
+                delay(100)
+            }
+            check(seekMatched) { "Windows reopened note seek missed saved timestamp ${note.timestampMillis}" }
+
+            // Protocol registration + Markdown export + link dispatch check
+            val registered = DesktopDeepLinks.register(launcher = installedAppExe.absolutePath)
+            val linkSupported = DesktopDeepLinks.isEntryLinkDispatchSupported(launcher = installedAppExe.absolutePath)
+            check(registered && linkSupported) {
+                "Windows openyt:// HKCU protocol handler verification failed (registered=$registered, linkSupported=$linkSupported, launcher=${installedAppExe.absolutePath})"
+            }
+            try {
+                val md = StudyMarkdownExporter.exportEntryBundle(
+                    entry = entry,
+                    bundle = reopenedBundle,
+                    options = StudyExportOptions(
+                        includeLocalLinks = true,
+                        language = AppLanguage.EN,
+                    ),
+                    hostCapability = StudyHostLinkCapability(true, "windows"),
+                )
+                check(!md.contains(file.absolutePath) && !md.contains("<tag>"))
+                val exportFile = File(file.parentFile, "windows-study-export.md").apply { writeText(md) }
+                check(exportFile.length() > 0L)
+                val link = OpenYtEntryLink.create(entry.id, note.timestampMillis)!!
+                check(link in md)
+                val parsed = OpenYtLink.parseRoute(link) as OpenYtRoute.LibraryEntry
+                check(parsed.entryId == entry.id && parsed.timestampMillis == note.timestampMillis)
+                launcher2.stop()
+                delay(150)
+                check(nav2.openEntryAtTimestamp(parsed.entryId, parsed.timestampMillis ?: 0L) is StudyNavigationResult.Opened)
+                launcher2.stop()
+                launcher2.close()
+            } finally {
+                runCatching {
+                    ProcessBuilder("reg", "delete", "HKCU\\Software\\Classes\\openyt", "/f")
+                        .redirectErrorStream(true).start().waitFor()
+                }
+            }
+
+            // Original media preservation across removal preview & study delete
+            check(studyService2.previewEntryRemoval(entry.id).requiresConfirmationPrompt)
+            downloadRepo2.deleteLibraryEntry(entry.id)
+            check(studyService2.loadEntryStudyBundle(entry.id).notes.size == 1)
+            studyService2.deleteAllStudyDataForEntry(entry.id)
+            check(file.isFile && sha256Hex(file) == initialHash) {
+                "Original Windows media file must stay unmodified after removal"
+            }
+        } finally {
+            ab1.close()
+            ab2?.close()
+            launcher1.close()
+            launcher2?.close()
+            scope1.cancel()
+            scope2.cancel()
+        }
+    }
+
+    private fun sha256Hex(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buf = ByteArray(8192)
+            while (true) {
+                val read = input.read(buf)
+                if (read <= 0) break
+                digest.update(buf, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 }
