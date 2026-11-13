@@ -58,6 +58,7 @@ import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.i18n.PortableStrings
 import com.openyt.ui.util.formatBytes
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -111,35 +112,53 @@ fun PortableBackupDialog(
         }
     }
 
+    fun launchTracked(
+        onCancel: () -> Unit = {},
+        block: suspend () -> Unit,
+    ) {
+        activeJob?.cancel()
+        lateinit var launched: Job
+        launched = scope.launch(start = CoroutineStart.LAZY) {
+            try {
+                block()
+            } catch (cancel: CancellationException) {
+                onCancel()
+                throw cancel
+            } finally {
+                if (activeJob === launched) {
+                    activeJob = null
+                }
+            }
+        }
+        activeJob = launched
+        launched.start()
+    }
+
     fun startExport(targetLocator: String) {
         if (targetLocator.isBlank()) return
-        activeJob?.cancel()
         exportError = null
         exportReceipt = null
         exportProgress = PortableExportProgress(entriesDone = 0, entriesTotal = 0, bytesProcessed = 0L, totalBytes = 0L)
-        activeJob = scope.launch {
-            val result = try {
-                controller.exportBackup(
-                    archiveLocator = targetLocator.trim(),
-                    options = PortableExportOptions(
-                        includeMediaFiles = includeMediaFiles,
-                        includeOfflineAssets = includeOfflineAssets,
-                        allowPartialMissing = allowPartialMissing,
-                    ),
-                ) { prog ->
-                    exportProgress = prog
-                }
-            } catch (_: CancellationException) {
+        launchTracked(
+            onCancel = {
                 exportProgress = null
                 exportError = pStrings.errorCanceled
-                activeJob = null
-                return@launch
+            },
+        ) {
+            val result = controller.exportBackup(
+                archiveLocator = targetLocator.trim(),
+                options = PortableExportOptions(
+                    includeMediaFiles = includeMediaFiles,
+                    includeOfflineAssets = includeOfflineAssets,
+                    allowPartialMissing = allowPartialMissing,
+                ),
+            ) { prog ->
+                exportProgress = prog
             }
             exportProgress = null
             result
                 .onSuccess { receipt -> exportReceipt = receipt }
                 .onFailure { err -> exportError = mapPortableFailureMessage(err, pStrings) }
-            activeJob = null
         }
     }
 
@@ -147,7 +166,6 @@ fun PortableBackupDialog(
         val trimmed = archivePath.trim()
         if (trimmed.isBlank()) return
         val dest = destinationRoot.trim().ifBlank { controller.defaultDestinationRoot() }
-        activeJob?.cancel()
         restoreError = null
         restoreReceipt = null
         pendingPlan?.let { prev -> scope.launch { controller.discardPlan(prev) } }
@@ -159,31 +177,27 @@ fun PortableBackupDialog(
             bytesProcessed = 0L,
             totalBytes = 0L,
         )
-        activeJob = scope.launch {
-            val result = try {
-                controller.prepareRestorePlan(
-                    archiveLocator = trimmed,
-                    destinationRoot = dest,
-                    options = PortableRestoreOptions(conflictPolicy = conflictPolicy),
-                ) { prog ->
-                    restoreProgress = prog
-                }
-            } catch (_: CancellationException) {
+        launchTracked(
+            onCancel = {
                 restoreProgress = null
                 restoreError = pStrings.errorCanceled
-                activeJob = null
-                return@launch
+            },
+        ) {
+            val result = controller.prepareRestorePlan(
+                archiveLocator = trimmed,
+                destinationRoot = dest,
+                options = PortableRestoreOptions(conflictPolicy = conflictPolicy),
+            ) { prog ->
+                restoreProgress = prog
             }
             restoreProgress = null
             result
                 .onSuccess { plan -> pendingPlan = plan }
                 .onFailure { err -> restoreError = mapPortableFailureMessage(err, pStrings) }
-            activeJob = null
         }
     }
 
     fun startRestoreExecution(plan: PortableRestorePlan) {
-        activeJob?.cancel()
         restoreError = null
         restoreProgress = PortableRestoreProgress(
             phase = pStrings.restoringStatus,
@@ -192,19 +206,17 @@ fun PortableBackupDialog(
             bytesProcessed = 0L,
             totalBytes = plan.requiredDestinationBytes,
         )
-        activeJob = scope.launch {
-            val result = try {
-                controller.executeRestore(
-                    plan = plan,
-                    confirmedArchiveSha256 = plan.archiveSha256,
-                ) { prog ->
-                    restoreProgress = prog
-                }
-            } catch (_: CancellationException) {
+        launchTracked(
+            onCancel = {
                 restoreProgress = null
                 restoreError = pStrings.errorCanceled
-                activeJob = null
-                return@launch
+            },
+        ) {
+            val result = controller.executeRestore(
+                plan = plan,
+                confirmedArchiveSha256 = plan.archiveSha256,
+            ) { prog ->
+                restoreProgress = prog
             }
             restoreProgress = null
             result
@@ -214,7 +226,6 @@ fun PortableBackupDialog(
                     onRestored()
                 }
                 .onFailure { err -> restoreError = mapPortableFailureMessage(err, pStrings) }
-            activeJob = null
         }
     }
 

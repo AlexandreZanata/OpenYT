@@ -146,6 +146,9 @@ fun OpenYtApp(
     portableBackupController: com.openyt.core.application.PortableBackupUiController? = null,
     portableArchivePicker: com.openyt.core.application.PortableArchivePickerPort? = null,
     onPortableRestored: () -> Unit = {},
+    libraryRecoveryController: com.openyt.core.application.LibraryRecoveryUiController? = null,
+    recoveryLocationPicker: com.openyt.core.application.RecoveryLocationPickerPort? = null,
+    onLibraryRecovered: () -> Unit = {},
 ) {
     val ready by coordinator.ready.collectAsState()
     val settings by settingsController.settings.collectAsState()
@@ -248,6 +251,9 @@ fun OpenYtApp(
                     portableBackupController = portableBackupController,
                     portableArchivePicker = portableArchivePicker,
                     onPortableRestored = onPortableRestored,
+                    libraryRecoveryController = libraryRecoveryController,
+                    recoveryLocationPicker = recoveryLocationPicker,
+                    onLibraryRecovered = onLibraryRecovered,
                 )
             }
         }
@@ -313,6 +319,9 @@ private fun AppShell(
     portableBackupController: com.openyt.core.application.PortableBackupUiController? = null,
     portableArchivePicker: com.openyt.core.application.PortableArchivePickerPort? = null,
     onPortableRestored: () -> Unit = {},
+    libraryRecoveryController: com.openyt.core.application.LibraryRecoveryUiController? = null,
+    recoveryLocationPicker: com.openyt.core.application.RecoveryLocationPickerPort? = null,
+    onLibraryRecovered: () -> Unit = {},
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -443,6 +452,15 @@ private fun AppShell(
                                 coordinator.restore()
                                 libraryController.restore()
                                 onPortableRestored()
+                            }
+                        },
+                        libraryRecoveryController = libraryRecoveryController,
+                        recoveryLocationPicker = recoveryLocationPicker,
+                        onLibraryRecovered = {
+                            scope.launch {
+                                coordinator.restore()
+                                libraryController.restore()
+                                onLibraryRecovered()
                             }
                         },
                     )
