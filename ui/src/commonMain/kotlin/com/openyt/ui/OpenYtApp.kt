@@ -143,6 +143,9 @@ fun OpenYtApp(
         com.openyt.core.application.StudyHostLinkCapability(supportsClickableEntryLinks = false),
     initialEntryRoute: com.openyt.core.application.OpenYtRoute.LibraryEntry? = null,
     onEntryRouteConsumed: () -> Unit = {},
+    portableBackupController: com.openyt.core.application.PortableBackupUiController? = null,
+    portableArchivePicker: com.openyt.core.application.PortableArchivePickerPort? = null,
+    onPortableRestored: () -> Unit = {},
 ) {
     val ready by coordinator.ready.collectAsState()
     val settings by settingsController.settings.collectAsState()
@@ -242,6 +245,9 @@ fun OpenYtApp(
                     subtitleImportService = subtitleImportService,
                     artworkFetchService = artworkFetchService,
                     renderingCacheBytes = renderingCacheBytes,
+                    portableBackupController = portableBackupController,
+                    portableArchivePicker = portableArchivePicker,
+                    onPortableRestored = onPortableRestored,
                 )
             }
         }
@@ -304,6 +310,9 @@ private fun AppShell(
         com.openyt.core.application.StudyHostLinkCapability(supportsClickableEntryLinks = false),
     initialEntryRoute: com.openyt.core.application.OpenYtRoute.LibraryEntry? = null,
     onEntryRouteConsumed: () -> Unit = {},
+    portableBackupController: com.openyt.core.application.PortableBackupUiController? = null,
+    portableArchivePicker: com.openyt.core.application.PortableArchivePickerPort? = null,
+    onPortableRestored: () -> Unit = {},
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -427,6 +436,15 @@ private fun AppShell(
                         hostLinkCapability = hostLinkCapability,
                         pendingEntryRoute = initialEntryRoute,
                         onEntryRouteConsumed = onEntryRouteConsumed,
+                        portableBackupController = portableBackupController,
+                        portableArchivePicker = portableArchivePicker,
+                        onPortableRestored = {
+                            scope.launch {
+                                coordinator.restore()
+                                libraryController.restore()
+                                onPortableRestored()
+                            }
+                        },
                     )
                     else -> SettingsScreen(
                         toolUpdater = toolUpdater,
@@ -444,6 +462,16 @@ private fun AppShell(
                         cookieRepository = cookieRepository,
                         subscriptions = subscriptions,
                         profileRepository = profileRepository,
+                        portableBackupController = portableBackupController,
+                        portableArchivePicker = portableArchivePicker,
+                        nowEpochMillis = nowEpochMillis,
+                        onPortableRestored = {
+                            scope.launch {
+                                coordinator.restore()
+                                libraryController.restore()
+                                onPortableRestored()
+                            }
+                        },
                     )
                 }
                 }

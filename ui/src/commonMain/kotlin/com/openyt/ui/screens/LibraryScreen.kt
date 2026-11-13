@@ -90,8 +90,12 @@ import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.MediaTechnicalInfo
 import com.openyt.core.domain.ShareableMedia
 import com.openyt.ui.components.MediaThumbnail
+import com.openyt.ui.components.PortableBackupDialog
+import com.openyt.ui.components.PortableBackupDialogTab
 import com.openyt.ui.components.StorageDialog
 import com.openyt.ui.components.MediaToolsDialog
+import com.openyt.core.application.PortableArchivePickerPort
+import com.openyt.core.application.PortableBackupUiController
 import com.openyt.core.application.MediaProcessor
 import com.openyt.core.application.MediaFileInspector
 import com.openyt.core.application.OfflineAssetMaintenance
@@ -194,6 +198,9 @@ fun LibraryScreen(
     hostLinkCapability: StudyHostLinkCapability = StudyHostLinkCapability(false),
     pendingEntryRoute: OpenYtRoute.LibraryEntry? = null,
     onEntryRouteConsumed: () -> Unit = {},
+    portableBackupController: PortableBackupUiController? = null,
+    portableArchivePicker: PortableArchivePickerPort? = null,
+    onPortableRestored: () -> Unit = {},
 ) {
     val strings = LocalStrings.current
     val playbackScope = rememberCoroutineScope()
@@ -245,6 +252,7 @@ fun LibraryScreen(
     var watchMessage by remember { mutableStateOf<String?>(null) }
     var watching by remember { mutableStateOf(false) }
     var showStorage by remember { mutableStateOf(false) }
+    var portableBackupTab by remember { mutableStateOf<PortableBackupDialogTab?>(null) }
     var storageReport by remember { mutableStateOf<StorageReport?>(null) }
     var storageLoading by remember { mutableStateOf(false) }
     var storageFailed by remember { mutableStateOf(false) }
@@ -562,6 +570,13 @@ fun LibraryScreen(
                     },
                 ) {
                     Text(strings.storagePanel)
+                }
+                if (portableBackupController != null) {
+                    TextButton(
+                        onClick = { portableBackupTab = PortableBackupDialogTab.EXPORT },
+                    ) {
+                        Text(strings.portable.actionTitle)
+                    }
                 }
                 if (mediaImporter?.canImport == true) {
                     TextButton(
@@ -1457,6 +1472,22 @@ fun LibraryScreen(
             },
             onDismiss = { showStorage = false },
             offlineStorage = offlineStorage,
+        )
+    }
+
+    val selectedPortableTab = portableBackupTab
+    if (selectedPortableTab != null && portableBackupController != null) {
+        PortableBackupDialog(
+            controller = portableBackupController,
+            picker = portableArchivePicker,
+            initialTab = selectedPortableTab,
+            nowEpochMillis = nowEpochMillis,
+            onRestored = {
+                offlineRefresh++
+                checkToken++
+                onPortableRestored()
+            },
+            onDismiss = { portableBackupTab = null },
         )
     }
 

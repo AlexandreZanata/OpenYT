@@ -53,6 +53,7 @@ class MainActivity : ComponentActivity() {
         val mediaImporter = AndroidMediaImporter(this, container.downloadsDirectory)
         val urlOpener = AndroidUrlOpener(this)
         val safDestinationPicker = AndroidSafDestinationPicker(this)
+        val portableArchivePicker = com.openyt.android.saf.AndroidPortableArchivePicker(this)
         val subtitlePicker = AndroidSubtitlePicker(this)
         val studyExporter = AndroidTextFileExporter(this)
         setContent {
@@ -122,6 +123,8 @@ class MainActivity : ComponentActivity() {
                 ),
                 initialEntryRoute = entryRoute,
                 onEntryRouteConsumed = { pendingEntryRoute.value = null },
+                portableBackupController = container.portableBackup?.controller,
+                portableArchivePicker = portableArchivePicker,
             )
         }
     }

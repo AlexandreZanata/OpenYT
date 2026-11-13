@@ -233,6 +233,29 @@ private fun launchApp(
     }
     val mediaActions = remember { DesktopMediaActions() }
     val downloadsDirectory = remember { defaultDownloadsDirectory() }
+    val portableBackup = remember(
+        database,
+        offlineAssetStore,
+        subtitleIndexRepository,
+        settingsController,
+        downloadsDirectory,
+    ) {
+        database?.let { db ->
+            com.openyt.data.createPortableBackupRuntime(
+                database = db,
+                stagingRoot = File(defaultDatabasePath()).parentFile.resolve("portable-staging"),
+                ownedAssetsRoot = offlineAssetsDirectory,
+                streamBridge = com.openyt.data.FilePortableStreamBridge(),
+                defaultDestinationRoot = {
+                    settingsController.settings.value.downloadsDirectory ?: downloadsDirectory
+                },
+                offlineAssetStore = offlineAssetStore,
+                subtitleIndexRepository = subtitleIndexRepository,
+                appVersion = BuildInfo.version,
+            )
+        }
+    }
+    val portableArchivePicker = remember { DesktopPortableArchivePicker() }
     val subscriptions = remember(database) {
         database?.let { SubscriptionController(SqlDelightSubscriptions(it), RssFeedReader(), engine, coordinator,
             { settingsController.settings.value.downloadsDirectory ?: downloadsDirectory },
@@ -303,6 +326,7 @@ private fun launchApp(
         cleanStaleTemporaryFiles(
             File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory),
         )
+        portableBackup?.reconcileOnStartup()
     }
 
     LaunchedEffect(instance) {
@@ -462,6 +486,8 @@ private fun launchApp(
             ),
             initialEntryRoute = pendingEntryRoute,
             onEntryRouteConsumed = { pendingEntryRoute = null },
+            portableBackupController = portableBackup?.controller,
+            portableArchivePicker = portableArchivePicker,
         )
     }
 }

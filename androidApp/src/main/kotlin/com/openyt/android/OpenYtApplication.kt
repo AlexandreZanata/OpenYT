@@ -226,6 +226,20 @@ class AppContainer(context: Context) {
     val libraryArchiveService = LibraryArchiveService(repository)
     val folderImportService = FolderImportService(FileFolderScanner(), repository)
     val bulkFileService = BulkFileService(FileBulkFileOperator(), repository)
+    val portableBackup: com.openyt.data.PortableBackupRuntime? = database.getOrNull()?.let { db ->
+        com.openyt.data.createPortableBackupRuntime(
+            database = db,
+            stagingRoot = File(appContext.filesDir, "portable-staging"),
+            ownedAssetsRoot = offlineAssetsDirectory,
+            streamBridge = com.openyt.data.AndroidPortableStreamBridge(appContext),
+            defaultDestinationRoot = {
+                settingsController.settings.value.downloadsDirectory ?: downloadsDirectory
+            },
+            offlineAssetStore = offlineAssetStore,
+            subtitleIndexRepository = subtitleIndexRepository,
+            appVersion = appVersion,
+        )
+    }
 
     init {
         cleanStaleTemporaryFiles(File(downloadsDirectory))
@@ -238,6 +252,7 @@ class AppContainer(context: Context) {
             cleanStaleTemporaryFiles(
                 File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory),
             )
+            portableBackup?.reconcileOnStartup()
         }
     }
 }

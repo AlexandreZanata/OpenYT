@@ -249,6 +249,7 @@ data class AppStrings(
     val offline: OfflineStrings,
     val timedSearch: TimedSearchStrings,
     val study: StudyStrings,
+    val portable: PortableStrings,
 ) {
     val storagePanel: String get() = storage.storagePanel
     val storageTotals: String get() = storage.storageTotals
@@ -681,6 +682,7 @@ val PtBrStrings = AppStrings(
     ),
     timedSearch = PtBrTimedSearchStrings,
     study = PtBrStudyStrings,
+    portable = PtBrPortableStrings,
 )
 
 val EnStrings = AppStrings(
@@ -975,6 +977,7 @@ val EnStrings = AppStrings(
     ),
     timedSearch = EnTimedSearchStrings,
     study = EnStudyStrings,
+    portable = EnPortableStrings,
 )
 
 val LocalStrings = staticCompositionLocalOf { PtBrStrings }
