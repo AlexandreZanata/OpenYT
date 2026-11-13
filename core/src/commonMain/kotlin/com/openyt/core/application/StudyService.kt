@@ -311,6 +311,9 @@ class StudyService(
     suspend fun allCollectionProgress(): Map<String, CollectionStudyProgress> =
         repository.allCollectionProgress()
 
+    suspend fun loadStudiedEntryIds(): Set<String> =
+        repository.loadStudiedEntryIds()
+
     suspend fun previewEntryRemoval(entryId: String): StudyRemovalPreview =
         repository.previewEntryRemoval(entryId)
 

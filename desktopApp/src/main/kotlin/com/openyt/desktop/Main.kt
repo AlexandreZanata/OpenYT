@@ -65,6 +65,13 @@ import com.openyt.desktop.share.DesktopMediaActions
 import com.openyt.ui.OpenYtApp
 import com.openyt.core.application.EngineMediaPreview
 import com.openyt.core.application.OpenYtLink
+import com.openyt.core.application.OpenYtRoute
+import com.openyt.core.application.StudyAbRepeatController
+import com.openyt.core.application.StudyCaptureAndNavigationService
+import com.openyt.core.application.StudyEditorCoordinator
+import com.openyt.core.application.StudyHostLinkCapability
+import com.openyt.core.application.StudyService
+import com.openyt.data.SqlDelightStudyRepository
 import com.openyt.media.ffmpeg.FfmpegMediaProcessor
 import com.openyt.desktop.downloader.ExecutableLocator
 import com.openyt.ui.components.BrandIconPainter
@@ -80,11 +87,11 @@ import kotlinx.coroutines.cancel
 fun main(args: Array<String>) {
     val cli = args.firstOrNull() == "--cli"
     if (cli && args.getOrNull(1) in setOf("version", "link")) exitProcess(DesktopCli.run(args.drop(1)))
-    val initialUrl = if (cli) null else args.firstNotNullOfOrNull(OpenYtLink::parse)
+    val initialRoute = if (cli) null else args.firstNotNullOfOrNull(OpenYtLink::parseRoute)
     val root = File(defaultDatabasePath()).parentFile
     val instance = runCatching { DesktopInstance.acquire(root, gui = !cli) }.getOrNull()
     if (instance == null) {
-        if (!cli && DesktopInstance.forward(root, initialUrl)) return
+        if (!cli && DesktopInstance.forwardRoute(root, initialRoute)) return
         val text = if (java.util.Locale.getDefault().language == "pt")
             "Não foi possível acessar os dados do OpenYT. Feche outra instância ou verifique o armazenamento."
         else "Could not access OpenYT data. Close another instance or check storage."
@@ -96,10 +103,10 @@ fun main(args: Array<String>) {
         val result = instance.use { DesktopCli.run(args.drop(1)) }
         exitProcess(result)
     }
-    instance.use { launchApp(initialUrl, it) }
+    instance.use { launchApp(initialRoute, it) }
 }
 
-private fun launchApp(initialUrl: String?, instance: DesktopInstance) = application {
+private fun launchApp(initialRoute: OpenYtRoute?, instance: DesktopInstance) = application {
     val engine = remember { DesktopYtDlpEngine() }
     val scope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
     val database = remember {
@@ -234,10 +241,42 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
     val updateInstaller = remember { DesktopUpdateInstaller() }
     val urlOpener = remember { DesktopUrlOpener() }
     val folderPicker = remember { FolderPicker { current -> DesktopFolderPicker.pick(current) } }
-    var sharedUrl by remember { mutableStateOf(initialUrl) }
+    val studyRepository = remember(database) { database?.let(::SqlDelightStudyRepository) }
+    val studyService = remember(studyRepository) {
+        studyRepository?.let { repo ->
+            StudyService(
+                repository = repo,
+                nowEpochMillis = { System.currentTimeMillis() },
+                nextId = { java.util.UUID.randomUUID().toString() },
+            )
+        }
+    }
+    val studyEditorCoordinator = remember { StudyEditorCoordinator() }
+    val studyCaptureService = remember(studyService, playbackLauncher, playbackStore) {
+        studyService?.let { service ->
+            StudyCaptureAndNavigationService(
+                studyService = service,
+                playbackLauncher = playbackLauncher,
+                playbackStore = playbackStore,
+                entryProvider = { coordinator.library.value },
+                fileAvailability = FileAvailability { File(it).isFile },
+                mediaProbe = mediaProbe,
+                nowEpochMillis = { System.currentTimeMillis() },
+            )
+        }
+    }
+    val studyAbRepeatController = remember(playbackLauncher, scope) {
+        StudyAbRepeatController(playbackLauncher = playbackLauncher, scope = scope)
+    }
+    var entryLinksSupported by remember { mutableStateOf(false) }
+    var sharedUrl by remember { mutableStateOf((initialRoute as? OpenYtRoute.Download)?.url) }
+    var pendingEntryRoute by remember { mutableStateOf(initialRoute as? OpenYtRoute.LibraryEntry) }
 
     LaunchedEffect(coordinator, settingsController, libraryController) {
-        kotlinx.coroutines.withContext(Dispatchers.IO) { DesktopDeepLinks.register() }
+        entryLinksSupported = kotlinx.coroutines.withContext(Dispatchers.IO) {
+            DesktopDeepLinks.register()
+            DesktopDeepLinks.isEntryLinkDispatchSupported()
+        }
         coordinator.restore()
         settingsController.restore()
         libraryController.restore()
@@ -251,6 +290,7 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
     Window(
         onCloseRequest = {
             notifier.close()
+            studyAbRepeatController.close()
             playbackLauncher.close()
             engine.close()
             scope.cancel()
@@ -266,6 +306,7 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
                 event.key == Key.Q
             ) {
                 notifier.close()
+                studyAbRepeatController.close()
                 playbackLauncher.close()
                 engine.close()
                 scope.cancel()
@@ -301,9 +342,13 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
 
         LaunchedEffect(instance, window) {
             while (true) {
-                val links = kotlinx.coroutines.withContext(Dispatchers.IO) { instance.takeLinks() }
-                links.forEach { url ->
-                    if (url != null) sharedUrl = url
+                val routes = kotlinx.coroutines.withContext(Dispatchers.IO) { instance.takeRoutes() }
+                routes.forEach { route ->
+                    when (route) {
+                        is OpenYtRoute.Download -> sharedUrl = route.url
+                        is OpenYtRoute.LibraryEntry -> pendingEntryRoute = route
+                        null -> Unit
+                    }
                     window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv()
                     window.toFront()
                     window.requestFocus()
@@ -315,8 +360,16 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
             val desktop = runCatching { java.awt.Desktop.getDesktop() }.getOrNull()
             val supported = desktop?.isSupported(java.awt.Desktop.Action.APP_OPEN_URI) == true
             if (supported) desktop?.setOpenURIHandler { event ->
-                OpenYtLink.parse(event.uri.toString())?.let { url ->
-                    SwingUtilities.invokeLater { sharedUrl = url; window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv(); window.toFront(); window.requestFocus() }
+                OpenYtLink.parseRoute(event.uri.toString())?.let { route ->
+                    SwingUtilities.invokeLater {
+                        when (route) {
+                            is OpenYtRoute.Download -> sharedUrl = route.url
+                            is OpenYtRoute.LibraryEntry -> pendingEntryRoute = route
+                        }
+                        window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv()
+                        window.toFront()
+                        window.requestFocus()
+                    }
                 }
             }
             onDispose { if (supported) desktop?.setOpenURIHandler(null) }
@@ -369,6 +422,17 @@ private fun launchApp(initialUrl: String?, instance: DesktopInstance) = applicat
             renderingCacheBytes = { previewsDirectory.directorySize() },
             timedSearchUseCase = timedSearchUseCase,
             subtitleIndexRepository = subtitleIndexRepository,
+            studyService = studyService,
+            studyCaptureService = studyCaptureService,
+            studyEditorCoordinator = studyEditorCoordinator,
+            studyAbRepeatController = studyAbRepeatController,
+            studyExporter = DesktopTextFileExporter,
+            hostLinkCapability = StudyHostLinkCapability(
+                supportsClickableEntryLinks = entryLinksSupported,
+                hostLabel = "desktop",
+            ),
+            initialEntryRoute = pendingEntryRoute,
+            onEntryRouteConsumed = { pendingEntryRoute = null },
         )
     }
 }

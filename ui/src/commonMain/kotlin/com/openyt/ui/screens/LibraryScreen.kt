@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -116,13 +117,27 @@ import com.openyt.ui.util.formatDuration
 import kotlinx.coroutines.CancellationException
 import com.openyt.core.application.SubtitleIndexRepository
 import com.openyt.core.application.TimedSearchUseCase
+import com.openyt.core.application.OpenYtRoute
+import com.openyt.core.application.StudyAbRepeatController
+import com.openyt.core.application.StudyCaptureAndNavigationService
+import com.openyt.core.application.StudyEditorCoordinator
+import com.openyt.core.application.StudyHostLinkCapability
+import com.openyt.core.application.StudyService
+import com.openyt.core.application.TextFileExporter
+import com.openyt.core.domain.AppLanguage
+import com.openyt.core.domain.CollectionStudyProgress
 import com.openyt.core.domain.IndexUnavailableReason
+import com.openyt.core.domain.StudyRemovalPreview
 import com.openyt.core.domain.TimedSearchFilter
 import com.openyt.core.domain.TimedSearchResult
 import com.openyt.core.domain.TimedSearchScope
+import com.openyt.ui.components.LibraryStudyFilter
+import com.openyt.ui.components.StudyRemovalDialog
+import com.openyt.ui.components.StudySheetDialog
 import com.openyt.ui.components.TimedSearchMatchCard
 import com.openyt.ui.components.TimedSearchScopeIndicator
 import com.openyt.ui.components.TimedSearchStateView
+import com.openyt.ui.i18n.PtBrStrings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -131,6 +146,18 @@ enum class LibrarySearchMode {
     METADATA,
     SUBTITLES,
 }
+
+private data class StudyDialogRequest(
+    val entryId: String,
+    val initialLinkedTimestampMillis: Long? = null,
+    val openedViaLocalLink: Boolean = false,
+)
+
+private data class PendingStudyRemoval(
+    val entryIds: List<String>,
+    val previews: List<StudyRemovalPreview>,
+    val onCommitted: () -> Unit = {},
+)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -159,6 +186,14 @@ fun LibraryScreen(
     renderingCacheBytes: () -> Long = { 0L },
     timedSearchUseCase: TimedSearchUseCase? = null,
     subtitleIndexRepository: SubtitleIndexRepository? = null,
+    studyService: StudyService? = null,
+    studyCaptureService: StudyCaptureAndNavigationService? = null,
+    studyEditorCoordinator: StudyEditorCoordinator? = null,
+    studyAbRepeatController: StudyAbRepeatController? = null,
+    studyExporter: TextFileExporter? = null,
+    hostLinkCapability: StudyHostLinkCapability = StudyHostLinkCapability(false),
+    pendingEntryRoute: OpenYtRoute.LibraryEntry? = null,
+    onEntryRouteConsumed: () -> Unit = {},
 ) {
     val strings = LocalStrings.current
     val playbackScope = rememberCoroutineScope()
@@ -232,6 +267,16 @@ fun LibraryScreen(
     var bulkSelection by remember { mutableStateOf<Set<String>>(emptySet()) }
     val clipboard = LocalClipboardManager.current
     val archiveScope = rememberCoroutineScope()
+    val resolvedLanguage = if (strings === PtBrStrings) AppLanguage.PT_BR else AppLanguage.EN
+    val resolvedEditorCoordinator = studyEditorCoordinator ?: remember(studyService) { StudyEditorCoordinator() }
+    var studyRefreshToken by remember { mutableStateOf(0) }
+    var studiedEntryIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var collectionProgress by remember { mutableStateOf<Map<String, CollectionStudyProgress>>(emptyMap()) }
+    var studyFilter by remember { mutableStateOf(LibraryStudyFilter.ALL) }
+    var studyRequest by remember { mutableStateOf<StudyDialogRequest?>(null) }
+    var pendingRemoval by remember { mutableStateOf<PendingStudyRemoval?>(null) }
+    var missingLinkNotice by remember { mutableStateOf<String?>(null) }
+    val coordinatorReady by coordinator.ready.collectAsState()
 
     val activeCollectionId = selectedCollectionId?.takeIf { id -> collections.any { it.id == id } }
     val activeSmart = smartCollections.firstOrNull { it.id == selectedSmartId }
@@ -239,6 +284,70 @@ fun LibraryScreen(
         activeSmart != null -> entries
         activeCollectionId != null -> entries.filter { it.id in membership[activeCollectionId].orEmpty() }
         else -> entries
+    }
+
+    LaunchedEffect(studyService, entries, membership, studyRefreshToken) {
+        if (studyService == null) {
+            studiedEntryIds = emptySet()
+            collectionProgress = emptyMap()
+            return@LaunchedEffect
+        }
+        val (ids, progress) = withContext(Dispatchers.Default) {
+            studyService.loadStudiedEntryIds() to studyService.allCollectionProgress()
+        }
+        studiedEntryIds = ids
+        collectionProgress = progress
+    }
+
+    LaunchedEffect(pendingEntryRoute, entries, coordinatorReady) {
+        val route = pendingEntryRoute ?: return@LaunchedEffect
+        val target = entries.firstOrNull { it.id == route.entryId }
+        if (target != null) {
+            query = ""
+            kind = null
+            missingOnly = false
+            duplicatesOnly = false
+            selectedCollectionId = null
+            selectedSmartId = null
+            studyFilter = LibraryStudyFilter.ALL
+            studyRequest = StudyDialogRequest(
+                entryId = target.id,
+                initialLinkedTimestampMillis = route.timestampMillis,
+                openedViaLocalLink = true,
+            )
+            missingLinkNotice = null
+            onEntryRouteConsumed()
+        } else if (coordinatorReady) {
+            missingLinkNotice = route.entryId
+            onEntryRouteConsumed()
+        }
+    }
+
+    fun requestRemoval(entryIds: Collection<String>, onCommitted: () -> Unit = {}) {
+        val idList = entryIds.distinct()
+        if (idList.isEmpty()) return
+        val service = studyService
+        if (service == null) {
+            coordinator.removeFromLibrary(entryIds)
+            onCommitted()
+            return
+        }
+        playbackScope.launch {
+            val previews = withContext(Dispatchers.Default) {
+                entryIds.distinct().map { id -> service.previewEntryRemoval(id) }
+            }
+            if (previews.any { it.requiresConfirmationPrompt }) {
+                pendingRemoval = PendingStudyRemoval(
+                    entryIds = entryIds.distinct(),
+                    previews = previews,
+                    onCommitted = onCommitted,
+                )
+            } else {
+                coordinator.removeFromLibrary(entryIds)
+                onCommitted()
+                studyRefreshToken++
+            }
+        }
     }
 
     LaunchedEffect(entries, checkToken) {
@@ -352,8 +461,17 @@ fun LibraryScreen(
             nowEpochMillis = nowEpochMillis(),
         )
     }
-    val sortedItems = remember(items, sortByTitle) {
-        if (sortByTitle) items.sortedBy { it.entry.title.lowercase() } else items
+    val studyFilteredItems = remember(items, studyFilter, studiedEntryIds, studyService) {
+        if (studyService == null || studyFilter == LibraryStudyFilter.ALL) {
+            items
+        } else if (studyFilter == LibraryStudyFilter.STUDIED) {
+            items.filter { it.entry.id in studiedEntryIds }
+        } else {
+            items.filter { it.entry.id !in studiedEntryIds }
+        }
+    }
+    val sortedItems = remember(studyFilteredItems, sortByTitle) {
+        if (sortByTitle) studyFilteredItems.sortedBy { it.entry.title.lowercase() } else studyFilteredItems
     }
     val duplicateRemovalIds = remember(collectionEntries) {
         LibraryQuery.duplicateRemovalIds(collectionEntries)
@@ -365,10 +483,15 @@ fun LibraryScreen(
         val visibleIds = sortedItems.map { it.entry.id }.toSet()
         val activeSelection = selected.intersect(visibleIds)
 
-        Column(
-            modifier = Modifier.fillMaxSize().padding(20.dp),
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(if (searchMode == LibrarySearchMode.SUBTITLES) 420.dp else 480.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(20.dp),
+            modifier = Modifier.fillMaxSize().testTag("library-grid"),
         ) {
+            item(span = { GridItemSpan(maxLineSpan) }, key = "library-header-controls") {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
                 strings.libraryTitle,
                 style = MaterialTheme.typography.headlineMedium,
@@ -376,11 +499,26 @@ fun LibraryScreen(
             )
 
             if (resumeUnavailable) Text(strings.features[FeatureText.NO_PLAYBACK_SESSION], style = MaterialTheme.typography.bodySmall)
+            missingLinkNotice?.let { missingId ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        strings.study.deepLinkEntryMissing(missingId),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.weight(1f).testTag("library-missing-link-notice"),
+                    )
+                    TextButton(onClick = { missingLinkNotice = null }) {
+                        Text(strings.closeAction)
+                    }
+                }
+            }
 
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (playbackLauncher?.canPlay == true) {
                     TextButton(onClick = { playbackScope.launch { resumeUnavailable = !playbackLauncher.resumeLastSession() } }) {
@@ -458,8 +596,8 @@ fun LibraryScreen(
                     }
                     TextButton(
                         onClick = {
-                            coordinator.removeFromLibrary(activeSelection)
-                            selected = emptySet()
+                            val selectedIds = activeSelection.toList()
+                            requestRemoval(selectedIds) { selected = emptySet() }
                         },
                     ) {
                         Text(strings.removeSelected)
@@ -523,247 +661,297 @@ fun LibraryScreen(
                 }
             }
 
+            if (searchMode != LibrarySearchMode.SUBTITLES) {
+                Text(
+                    strings.collectionsLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = activeCollectionId == null && activeSmart == null,
+                        onClick = {
+                            selectedCollectionId = null
+                            selectedSmartId = null
+                        },
+                        label = { Text(strings.allCollections) },
+                    )
+                    collections.forEach { collection ->
+                        FilterChip(
+                            selected = activeCollectionId == collection.id && activeSmart == null,
+                            onClick = {
+                                selectedSmartId = null
+                                selectedCollectionId = if (activeCollectionId == collection.id) {
+                                    null
+                                } else {
+                                    collection.id
+                                }
+                            },
+                            label = { Text(collection.name) },
+                        )
+                    }
+                    TextButton(onClick = { showCreateCollection = true }) {
+                        Text(strings.newCollection)
+                    }
+                }
+
+                Text(
+                    strings.smartCollectionsLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    smartCollections.forEach { smart ->
+                        FilterChip(
+                            selected = selectedSmartId == smart.id,
+                            onClick = {
+                                selectedCollectionId = null
+                                selectedSmartId = if (selectedSmartId == smart.id) null else smart.id
+                            },
+                            label = { Text(smart.name) },
+                        )
+                    }
+                    TextButton(onClick = { showCreateSmart = true }) {
+                        Text(strings.newSmartCollection)
+                    }
+                    if (activeSmart != null) {
+                        TextButton(onClick = { confirmDeleteSmart = true }) {
+                            Text(strings.deleteSmartCollection)
+                        }
+                    }
+                }
+
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = filter.isDefault,
+                        onClick = {
+                            kind = null
+                            missingOnly = false
+                            duplicatesOnly = false
+                            selectedSmartId = null
+                        },
+                        label = { Text(strings.filterAll) },
+                    )
+                    FilterChip(
+                        selected = kind == MediaKind.VIDEO,
+                        onClick = { kind = if (kind == MediaKind.VIDEO) null else MediaKind.VIDEO },
+                        label = { Text(strings.kindVideo) },
+                    )
+                    FilterChip(
+                        selected = kind == MediaKind.AUDIO,
+                        onClick = { kind = if (kind == MediaKind.AUDIO) null else MediaKind.AUDIO },
+                        label = { Text(strings.kindAudio) },
+                    )
+                    FilterChip(
+                        selected = missingOnly,
+                        onClick = { missingOnly = !missingOnly },
+                        label = { Text(strings.filterMissing) },
+                    )
+                    FilterChip(
+                        selected = duplicatesOnly,
+                        onClick = { duplicatesOnly = !duplicatesOnly },
+                        label = { Text(strings.filterDuplicates) },
+                    )
+                    FilterChip(
+                        selected = sortByTitle,
+                        onClick = { sortByTitle = !sortByTitle },
+                        label = { Text(strings.sortTitle) },
+                    )
+                    if (studyService != null) {
+                        FilterChip(
+                            selected = studyFilter == LibraryStudyFilter.ALL,
+                            onClick = { studyFilter = LibraryStudyFilter.ALL },
+                            label = { Text(strings.study.studyFilterAll) },
+                            modifier = Modifier.testTag("library-study-filter-all"),
+                        )
+                        FilterChip(
+                            selected = studyFilter == LibraryStudyFilter.STUDIED,
+                            onClick = {
+                                studyFilter = if (studyFilter == LibraryStudyFilter.STUDIED) {
+                                    LibraryStudyFilter.ALL
+                                } else {
+                                    LibraryStudyFilter.STUDIED
+                                }
+                            },
+                            label = { Text(strings.study.studyFilterStudied) },
+                            modifier = Modifier.testTag("library-study-filter-studied"),
+                        )
+                        FilterChip(
+                            selected = studyFilter == LibraryStudyFilter.UNSTUDIED,
+                            onClick = {
+                                studyFilter = if (studyFilter == LibraryStudyFilter.UNSTUDIED) {
+                                    LibraryStudyFilter.ALL
+                                } else {
+                                    LibraryStudyFilter.UNSTUDIED
+                                }
+                            },
+                            label = { Text(strings.study.studyFilterUnstudied) },
+                            modifier = Modifier.testTag("library-study-filter-unstudied"),
+                        )
+                    }
+                }
+
+                if (studyService != null && entries.isNotEmpty()) {
+                    val activeColProgress = activeCollectionId?.let { colId -> collectionProgress[colId] }
+                    val progressStudied = activeColProgress?.studiedCount ?: entries.count { it.id in studiedEntryIds }
+                    val progressTotal = activeColProgress?.totalMemberCount ?: entries.size
+                    Text(
+                        strings.study.studyProgressLabel(progressStudied, progressTotal),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("library-study-progress"),
+                    )
+                }
+            }
+                }
+            }
+
             if (searchMode == LibrarySearchMode.SUBTITLES) {
                 val indexStatus = (timedSearchResult as? TimedSearchResult.Success)?.indexStatus
                 val activeCollection = collections.firstOrNull { it.id == activeCollectionId }
-                TimedSearchScopeIndicator(
-                    scope = when {
-                        activeCollectionId != null -> TimedSearchScope.Collection(activeCollectionId)
-                        else -> TimedSearchScope.Library
-                    },
-                    indexStatus = indexStatus,
-                    selectedLanguage = timedSearchLanguage,
-                    availableLanguages = listOf("pt", "en"),
-                    onSelectLanguage = { timedSearchLanguage = it },
-                    collectionName = activeCollection?.name,
-                )
+                item(span = { GridItemSpan(maxLineSpan) }, key = "timed-search-scope") {
+                    TimedSearchScopeIndicator(
+                        scope = when {
+                            activeCollectionId != null -> TimedSearchScope.Collection(activeCollectionId)
+                            else -> TimedSearchScope.Library
+                        },
+                        indexStatus = indexStatus,
+                        selectedLanguage = timedSearchLanguage,
+                        availableLanguages = listOf("pt", "en"),
+                        onSelectLanguage = { timedSearchLanguage = it },
+                        collectionName = activeCollection?.name,
+                    )
+                }
 
                 val successResult = timedSearchResult as? TimedSearchResult.Success
                 if (successResult != null && successResult.items.isNotEmpty()) {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(420.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        items(successResult.items, key = { it.matchId }) { match ->
-                            TimedSearchMatchCard(
-                                match = match,
-                                onPlay = {
-                                    val entry = entries.firstOrNull { it.id == match.entryId }
-                                    if (entry != null && playbackLauncher?.canPlay == true) {
-                                        val media = PlayableMedia(
-                                            path = entry.filePath,
-                                            title = entry.title,
-                                            kind = entry.kind,
-                                            entryId = entry.id,
-                                        )
-                                        val targetPosition = (match.startMs + match.timebaseOffsetMs).coerceAtLeast(0L)
-                                        playbackLauncher.playAt(
-                                            items = listOf(media),
-                                            startIndex = 0,
-                                            startPositionMillis = targetPosition,
-                                        )
+                    items(successResult.items, key = { it.matchId }) { match ->
+                        TimedSearchMatchCard(
+                            match = match,
+                            onPlay = {
+                                val entry = entries.firstOrNull { it.id == match.entryId }
+                                if (entry != null && playbackLauncher?.canPlay == true) {
+                                    val media = PlayableMedia(
+                                        path = entry.filePath,
+                                        title = entry.title,
+                                        kind = entry.kind,
+                                        entryId = entry.id,
+                                    )
+                                    val targetPosition = (match.startMs + match.timebaseOffsetMs).coerceAtLeast(0L)
+                                    playbackLauncher.playAt(
+                                        items = listOf(media),
+                                        startIndex = 0,
+                                        startPositionMillis = targetPosition,
+                                    )
+                                }
+                            },
+                        )
+                    }
+                } else {
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "timed-search-state") {
+                        TimedSearchStateView(
+                            result = timedSearchResult,
+                            isLoading = timedSearchLoading,
+                            onImportSubtitle = if (subtitlePicker?.canPick == true) {
+                                {
+                                    subtitlePicker.pickSubtitle { picked ->
+                                        if (picked != null) {
+                                            // Picked subtitle ready for import
+                                        }
+                                    }
+                                }
+                            } else null,
+                            onReindex = {
+                                // Reindex trigger
+                            },
+                        )
+                    }
+                }
+            } else {
+                when {
+                    entries.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }, key = "library-empty") {
+                        Text(
+                            strings.libraryEmpty,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    sortedItems.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }, key = "library-no-results") {
+                        Text(
+                            strings.noResults,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    else -> {
+                        itemsIndexed(sortedItems, key = { _, item -> item.entry.id }) { index, item ->
+                            LibraryCard(
+                                item = item,
+                                localArtworkPath = artworkByEntry[item.entry.id],
+                                studied = item.entry.id in studiedEntryIds,
+                                wide = false,
+                                selectable = wide,
+                                selected = item.entry.id in activeSelection,
+                                onSelect = { checked ->
+                                    selected = if (checked) {
+                                        selected + item.entry.id
+                                    } else {
+                                        selected - item.entry.id
                                     }
                                 },
+                                onDetails = { detail = item },
+                                onStudy = if (studyService != null) {
+                                    {
+                                        studyRequest = StudyDialogRequest(entryId = item.entry.id)
+                                    }
+                                } else null,
+                                onProcess = if (mediaProcessor != null && !item.missing && item.entry.kind != MediaKind.SUBTITLE) { { processingEntry = item.entry } } else null,
+                                onCollections = { assigningEntry = item.entry },
+                                onRemove = { requestRemoval(listOf(item.entry.id)) },
+                                onPlay = playbackLauncher
+                                    ?.takeIf { it.canPlay && !item.missing && item.entry.kind != MediaKind.SUBTITLE }
+                                    ?.let { launcher ->
+                                        {
+                                            launcher.play(
+                                                items = sortedItems.filter { !it.missing && it.entry.kind != MediaKind.SUBTITLE }.map { playable ->
+                                                    PlayableMedia(
+                                                        path = playable.entry.filePath,
+                                                        title = playable.entry.title,
+                                                        kind = playable.entry.kind,
+                                                        entryId = playable.entry.id,
+                                                    )
+                                                },
+                                                startIndex = sortedItems.filter { !it.missing && it.entry.kind != MediaKind.SUBTITLE }.indexOfFirst { it.entry.id == item.entry.id },
+                                            )
+                                        }
+                                    },
+                                mediaActions = mediaActions,
+                            )
+                        }
+                        item(span = { GridItemSpan(maxLineSpan) }, key = "library-footer-hint") {
+                            Text(
+                                strings.libraryFileKeptHint,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 12.dp),
                             )
                         }
                     }
-                } else {
-                    TimedSearchStateView(
-                        result = timedSearchResult,
-                        isLoading = timedSearchLoading,
-                        onImportSubtitle = if (subtitlePicker?.canPick == true) {
-                            {
-                                subtitlePicker.pickSubtitle { picked ->
-                                    if (picked != null) {
-                                        // Picked subtitle ready for import
-                                    }
-                                }
-                            }
-                        } else null,
-                        onReindex = {
-                            // Reindex trigger
-                        },
-                    )
                 }
-            } else {
-            Text(
-                strings.collectionsLabel,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChip(
-                    selected = activeCollectionId == null && activeSmart == null,
-                    onClick = {
-                        selectedCollectionId = null
-                        selectedSmartId = null
-                    },
-                    label = { Text(strings.allCollections) },
-                )
-                collections.forEach { collection ->
-                    FilterChip(
-                        selected = activeCollectionId == collection.id && activeSmart == null,
-                        onClick = {
-                            selectedSmartId = null
-                            selectedCollectionId = if (activeCollectionId == collection.id) {
-                                null
-                            } else {
-                                collection.id
-                            }
-                        },
-                        label = { Text(collection.name) },
-                    )
-                }
-                TextButton(onClick = { showCreateCollection = true }) {
-                    Text(strings.newCollection)
-                }
-            }
-
-            Text(
-                strings.smartCollectionsLabel,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                smartCollections.forEach { smart ->
-                    FilterChip(
-                        selected = selectedSmartId == smart.id,
-                        onClick = {
-                            selectedCollectionId = null
-                            selectedSmartId = if (selectedSmartId == smart.id) null else smart.id
-                        },
-                        label = { Text(smart.name) },
-                    )
-                }
-                TextButton(onClick = { showCreateSmart = true }) {
-                    Text(strings.newSmartCollection)
-                }
-                if (activeSmart != null) {
-                    TextButton(onClick = { confirmDeleteSmart = true }) {
-                        Text(strings.deleteSmartCollection)
-                    }
-                }
-            }
-
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChip(
-                    selected = filter.isDefault,
-                    onClick = {
-                        kind = null
-                        missingOnly = false
-                        duplicatesOnly = false
-                        selectedSmartId = null
-                    },
-                    label = { Text(strings.filterAll) },
-                )
-                FilterChip(
-                    selected = kind == MediaKind.VIDEO,
-                    onClick = { kind = if (kind == MediaKind.VIDEO) null else MediaKind.VIDEO },
-                    label = { Text(strings.kindVideo) },
-                )
-                FilterChip(
-                    selected = kind == MediaKind.AUDIO,
-                    onClick = { kind = if (kind == MediaKind.AUDIO) null else MediaKind.AUDIO },
-                    label = { Text(strings.kindAudio) },
-                )
-                FilterChip(
-                    selected = missingOnly,
-                    onClick = { missingOnly = !missingOnly },
-                    label = { Text(strings.filterMissing) },
-                )
-                FilterChip(
-                    selected = duplicatesOnly,
-                    onClick = { duplicatesOnly = !duplicatesOnly },
-                    label = { Text(strings.filterDuplicates) },
-                )
-                FilterChip(
-                    selected = sortByTitle,
-                    onClick = { sortByTitle = !sortByTitle },
-                    label = { Text(strings.sortTitle) },
-                )
-            }
-
-            when {
-                entries.isEmpty() -> Text(
-                    strings.libraryEmpty,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                sortedItems.isEmpty() -> Text(
-                    strings.noResults,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                else -> LazyVerticalGrid(
-                    columns = GridCells.Adaptive(480.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    itemsIndexed(sortedItems, key = { _, item -> item.entry.id }) { index, item ->
-                        LibraryCard(
-                            item = item,
-                            localArtworkPath = artworkByEntry[item.entry.id],
-                            wide = false,
-                            selectable = wide,
-                            selected = item.entry.id in activeSelection,
-                            onSelect = { checked ->
-                                selected = if (checked) {
-                                    selected + item.entry.id
-                                } else {
-                                    selected - item.entry.id
-                                }
-                            },
-                            onDetails = { detail = item },
-                            onProcess = if (mediaProcessor != null && !item.missing && item.entry.kind != MediaKind.SUBTITLE) { { processingEntry = item.entry } } else null,
-                            onCollections = { assigningEntry = item.entry },
-                            onRemove = { coordinator.removeFromLibrary(item.entry.id) },
-                            onPlay = playbackLauncher
-                                ?.takeIf { it.canPlay && !item.missing && item.entry.kind != MediaKind.SUBTITLE }
-                                ?.let { launcher ->
-                                    {
-                                        launcher.play(
-                                            items = sortedItems.filter { !it.missing && it.entry.kind != MediaKind.SUBTITLE }.map { playable ->
-                                                PlayableMedia(
-                                                    path = playable.entry.filePath,
-                                                    title = playable.entry.title,
-                                                    kind = playable.entry.kind,
-                                                    entryId = playable.entry.id,
-                                                )
-                                            },
-                                            startIndex = sortedItems.filter { !it.missing && it.entry.kind != MediaKind.SUBTITLE }.indexOfFirst { it.entry.id == item.entry.id },
-                                        )
-                                    }
-                                },
-                            mediaActions = mediaActions,
-                        )
-                    }
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Text(
-                            strings.libraryFileKeptHint,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 12.dp),
-                        )
-                    }
-                }
-            }
             }
         }
     }
@@ -1427,8 +1615,8 @@ fun LibraryScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        coordinator.removeFromLibrary(duplicateRemovalIds)
                         confirmRemoveDuplicates = false
+                        requestRemoval(duplicateRemovalIds)
                     },
                 ) {
                     Text(strings.removeDuplicatesConfirm)
@@ -1441,17 +1629,67 @@ fun LibraryScreen(
             },
         )
     }
+
+    val currentStudyReq = studyRequest
+    if (currentStudyReq != null && studyService != null) {
+        val targetEntry = entries.firstOrNull { it.id == currentStudyReq.entryId }
+        if (targetEntry != null) {
+            StudySheetDialog(
+                entry = targetEntry,
+                itemMissing = targetEntry.id in missingIds,
+                queueContext = sortedItems.map { it.entry },
+                studyService = studyService,
+                studyCaptureService = studyCaptureService,
+                studyEditorCoordinator = resolvedEditorCoordinator,
+                studyAbRepeatController = studyAbRepeatController,
+                studyExporter = studyExporter,
+                hostLinkCapability = hostLinkCapability,
+                language = resolvedLanguage,
+                initialLinkedTimestampMillis = currentStudyReq.initialLinkedTimestampMillis,
+                openedViaLocalLink = currentStudyReq.openedViaLocalLink,
+                onStudyDataChanged = { studyRefreshToken++ },
+                onClose = { studyRequest = null },
+            )
+        }
+    }
+
+    val removalState = pendingRemoval
+    if (removalState != null && studyService != null) {
+        StudyRemovalDialog(
+            previews = removalState.previews,
+            exporter = studyExporter,
+            hostLinkCapability = hostLinkCapability,
+            language = resolvedLanguage,
+            onConfirmRemoveAndPurge = {
+                pendingRemoval = null
+                coordinator.removeFromLibrary(removalState.entryIds)
+                removalState.onCommitted()
+                playbackScope.launch {
+                    withContext(Dispatchers.Default) {
+                        removalState.entryIds.forEach { entryId ->
+                            studyService.deleteAllStudyDataForEntry(entryId)
+                        }
+                    }
+                    studyRefreshToken++
+                }
+            },
+            onDismiss = { pendingRemoval = null },
+        )
+    }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LibraryCard(
     item: LibraryItem,
     localArtworkPath: String?,
+    studied: Boolean,
     wide: Boolean,
     selectable: Boolean,
     selected: Boolean,
     onSelect: (Boolean) -> Unit,
     onDetails: () -> Unit,
+    onStudy: (() -> Unit)?,
     onProcess: (() -> Unit)?,
     onCollections: () -> Unit,
     onRemove: () -> Unit,
@@ -1526,12 +1764,19 @@ private fun LibraryCard(
                             color = MaterialTheme.colorScheme.secondary,
                         )
                     }
+                    if (studied) {
+                        Text(
+                            strings.study.studiedBadge,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.testTag("card-studied-${entry.id}"),
+                        )
+                    }
                 }
             }
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (onPlay != null) {
                     TextButton(onClick = onPlay) {
@@ -1553,12 +1798,23 @@ private fun LibraryCard(
                     }
                 }
                 FileActionButtons(entry.toShareable(), mediaActions, enabled = !item.missing)
+                onStudy?.let { action ->
+                    TextButton(
+                        onClick = action,
+                        modifier = Modifier.testTag("study-entry-${entry.id}"),
+                    ) {
+                        Text(strings.study.openStudyAction)
+                    }
+                }
                 onProcess?.let { action ->
                     TextButton(onClick = action) { Text(strings.features[FeatureText.PROCESSING]) }
                 }
                 TextButton(onClick = onDetails) { Text(strings.detailsAction) }
                 TextButton(onClick = onCollections) { Text(strings.assignCollections) }
-                TextButton(onClick = onRemove) { Text(strings.removeFromLibrary) }
+                TextButton(
+                    onClick = onRemove,
+                    modifier = Modifier.testTag("remove-entry-${entry.id}"),
+                ) { Text(strings.removeFromLibrary) }
             }
         }
     }

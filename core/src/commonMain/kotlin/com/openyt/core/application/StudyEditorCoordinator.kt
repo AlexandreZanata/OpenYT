@@ -209,6 +209,10 @@ class StudyEditorCoordinator {
         _state.update { it.copy(pendingDiscardPrompt = null) }
     }
 
+    fun markDraftSaved(draftKey: String) {
+        removeDraft(draftKey)
+    }
+
     fun confirmDiscard() {
         val prompt = _state.value.pendingDiscardPrompt ?: return
         _state.update { current ->

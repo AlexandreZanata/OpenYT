@@ -248,6 +248,7 @@ data class AppStrings(
     val errorUnexpected: String,
     val offline: OfflineStrings,
     val timedSearch: TimedSearchStrings,
+    val study: StudyStrings,
 ) {
     val storagePanel: String get() = storage.storagePanel
     val storageTotals: String get() = storage.storageTotals
@@ -679,6 +680,7 @@ val PtBrStrings = AppStrings(
         actionCleanup = "Limpar",
     ),
     timedSearch = PtBrTimedSearchStrings,
+    study = PtBrStudyStrings,
 )
 
 val EnStrings = AppStrings(
@@ -972,6 +974,7 @@ val EnStrings = AppStrings(
         actionCleanup = "Clean",
     ),
     timedSearch = EnTimedSearchStrings,
+    study = EnStudyStrings,
 )
 
 val LocalStrings = staticCompositionLocalOf { PtBrStrings }

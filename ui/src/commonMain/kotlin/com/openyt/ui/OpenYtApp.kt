@@ -134,6 +134,15 @@ fun OpenYtApp(
     renderingCacheBytes: () -> Long = { 0L },
     timedSearchUseCase: com.openyt.core.application.TimedSearchUseCase? = null,
     subtitleIndexRepository: com.openyt.core.application.SubtitleIndexRepository? = null,
+    studyService: com.openyt.core.application.StudyService? = null,
+    studyCaptureService: com.openyt.core.application.StudyCaptureAndNavigationService? = null,
+    studyEditorCoordinator: com.openyt.core.application.StudyEditorCoordinator? = null,
+    studyAbRepeatController: com.openyt.core.application.StudyAbRepeatController? = null,
+    studyExporter: com.openyt.core.application.TextFileExporter? = null,
+    hostLinkCapability: com.openyt.core.application.StudyHostLinkCapability =
+        com.openyt.core.application.StudyHostLinkCapability(supportsClickableEntryLinks = false),
+    initialEntryRoute: com.openyt.core.application.OpenYtRoute.LibraryEntry? = null,
+    onEntryRouteConsumed: () -> Unit = {},
 ) {
     val ready by coordinator.ready.collectAsState()
     val settings by settingsController.settings.collectAsState()
@@ -286,6 +295,15 @@ private fun AppShell(
     renderingCacheBytes: () -> Long = { 0L },
     timedSearchUseCase: com.openyt.core.application.TimedSearchUseCase? = null,
     subtitleIndexRepository: com.openyt.core.application.SubtitleIndexRepository? = null,
+    studyService: com.openyt.core.application.StudyService? = null,
+    studyCaptureService: com.openyt.core.application.StudyCaptureAndNavigationService? = null,
+    studyEditorCoordinator: com.openyt.core.application.StudyEditorCoordinator? = null,
+    studyAbRepeatController: com.openyt.core.application.StudyAbRepeatController? = null,
+    studyExporter: com.openyt.core.application.TextFileExporter? = null,
+    hostLinkCapability: com.openyt.core.application.StudyHostLinkCapability =
+        com.openyt.core.application.StudyHostLinkCapability(supportsClickableEntryLinks = false),
+    initialEntryRoute: com.openyt.core.application.OpenYtRoute.LibraryEntry? = null,
+    onEntryRouteConsumed: () -> Unit = {},
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
@@ -305,6 +323,9 @@ private fun AppShell(
 
     LaunchedEffect(initialSharedUrl) {
         if (!initialSharedUrl.isNullOrBlank()) selected = 0
+    }
+    LaunchedEffect(initialEntryRoute) {
+        if (initialEntryRoute != null) selected = 2
     }
 
     BoxWithConstraints(
@@ -398,6 +419,14 @@ private fun AppShell(
                         renderingCacheBytes = renderingCacheBytes,
                         timedSearchUseCase = timedSearchUseCase,
                         subtitleIndexRepository = subtitleIndexRepository,
+                        studyService = studyService,
+                        studyCaptureService = studyCaptureService,
+                        studyEditorCoordinator = studyEditorCoordinator,
+                        studyAbRepeatController = studyAbRepeatController,
+                        studyExporter = studyExporter,
+                        hostLinkCapability = hostLinkCapability,
+                        pendingEntryRoute = initialEntryRoute,
+                        onEntryRouteConsumed = onEntryRouteConsumed,
                     )
                     else -> SettingsScreen(
                         toolUpdater = toolUpdater,
