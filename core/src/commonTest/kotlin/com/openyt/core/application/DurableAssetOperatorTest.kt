@@ -390,4 +390,37 @@ class DurableAssetOperatorTest {
         assertEquals(AssetOperationStatus.INTERRUPTED, reconciledOp.status)
         assertTrue(stagingPort.cleanedStaging.contains("orphaned"))
     }
+
+    @Test
+    fun dynamicBudgetAndReserveProvidersApplyWithoutRestart() = runTest {
+        val opRepo = MemoryAssetOperationRepository()
+        val assetRepo = MemoryOfflineAssetRepository()
+        val stagingPort = FakeAssetStagingPort()
+        val inspector = FakeFileInspector()
+
+        val sourcePath = "/downloads/dynamic.srt"
+        inspector.addFile(sourcePath, 1000L)
+        stagingPort.addFile(sourcePath, 1000L)
+
+        var currentReserve = 1024L
+        var currentBudget = 500L
+        val operator = DurableAssetOperator(
+            operationRepository = opRepo,
+            assetRepository = assetRepo,
+            stagingPort = stagingPort,
+            fileInspector = inspector,
+            storageReserveBytesProvider = { currentReserve },
+            assetBudgetBytesProvider = { currentBudget },
+        )
+
+        val op1 = operator.submit(AssetOperationRequest("entry-dyn", AssetKind.SUBTITLE, sourcePath))
+        val first = operator.execute(op1.id, sampleRevision(), listOf("/downloads"))
+        assertTrue(first.isFailure)
+        assertIs<AssetOperationFailure.StorageBudgetExceeded>(opRepo.getOperation(op1.id)?.failure)
+
+        currentBudget = 5_000L
+        val op2 = operator.submit(AssetOperationRequest("entry-dyn", AssetKind.SUBTITLE, sourcePath))
+        val second = operator.execute(op2.id, sampleRevision(), listOf("/downloads"))
+        assertTrue(second.isSuccess)
+    }
 }

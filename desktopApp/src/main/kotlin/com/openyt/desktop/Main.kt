@@ -135,19 +135,24 @@ private fun launchApp(
             .getOrNull()
     }
     val repository = remember(database) { database?.let(::SqlDelightDownloadRepository) }
+    val settingsController = remember(database) {
+        SettingsController(database?.let(::SqlDelightSettingsRepository), scope)
+    }
     val offlineAssetsDirectory = remember {
         File(defaultDatabasePath()).parentFile.resolve("offline-assets").apply { mkdirs() }
     }
     val offlineAssetRepository = remember(database) {
         database?.let(::SqlDelightOfflineAssetRepository)
     }
-    val offlineAssetStore = remember(database, offlineAssetRepository) {
+    val offlineAssetStore = remember(database, offlineAssetRepository, settingsController) {
         val offlineRepository = offlineAssetRepository
         if (database != null && offlineRepository != null) {
             JvmOfflineAssetStore(
                 assetsDirectory = offlineAssetsDirectory,
                 repository = offlineRepository,
                 operationRepository = SqlDelightAssetOperationRepository(database),
+                storageReserveBytesProvider = { settingsController.settings.value.storageReserveBytes },
+                assetBudgetBytesProvider = { settingsController.settings.value.assetBudgetBytes },
             )
         } else {
             null
@@ -195,9 +200,6 @@ private fun launchApp(
     }
     val profileRepository = remember(database) {
         database?.let(::SqlDelightDownloadProfileRepository) ?: MemoryDownloadProfileRepository()
-    }
-    val settingsController = remember(database) {
-        SettingsController(database?.let(::SqlDelightSettingsRepository), scope)
     }
     val cookieRepository = remember {
         EncryptedCookieRepository(File(defaultDatabasePath()).parentFile.resolve("cookies"))

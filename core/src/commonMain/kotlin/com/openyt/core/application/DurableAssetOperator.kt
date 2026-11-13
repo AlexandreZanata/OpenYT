@@ -31,10 +31,16 @@ class DurableAssetOperator(
     val fileInspector: MediaFileInspector,
     val storageReserveBytes: Long = AppSettings.DEFAULT_STORAGE_RESERVE_BYTES,
     val assetBudgetBytes: Long = AppSettings.DEFAULT_ASSET_BUDGET_BYTES,
+    private val storageReserveBytesProvider: () -> Long = { storageReserveBytes },
+    private val assetBudgetBytesProvider: () -> Long = { assetBudgetBytes },
 ) : OfflineAssetStore {
 
     private val diskExecutionMutex = Mutex()
     private var idCounter = 0L
+
+    fun effectiveStorageReserveBytes(): Long = storageReserveBytesProvider().coerceAtLeast(0L)
+
+    fun effectiveAssetBudgetBytes(): Long = assetBudgetBytesProvider().coerceAtLeast(0L)
 
     fun generateOperationId(): String = "op-${++idCounter}-${currentTimeMillis()}"
 
@@ -43,12 +49,13 @@ class DurableAssetOperator(
      * Existing pinned assets are never evicted to make room.
      */
     suspend fun ensureWithinBudget(additionalBytes: Long): Result<Unit> {
+        val currentBudget = effectiveAssetBudgetBytes()
         val used = assetRepository.loadAllAssets().sumOf { it.byteCount }
-        if (used + additionalBytes > assetBudgetBytes) {
+        if (used + additionalBytes > currentBudget) {
             return Result.failure(
                 AssetOperationFailure.StorageBudgetExceeded(
                     usedBytes = used,
-                    budgetBytes = assetBudgetBytes,
+                    budgetBytes = currentBudget,
                     requiredBytes = additionalBytes,
                 ).toException()
             )
@@ -149,7 +156,7 @@ class DurableAssetOperator(
 
         // 3. Disk space and quota bounds check
         val availableSpace = stagingPort.getAvailableSpace()
-        val requiredSpace = sourceSize + storageReserveBytes
+        val requiredSpace = sourceSize + effectiveStorageReserveBytes()
         if (availableSpace < requiredSpace) {
             val failure = AssetOperationFailure.DiskFull(availableSpace, requiredSpace)
             runningOp = runningOp.copy(status = AssetOperationStatus.FAILED, failure = failure, updatedAtEpochMillis = currentTimeMillis())
