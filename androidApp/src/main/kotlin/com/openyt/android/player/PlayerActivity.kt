@@ -99,6 +99,8 @@ class PlayerActivity : ComponentActivity() {
                     }
                     if (sameQueue && connected.currentMediaItemIndex != startIndex) {
                         connected.seekTo(startIndex, initialPosition)
+                    } else if (sameQueue && requestedPosition >= 0L) {
+                        connected.seekTo(initialPosition)
                     }
                     if (!sameQueue) {
                         connected.setMediaItems(paths.mapIndexed { index, path ->

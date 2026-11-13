@@ -45,6 +45,8 @@ internal object AndroidPlaybackSessionBridge {
     @Volatile
     private var state = BridgeState()
     @Volatile
+    private var pendingOpen: BridgeState? = null
+    @Volatile
     private var activeRepeatBounds: ActiveAbRepeatBounds? = null
     private val listeners = CopyOnWriteArrayList<PlaybackSessionListener>()
 
@@ -82,6 +84,7 @@ internal object AndroidPlaybackSessionBridge {
         if (delegate === sessionDelegate) {
             delegate = null
             activeRepeatBounds = null
+            pendingOpen = null
             generation.incrementAndGet()
             state = BridgeState(media = null, snapshot = null, state = PlaybackSessionState.IDLE)
             notifyListeners(null)
@@ -89,6 +92,12 @@ internal object AndroidPlaybackSessionBridge {
     }
 
     fun publishState(nextState: BridgeState) {
+        if (nextState.state == PlaybackSessionState.IDLE && pendingOpen != null) {
+            return
+        }
+        if (nextState.state != PlaybackSessionState.IDLE) {
+            pendingOpen = null
+        }
         state = nextState
         notifyListeners(nextState.snapshot)
     }
@@ -111,12 +120,14 @@ internal object AndroidPlaybackSessionBridge {
             ),
             state = PlaybackSessionState.PREPARING,
         )
+        pendingOpen = next
         state = next
         notifyListeners(next.snapshot)
     }
 
     fun markError() {
         activeRepeatBounds = null
+        pendingOpen = null
         val gen = generation.incrementAndGet()
         state = BridgeState(
             media = null,
@@ -139,6 +150,7 @@ internal object AndroidPlaybackSessionBridge {
 
     fun markIdle() {
         activeRepeatBounds = null
+        pendingOpen = null
         generation.incrementAndGet()
         state = BridgeState(
             media = null,
@@ -148,7 +160,14 @@ internal object AndroidPlaybackSessionBridge {
         notifyListeners(null)
     }
 
-    fun currentBridgeState(): BridgeState = delegate?.captureBridgeState() ?: state
+    fun currentBridgeState(): BridgeState {
+        val delegated = delegate?.captureBridgeState()
+        if (delegated != null && delegated.state != PlaybackSessionState.IDLE) {
+            pendingOpen = null
+            return delegated
+        }
+        return pendingOpen ?: delegated ?: state
+    }
 
     fun seekTo(positionMillis: Long): Boolean = delegate?.seekTo(positionMillis) == true
 

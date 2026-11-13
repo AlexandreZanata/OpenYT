@@ -104,10 +104,15 @@ class DesktopPlaybackLauncher(
     }
 
     private fun edtSnapshot(overridePositionMillis: Long? = null): PlaybackPositionSnapshot? {
-        val media = loadedMedia ?: return null
+        val media = loadedMedia
+            ?: queue.current.takeIf { state == PlaybackSessionState.PREPARING }
+            ?: return null
         val player = component?.mediaPlayer()
         val status = player?.status()
-        val rawPos = overridePositionMillis ?: status?.time()?.takeIf { it >= 0L } ?: lastSavedTime
+        val rawPos = overridePositionMillis
+            ?: status?.time()?.takeIf { it >= 0L }
+            ?: pendingSeekMillis
+            ?: lastSavedTime
         val duration = status?.length()?.coerceAtLeast(0L) ?: 0L
         return PlaybackPositionSnapshot(
             entryId = media.entryId,
@@ -161,33 +166,19 @@ class DesktopPlaybackLauncher(
     override fun captureSnapshot(): PlaybackPositionSnapshot? {
         val activeComponent = component
         if (activeComponent != null) {
-            return runOnEdt {
-                val media = loadedMedia ?: return@runOnEdt null
-                val player = component?.mediaPlayer()
-                val status = player?.status()
-                val position = status?.time()?.takeIf { it >= 0L } ?: lastSavedTime
-                val duration = status?.length()?.coerceAtLeast(0L) ?: 0L
-                PlaybackPositionSnapshot(
-                    entryId = media.entryId,
-                    mediaPath = media.path,
-                    title = media.title,
-                    state = state,
-                    capabilities = capabilities,
-                    positionMillis = position.coerceAtLeast(0L),
-                    durationMillis = duration,
-                    sessionGeneration = sessionGeneration.get(),
-                )
-            }
+            return runOnEdt { edtSnapshot() }
         }
         return synchronized(snapshotLock) {
-            val media = loadedMedia ?: return@synchronized null
+            val media = loadedMedia
+                ?: queue.current.takeIf { state == PlaybackSessionState.PREPARING }
+                ?: return@synchronized null
             PlaybackPositionSnapshot(
                 entryId = media.entryId,
                 mediaPath = media.path,
                 title = media.title,
                 state = state,
                 capabilities = capabilities,
-                positionMillis = lastSavedTime.coerceAtLeast(0L),
+                positionMillis = (pendingSeekMillis ?: lastSavedTime).coerceAtLeast(0L),
                 durationMillis = 0L,
                 sessionGeneration = sessionGeneration.get(),
             )
@@ -297,12 +288,13 @@ class DesktopPlaybackLauncher(
                 activeRepeatBounds = null
                 component?.mediaPlayer()?.controls()?.stop()
                 queue = PlaybackQueue.of(items, startIndex)
-                playCurrent(startPositionMillis)
                 window?.isVisible = true
                 window?.toFront()
+                playCurrent(startPositionMillis)
             }
             true
-        }.getOrElse {
+        }.getOrElse { error ->
+            System.err.println("OpenYT internal playback fallback: ${error::class.simpleName}: ${error.message}")
             openExternally(item)
         }
     }
@@ -611,7 +603,9 @@ class DesktopPlaybackLauncher(
         }
         state = PlaybackSessionState.PREPARING
         val currentGen = sessionGeneration.incrementAndGet()
-        pendingSeekMillis = explicitPositionMillis?.let { clampSeekPosition(it, 0L) }
+        val initialPosition = explicitPositionMillis?.let { clampSeekPosition(it, 0L) }
+        pendingSeekMillis = initialPosition
+        lastSavedTime = initialPosition ?: 0L
         val selectedQueue = queue
         notifySessionListeners(
             PlaybackPositionSnapshot(
@@ -620,35 +614,49 @@ class DesktopPlaybackLauncher(
                 title = item.title,
                 state = PlaybackSessionState.PREPARING,
                 capabilities = capabilities,
-                positionMillis = pendingSeekMillis ?: 0L,
+                positionMillis = initialPosition ?: 0L,
                 durationMillis = 0L,
                 sessionGeneration = currentGen,
             ),
         )
         writes.trySend { store.saveQueue(selectedQueue) }
+        if (initialPosition != null) {
+            startPlaybackOnEdt(item, selectedQueue, currentGen, initialPosition)
+            return
+        }
         scope.launch {
-            val position = explicitPositionMillis ?: store.position(item.path, item.entryId)?.resumeMillis ?: 0L
+            val position = store.position(item.path, item.entryId)?.resumeMillis ?: 0L
             val clampedPosition = clampSeekPosition(position, 0L)
             SwingUtilities.invokeLater {
-                if (sessionGeneration.get() != currentGen || queue != selectedQueue) return@invokeLater
-                val player = component?.mediaPlayer()
-                val startTimeArg = if (clampedPosition > 0) ":start-time=${clampedPosition / 1000.0}" else ":start-time=0"
-                val started = player?.media()?.play(File(item.path).absolutePath, startTimeArg) == true
-                if (!started) {
-                    state = PlaybackSessionState.ERROR
-                    loadedMedia = null
-                    pendingSeekMillis = null
-                    showPlaybackError()
-                    return@invokeLater
-                }
-                loadedMedia = item
-                if (clampedPosition > 0) {
-                    pendingSeekMillis = clampedPosition
-                }
-                lastSavedTime = clampedPosition
-                window?.title = "OpenYT — ${item.title}"
+                startPlaybackOnEdt(item, selectedQueue, currentGen, clampedPosition)
             }
         }
+    }
+
+    private fun startPlaybackOnEdt(
+        item: PlayableMedia,
+        selectedQueue: PlaybackQueue,
+        currentGen: Long,
+        clampedPosition: Long,
+    ) {
+        if (sessionGeneration.get() != currentGen || queue != selectedQueue) return
+        val player = component?.mediaPlayer()
+        val startTimeArg = if (clampedPosition > 0) ":start-time=${clampedPosition / 1000.0}" else ":start-time=0"
+        val started = player?.media()?.play(File(item.path).absolutePath, startTimeArg) == true
+        if (!started) {
+            state = PlaybackSessionState.ERROR
+            loadedMedia = null
+            pendingSeekMillis = null
+            notifySessionListeners(errorSnapshot(currentGen))
+            showPlaybackError()
+            return
+        }
+        loadedMedia = item
+        if (clampedPosition > 0) {
+            pendingSeekMillis = clampedPosition
+        }
+        lastSavedTime = clampedPosition
+        window?.title = "OpenYT — ${item.title}"
     }
 
     private fun checkpoint() {

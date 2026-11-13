@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Msi = (Get-ChildItem desktopApp/build/compose/binaries/main/msi/*.msi | Select-Object -First 1).FullName,
     [string]$Exe = (Get-ChildItem desktopApp/build/compose/binaries/main/exe/*.exe | Select-Object -First 1).FullName,
     [string]$Harness = "$PWD/desktopApp/build/libs/windows-contract-harness.jar"
@@ -180,10 +180,11 @@ function Validate-Installed([string]$Format) {
         Copy-Item (Join-Path $work "$Format-vídeo & ação.mp4") $video
         Run-Launcher $testExe @('reveal', ('"' + $video + '"')) "$Format-reveal-video"
         Assert-ExplorerSelection $video
+        Run-Launcher $testExe @('study', ('"' + (Join-Path $work "$Format-vídeo & ação.mp4") + '"')) "$Format-study"
     } finally {
         Remove-Item $testExe, $testCfg, $testJar -ErrorAction SilentlyContinue
     }
-    Write-Output "PASS ${Format}: installed shortcut target/icon/launch, exact external-open handler, Explorer selection including first-open MP4 folder, visible bundled VLC decoded playback"
+    Write-Output "PASS ${Format}: installed shortcut target/icon/launch, exact external-open handler, Explorer selection including first-open MP4 folder, visible bundled VLC decoded playback, and study lifecycle/AB-loop/deep-link contracts"
 }
 
 try {

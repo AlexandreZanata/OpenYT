@@ -100,7 +100,9 @@ cancellation, and startup. See ADR-0005.
 
 Final output confirmation uses tagged JSON paths and explicit UTF-8 on both hosts.
 Schema 18 adds playback sessions, typed download options, subscriptions, and opt-in settings. Schema 14 also preserves the filename template and playlist item index so a restored
-task repeats its original request. Schema 19 adds custom download profiles, separate local destination directory bindings, and immutable profile provenance snapshots. Schema 20 adds durable offline companion assets (`offline_asset`), media revision tracking, and configurable asset storage budget/reserve settings. Schema 21 adds durable asset operation journals, Schema 22 adds subtitle cue indexing and FTS4 search tables, Schema 23 adds `entry_id` checkpoint bridges on playback positions, and Schema 24 adds entry-scoped study notes, bookmarks, saved A/B ranges, and manual study completion (`study_note`, `study_bookmark`, `study_range`, `entry_study_state`); `PlaybackSessionControl` (`captureSnapshot()`, active repeat bounds, and session listeners), `StudyCaptureAndNavigationService`, `StudyEditorCoordinator`, and `StudyAbRepeatController` provide atomic entry-bound timestamp capture, anchor-staleness/duration diagnostics, unsaved draft preservation, timestamp navigation, and serialized/coalesced active-session A/B repetition backed by VLCJ on desktop and Media3 (`PlaybackService`) on Android. See [ADR-0020](../adr/0020-download-completion.md), the [Download Profiles guide](../DOWNLOAD_PROFILES.md), the [Offline Library guide](../OFFLINE_LIBRARY.md), and the [video regression contracts](../testing/VIDEO_REGRESSION_CONTRACTS.md).
+task repeats its original request. Schema 19 adds custom download profiles, separate local destination directory bindings, and immutable profile provenance snapshots. Schema 20 adds durable offline companion assets (`offline_asset`), media revision tracking, and configurable asset storage budget/reserve settings. Schema 21 adds durable asset operation journals, Schema 22 adds subtitle cue indexing and FTS4 search tables, Schema 23 adds `entry_id` checkpoint bridges on playback positions, and Schema 24 adds entry-scoped study notes, bookmarks, saved A/B ranges, and manual study completion (`study_note`, `study_bookmark`, `study_range`, `entry_study_state`); `PlaybackSessionControl` (`captureSnapshot()`, active repeat bounds, and session listeners), `StudyCaptureAndNavigationService`, `StudyEditorCoordinator`, and `StudyAbRepeatController` provide atomic entry-bound timestamp capture, anchor-staleness/duration diagnostics, unsaved draft preservation, timestamp navigation, and serialized/coalesced active-session A/B repetition backed by VLCJ on desktop and Media3 (`PlaybackService`) on Android.
+
+Study sharing and focused UI build on top of Schema 24 without leaking private storage: `StudyMarkdownExporter` generates sanitized, human-readable Markdown bundles via platform `TextFileExporter` (`AndroidTextFileExporter`, `DesktopTextFileExporter`) and optional local `openyt://library/entry/<percent-encoded-id>?t=<millis>` links (`OpenYtEntryLink` / `OpenYtLink`), emitted as clickable Markdown links only when `StudyHostLinkCapability.supportsClickableEntryLinks` is explicitly confirmed by the host OS dispatch setup (and strictly scoped to the library that retains that `library_entry.id`). `StudySheetDialog` and `StudyRemovalDialog` integrate into `LibraryScreen` with responsive grids/flow controls, manual completion independent of playback-end resume resets (`resumeMillis == 0`), and confirmation-gated study data cleanup that preserves original physical media bytes. See [ADR-0020](../adr/0020-download-completion.md), the [Download Profiles guide](../DOWNLOAD_PROFILES.md), the [Offline Library guide](../OFFLINE_LIBRARY.md), the [Study Mode guide](../planning/NEXT_EXPANSION/04_STUDY_MODE.md), and the [video regression contracts](../testing/VIDEO_REGRESSION_CONTRACTS.md).
 
 ## Platform notes
 
@@ -115,8 +117,11 @@ task repeats its original request. Schema 19 adds custom download profiles, sepa
   are exercised in CI. OS certificate/notarization availability is explicit in
   ADR-0022. The engine keeps OS differences behind a process port.
 - **Desktop state ownership**: an OS file lock permits one coordinator per database.
-  GUI links reach the existing window through a private local inbox; macOS also
-  registers an OpenURI handler. CLI mutations require exclusive access.
+  GUI links (`openyt://...`, including `openyt://library/entry/<id>?t=<millis>`)
+  reach the existing window through a private local inbox (`DesktopInstance`);
+  Desktop deep links are routed via `DesktopDeepLinks` / `DesktopCli link --entry`
+  (Linux `.desktop`, Windows HKCU protocol registration/verification, and macOS
+  OpenURI handler). CLI mutations require exclusive access.
 
 ## Explicit non-goals
 
