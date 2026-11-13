@@ -104,10 +104,29 @@ fun main(args: Array<String>) {
         val result = instance.use { DesktopCli.run(args.drop(1)) }
         exitProcess(result)
     }
-    instance.use { launchApp(initialRoute, it) }
+    val deepLinksCheck = kotlinx.coroutines.CompletableDeferred<Boolean>()
+    Thread({
+        val supported = runCatching {
+            val registered = DesktopDeepLinks.register()
+            if (!registered) {
+                System.err.println(
+                    "OpenYT: DesktopDeepLinks.register() returned false (jpackage.app-path=${System.getProperty("jpackage.app-path")})",
+                )
+            }
+            DesktopDeepLinks.isEntryLinkDispatchSupported()
+        }.onFailure { err ->
+            System.err.println("OpenYT: DesktopDeepLinks registration failed: ${err::class.simpleName}: ${err.message}")
+        }.getOrDefault(false)
+        deepLinksCheck.complete(supported)
+    }, "openyt-deeplinks").apply { isDaemon = true; start() }
+    instance.use { launchApp(initialRoute, it, deepLinksCheck) }
 }
 
-private fun launchApp(initialRoute: OpenYtRoute?, instance: DesktopInstance) = application {
+private fun launchApp(
+    initialRoute: OpenYtRoute?,
+    instance: DesktopInstance,
+    deepLinksCheck: kotlinx.coroutines.CompletableDeferred<Boolean>,
+) = application {
     val engine = remember { DesktopYtDlpEngine() }
     val scope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
     val database = remember {
@@ -270,17 +289,6 @@ private fun launchApp(initialRoute: OpenYtRoute?, instance: DesktopInstance) = a
         StudyAbRepeatController(playbackLauncher = playbackLauncher, scope = scope)
     }
     var entryLinksSupported by remember { mutableStateOf(false) }
-    val deepLinksCheck = remember {
-        kotlinx.coroutines.CompletableDeferred<Boolean>().also { deferred ->
-            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
-                val supported = runCatching {
-                    DesktopDeepLinks.register()
-                    DesktopDeepLinks.isEntryLinkDispatchSupported()
-                }.getOrDefault(false)
-                deferred.complete(supported)
-            }
-        }
-    }
     var sharedUrl by remember { mutableStateOf((initialRoute as? OpenYtRoute.Download)?.url) }
     var pendingEntryRoute by remember { mutableStateOf(initialRoute as? OpenYtRoute.LibraryEntry) }
 
