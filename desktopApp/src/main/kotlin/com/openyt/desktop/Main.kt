@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import kotlinx.coroutines.launch
 import com.openyt.core.application.DownloadCoordinator
 import com.openyt.core.application.FileAvailability
 import com.openyt.core.application.FolderImportService
@@ -269,14 +270,22 @@ private fun launchApp(initialRoute: OpenYtRoute?, instance: DesktopInstance) = a
         StudyAbRepeatController(playbackLauncher = playbackLauncher, scope = scope)
     }
     var entryLinksSupported by remember { mutableStateOf(false) }
+    val deepLinksCheck = remember {
+        kotlinx.coroutines.CompletableDeferred<Boolean>().also { deferred ->
+            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                val supported = runCatching {
+                    DesktopDeepLinks.register()
+                    DesktopDeepLinks.isEntryLinkDispatchSupported()
+                }.getOrDefault(false)
+                deferred.complete(supported)
+            }
+        }
+    }
     var sharedUrl by remember { mutableStateOf((initialRoute as? OpenYtRoute.Download)?.url) }
     var pendingEntryRoute by remember { mutableStateOf(initialRoute as? OpenYtRoute.LibraryEntry) }
 
     LaunchedEffect(coordinator, settingsController, libraryController) {
-        entryLinksSupported = kotlinx.coroutines.withContext(Dispatchers.IO) {
-            DesktopDeepLinks.register()
-            DesktopDeepLinks.isEntryLinkDispatchSupported()
-        }
+        entryLinksSupported = deepLinksCheck.await()
         coordinator.restore()
         settingsController.restore()
         libraryController.restore()

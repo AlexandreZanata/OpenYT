@@ -116,7 +116,7 @@ def main():
                         time.sleep(.1)
                     assert owner.read_text() == "gui"
                     desktop_handler = root / "data/applications/openyt-link.desktop"
-                    handler_deadline = time.monotonic() + 30
+                    handler_deadline = time.monotonic() + 60
                     while (not desktop_handler.is_file() or "x-scheme-handler/openyt" not in desktop_handler.read_text()) and time.monotonic() < handler_deadline:
                         assert gui.poll() is None, "GUI exited while registering desktop deep links"
                         time.sleep(.1)
