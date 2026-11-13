@@ -51,6 +51,7 @@
 
         <activity
             android:name=".player.PlayerActivity"
+            android:launchMode="singleTop"
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"

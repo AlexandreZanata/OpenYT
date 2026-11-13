@@ -59,17 +59,27 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Unit tests and Android build
+      - name: Unit tests
         run: >
           ./gradlew
           :core:desktopTest
+          :ui:desktopTest
           :engine-ytdlp:desktopTest
           :data:desktopTest
           :media-ffmpeg:desktopTest
           :desktopApp:test
+          --max-workers=2
+          --console=plain
+          --stacktrace
+
+      - name: Android build and Linux package
+        run: >
+          ./gradlew
+          :data:verifyCommonMainOpenYtDatabaseMigration
           :androidApp:assembleDebug
           :androidApp:assembleDebugAndroidTest
           :desktopApp:packageDeb
+          :desktopApp:windowsContractHarnessJar
           --console=plain
           --stacktrace
 

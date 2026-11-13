@@ -1,6 +1,7 @@
 package com.openyt.desktop
 
 import java.io.File
+import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 /** Registers only OpenYT's own URI scheme for the current user. */
@@ -16,11 +17,18 @@ object DesktopDeepLinks {
         val os = osName.lowercase()
         return runCatching {
             if (os.contains("win")) {
-                val key = "HKCU\\Software\\Classes\\openyt"
-                checkNotNull(runCommand(listOf("reg", "add", key, "/ve", "/d", "URL:OpenYT", "/f")))
-                checkNotNull(runCommand(listOf("reg", "add", key, "/v", "URL Protocol", "/d", "", "/f")))
-                checkNotNull(runCommand(listOf("reg", "add", "$key\\shell\\open\\command", "/ve", "/d", "\"$launcher\" \"%1\"", "/f")))
-                true
+                // Use `reg import` with a UTF-16LE BOM `.reg` file so Java's Win32
+                // ProcessImpl never splits nested double quotes inside `/d "\"<path>\" \"%1\""`.
+                val regFile = Files.createTempFile("openyt-protocol-", ".reg").toFile()
+                try {
+                    val content = windowsRegistryImportContent(launcher)
+                    val bom = byteArrayOf(0xFF.toByte(), 0xFE.toByte())
+                    regFile.writeBytes(bom + content.toByteArray(Charsets.UTF_16LE))
+                    checkNotNull(runCommand(listOf("reg", "import", regFile.absolutePath)))
+                    true
+                } finally {
+                    regFile.delete()
+                }
             } else if (!os.contains("mac")) {
                 val base = xdgDataHome ?: "${userHome.orEmpty()}/.local/share"
                 val file = File(base, "applications/openyt-link.desktop")
@@ -72,6 +80,19 @@ object DesktopDeepLinks {
                     defaultHandler == "openyt-link.desktop" || defaultHandler.contains("openyt", ignoreCase = true)
                 }
             }
+        }
+    }
+
+    internal fun windowsRegistryImportContent(launcher: String): String {
+        require(!launcher.contains('\n') && !launcher.contains('\r'))
+        val escaped = launcher.replace("\\", "\\\\").replace("\"", "\\\"")
+        return buildString {
+            append("Windows Registry Editor Version 5.00\r\n\r\n")
+            append("[HKEY_CURRENT_USER\\Software\\Classes\\openyt]\r\n")
+            append("@=\"URL:OpenYT\"\r\n")
+            append("\"URL Protocol\"=\"\"\r\n\r\n")
+            append("[HKEY_CURRENT_USER\\Software\\Classes\\openyt\\shell\\open\\command]\r\n")
+            append("@=\"\\\"").append(escaped).append("\\\" \\\"%1\\\"\"\r\n")
         }
     }
 

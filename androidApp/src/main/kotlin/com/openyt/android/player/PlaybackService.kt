@@ -99,6 +99,7 @@ class PlaybackService : MediaSessionService() {
                 AndroidPlaybackSessionBridge.nextGeneration()
                 AndroidPlaybackSessionBridge.publishState(readBridgeState(player))
                 val uri = mediaItem?.localConfiguration?.uri ?: return
+                if (AndroidPlaybackSessionBridge.consumeExplicitStartUri(uri.toString())) return
                 val entryId = mediaItem.mediaMetadata.extras?.getString("openyt.entryId")
                 scope.launch {
                     val position = store.position(uri.path.orEmpty(), entryId)?.resumeMillis ?: 0

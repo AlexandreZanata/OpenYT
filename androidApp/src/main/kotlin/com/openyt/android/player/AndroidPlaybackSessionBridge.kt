@@ -48,6 +48,8 @@ internal object AndroidPlaybackSessionBridge {
     private var pendingOpen: BridgeState? = null
     @Volatile
     private var activeRepeatBounds: ActiveAbRepeatBounds? = null
+    @Volatile
+    private var explicitStartUri: String? = null
     private val listeners = CopyOnWriteArrayList<PlaybackSessionListener>()
 
     fun nextGeneration(): Long {
@@ -85,6 +87,7 @@ internal object AndroidPlaybackSessionBridge {
             delegate = null
             activeRepeatBounds = null
             pendingOpen = null
+            explicitStartUri = null
             generation.incrementAndGet()
             state = BridgeState(media = null, snapshot = null, state = PlaybackSessionState.IDLE)
             notifyListeners(null)
@@ -128,6 +131,7 @@ internal object AndroidPlaybackSessionBridge {
     fun markError() {
         activeRepeatBounds = null
         pendingOpen = null
+        explicitStartUri = null
         val gen = generation.incrementAndGet()
         state = BridgeState(
             media = null,
@@ -151,6 +155,7 @@ internal object AndroidPlaybackSessionBridge {
     fun markIdle() {
         activeRepeatBounds = null
         pendingOpen = null
+        explicitStartUri = null
         generation.incrementAndGet()
         state = BridgeState(
             media = null,
@@ -177,6 +182,20 @@ internal object AndroidPlaybackSessionBridge {
 
     fun play() {
         delegate?.play()
+    }
+
+    fun markExplicitStartUri(uri: String?) {
+        explicitStartUri = uri
+    }
+
+    fun consumeExplicitStartUri(uri: String): Boolean {
+        val current = explicitStartUri ?: return false
+        return if (current == uri) {
+            explicitStartUri = null
+            true
+        } else {
+            false
+        }
     }
 
     fun stop() {

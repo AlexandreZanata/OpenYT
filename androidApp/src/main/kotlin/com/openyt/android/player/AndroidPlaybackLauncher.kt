@@ -99,7 +99,11 @@ class AndroidPlaybackLauncher(
     override fun playAt(items: List<PlayableMedia>, startIndex: Int, startPositionMillis: Long) {
         if (items.isEmpty()) return
         val intent = Intent(context, PlayerActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
+            )
             putStringArrayListExtra(PlayerActivity.EXTRA_PATHS, ArrayList(items.map { it.path }))
             putStringArrayListExtra(PlayerActivity.EXTRA_TITLES, ArrayList(items.map { it.title }))
             putStringArrayListExtra(PlayerActivity.EXTRA_KINDS, ArrayList(items.map { it.kind.name }))

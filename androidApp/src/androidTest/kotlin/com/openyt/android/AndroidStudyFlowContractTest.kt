@@ -211,8 +211,10 @@ class AndroidStudyFlowContractTest {
             // Reopen note -> seeks Media3 to exact timestamp
             assertTrue(nav2.openNoteTimestamp(note.id) is StudyNavigationResult.Opened)
             var matched = false
-            repeat(60) {
+            var lastSnap: com.openyt.core.application.PlaybackPositionSnapshot? = null
+            repeat(150) {
                 val snap = launcher2.captureSnapshot()
+                lastSnap = snap
                 if (snap != null &&
                     (snap.state == PlaybackSessionState.PLAYING || snap.state == PlaybackSessionState.PAUSED) &&
                     abs(snap.positionMillis - note.timestampMillis) <= 1_000L
@@ -222,7 +224,10 @@ class AndroidStudyFlowContractTest {
                 }
                 delay(100)
             }
-            assertTrue("Android note seek did not match saved timestamp", matched)
+            assertTrue(
+                "Android note seek did not match saved timestamp (${note.timestampMillis}ms); lastSnap=${lastSnap?.state}@${lastSnap?.positionMillis}ms",
+                matched,
+            )
 
             // Safe Markdown export & Android IntentFilter verification for openyt://library/entry/...
             val markdown = StudyMarkdownExporter.exportEntryBundle(

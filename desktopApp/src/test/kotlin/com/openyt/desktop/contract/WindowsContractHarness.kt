@@ -328,8 +328,9 @@ object WindowsContractHarness {
 
             // Protocol registration + Markdown export + link dispatch check
             val registered = DesktopDeepLinks.register(launcher = installedAppExe.absolutePath)
-            check(registered && DesktopDeepLinks.isEntryLinkDispatchSupported(launcher = installedAppExe.absolutePath)) {
-                "Windows openyt:// HKCU protocol handler verification failed"
+            val linkSupported = DesktopDeepLinks.isEntryLinkDispatchSupported(launcher = installedAppExe.absolutePath)
+            check(registered && linkSupported) {
+                "Windows openyt:// HKCU protocol handler verification failed (registered=$registered, linkSupported=$linkSupported, launcher=${installedAppExe.absolutePath})"
             }
             try {
                 val md = StudyMarkdownExporter.exportEntryBundle(

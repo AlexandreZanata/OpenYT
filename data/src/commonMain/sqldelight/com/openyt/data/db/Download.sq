@@ -650,20 +650,31 @@ SELECT
     c.display_text,
     c.plain_text,
     c.speaker,
-    i.language,
-    i.timebase_offset_ms,
+    paged.language,
+    paged.timebase_offset_ms,
     le.title AS entry_title
-FROM subtitle_cue_fts f
-INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
-INNER JOIN subtitle_cue c ON c.id = (f.track_id || ':' || f.revision || ':' || f.cue_id)
-INNER JOIN library_entry le ON le.id = i.entry_id
-WHERE f.plain_text MATCH :match_query
-  AND i.active_revision > 0
-  AND i.state IN ('READY', 'STALE')
-  AND (:language IS NULL OR i.language = :language)
-  AND (:track_id IS NULL OR c.track_id = :track_id)
-ORDER BY c.entry_id ASC, c.start_ms ASC, c.track_id ASC, c.cue_id ASC
-LIMIT :limit OFFSET :offset;
+FROM (
+    SELECT
+        f.cue_id,
+        f.track_id,
+        f.revision,
+        i.entry_id,
+        i.language,
+        i.timebase_offset_ms
+    FROM subtitle_cue_fts f
+    INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+    INNER JOIN library_entry le ON le.id = i.entry_id
+    WHERE f.plain_text MATCH :match_query
+      AND i.active_revision > 0
+      AND i.state IN ('READY', 'STALE')
+      AND (:language IS NULL OR i.language = :language)
+      AND (:track_id IS NULL OR f.track_id = :track_id)
+    ORDER BY i.entry_id ASC, CAST(f.start_ms AS INTEGER) ASC, f.track_id ASC, f.cue_id ASC
+    LIMIT :limit OFFSET :offset
+) paged
+INNER JOIN subtitle_cue c ON c.id = (paged.track_id || ':' || paged.revision || ':' || paged.cue_id)
+INNER JOIN library_entry le ON le.id = paged.entry_id
+ORDER BY c.entry_id ASC, c.start_ms ASC, c.track_id ASC, c.cue_id ASC;
 
 countSubtitleCuesLibrary:
 SELECT count(*)
@@ -686,27 +697,36 @@ SELECT
     c.display_text,
     c.plain_text,
     c.speaker,
-    i.language,
-    i.timebase_offset_ms,
+    paged.language,
+    paged.timebase_offset_ms,
     le.title AS entry_title
-FROM subtitle_cue_fts f
-INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
-INNER JOIN subtitle_cue c ON c.id = (f.track_id || ':' || f.revision || ':' || f.cue_id)
-INNER JOIN library_entry le ON le.id = i.entry_id
-WHERE f.plain_text MATCH :match_query
-  AND i.entry_id = :entry_id
-  AND i.active_revision > 0
-  AND i.state IN ('READY', 'STALE')
-  AND (:language IS NULL OR i.language = :language)
-  AND (:track_id IS NULL OR c.track_id = :track_id)
-ORDER BY c.start_ms ASC, c.track_id ASC, c.cue_id ASC
-LIMIT :limit OFFSET :offset;
+FROM (
+    SELECT
+        f.cue_id,
+        f.track_id,
+        f.revision,
+        i.entry_id,
+        i.language,
+        i.timebase_offset_ms
+    FROM subtitle_cue_fts f
+    INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+    WHERE f.plain_text MATCH :match_query
+      AND i.entry_id = :entry_id
+      AND i.active_revision > 0
+      AND i.state IN ('READY', 'STALE')
+      AND (:language IS NULL OR i.language = :language)
+      AND (:track_id IS NULL OR f.track_id = :track_id)
+    ORDER BY CAST(f.start_ms AS INTEGER) ASC, f.track_id ASC, f.cue_id ASC
+    LIMIT :limit OFFSET :offset
+) paged
+INNER JOIN subtitle_cue c ON c.id = (paged.track_id || ':' || paged.revision || ':' || paged.cue_id)
+INNER JOIN library_entry le ON le.id = paged.entry_id
+ORDER BY c.start_ms ASC, c.track_id ASC, c.cue_id ASC;
 
 countSubtitleCuesEntry:
 SELECT count(*)
 FROM subtitle_cue_fts f
 INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
-INNER JOIN library_entry le ON le.id = i.entry_id
 WHERE f.plain_text MATCH :match_query
   AND i.entry_id = :entry_id
   AND i.active_revision > 0
@@ -724,21 +744,32 @@ SELECT
     c.display_text,
     c.plain_text,
     c.speaker,
-    i.language,
-    i.timebase_offset_ms,
+    paged.language,
+    paged.timebase_offset_ms,
     le.title AS entry_title
-FROM subtitle_cue_fts f
-INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
-INNER JOIN subtitle_cue c ON c.id = (f.track_id || ':' || f.revision || ':' || f.cue_id)
-INNER JOIN library_entry le ON le.id = i.entry_id
-WHERE f.plain_text MATCH :match_query
-  AND i.entry_id IN (SELECT entry_id FROM collection_entry WHERE collection_id = :collection_id)
-  AND i.active_revision > 0
-  AND i.state IN ('READY', 'STALE')
-  AND (:language IS NULL OR i.language = :language)
-  AND (:track_id IS NULL OR c.track_id = :track_id)
-ORDER BY c.entry_id ASC, c.start_ms ASC, c.track_id ASC, c.cue_id ASC
-LIMIT :limit OFFSET :offset;
+FROM (
+    SELECT
+        f.cue_id,
+        f.track_id,
+        f.revision,
+        i.entry_id,
+        i.language,
+        i.timebase_offset_ms
+    FROM subtitle_cue_fts f
+    INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+    INNER JOIN library_entry le ON le.id = i.entry_id
+    WHERE f.plain_text MATCH :match_query
+      AND i.entry_id IN (SELECT entry_id FROM collection_entry WHERE collection_id = :collection_id)
+      AND i.active_revision > 0
+      AND i.state IN ('READY', 'STALE')
+      AND (:language IS NULL OR i.language = :language)
+      AND (:track_id IS NULL OR f.track_id = :track_id)
+    ORDER BY i.entry_id ASC, CAST(f.start_ms AS INTEGER) ASC, f.track_id ASC, f.cue_id ASC
+    LIMIT :limit OFFSET :offset
+) paged
+INNER JOIN subtitle_cue c ON c.id = (paged.track_id || ':' || paged.revision || ':' || paged.cue_id)
+INNER JOIN library_entry le ON le.id = paged.entry_id
+ORDER BY c.entry_id ASC, c.start_ms ASC, c.track_id ASC, c.cue_id ASC;
 
 countSubtitleCuesCollection:
 SELECT count(*)
