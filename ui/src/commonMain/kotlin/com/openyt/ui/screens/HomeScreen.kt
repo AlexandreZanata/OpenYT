@@ -118,7 +118,11 @@ fun HomeScreen(
         url = shared
         state = HomeState.Loading
         try {
-            state = when (val result = inspectMedia(shared)) {
+            val result = inspectMedia(shared)
+            if (result is EngineResult.Failure) {
+                println("OpenYT[handoff]: inspectMedia failed for $shared: ${result.failure}")
+            }
+            state = when (result) {
                 is EngineResult.Success -> HomeState.Ready(result.value, shared)
                 is EngineResult.Failure -> HomeState.Error(result.failure)
             }

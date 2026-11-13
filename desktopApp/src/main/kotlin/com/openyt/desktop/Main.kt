@@ -306,9 +306,12 @@ private fun launchApp(
     }
 
     LaunchedEffect(instance) {
+        val debugHandoff = System.getenv("OPENYT_DEBUG_HANDOFF") == "1"
+        if (debugHandoff) System.err.println("OpenYT[handoff]: polling started")
         while (true) {
             val routes = kotlinx.coroutines.withContext(Dispatchers.IO) { instance.takeRoutes() }
             if (routes.isNotEmpty()) {
+                if (debugHandoff) System.err.println("OpenYT[handoff]: received ${routes.size} route(s): $routes")
                 routes.forEach { route ->
                     when (route) {
                         is OpenYtRoute.Download -> sharedUrl = route.url

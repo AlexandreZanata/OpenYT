@@ -107,7 +107,8 @@ def main():
             print("PASS CLI generates percent-encoded local-entry links")
             if os.environ.get("DISPLAY"):
                 log = (root / "gui.log").open("w")
-                gui = subprocess.Popen([str(app)], env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                gui_env = dict(env, OPENYT_DEBUG_HANDOFF="1")
+                gui = subprocess.Popen([str(app)], env=gui_env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                 try:
                     owner = root / "data/OpenYT/instance.owner"
                     owner_deadline = time.monotonic() + 60
@@ -133,8 +134,9 @@ def main():
                         assert gui.poll() is None, "Existing GUI exited during handoff"
                         time.sleep(.1)
                     assert any("handoff=1" in request for request in requested), (
-                        f"Existing GUI did not analyze the handed-off URL; requested={requested}; gui.log:\n"
-                        + (root / "gui.log").read_text(errors="replace")
+                        f"Existing GUI did not analyze the handed-off URL; requested={requested}; "
+                        f"inbox={sorted(p.name for p in (root / 'data/OpenYT/instance-inbox').glob('*')) if (root / 'data/OpenYT/instance-inbox').is_dir() else None}; "
+                        "gui.log:\n" + (root / "gui.log").read_text(errors="replace")
                     )
                     entry_handoff = subprocess.run([str(app), entry_link], env=env, capture_output=True, text=True, timeout=30)
                     assert entry_handoff.returncode == 0, entry_handoff.stderr
