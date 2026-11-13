@@ -621,6 +621,46 @@ WHERE status IN ('RUNNING', 'COMMITTING');
 deletePortableOperation:
 DELETE FROM portable_operation WHERE id = :id;
 
+insertPortableStudyNote:
+INSERT OR REPLACE INTO study_note(
+    id, entry_id, timestamp_ms, end_ms, body,
+    media_revision_size, media_revision_mtime, media_revision_sha256,
+    created_at, updated_at
+) VALUES (
+    :id, :entry_id, :timestamp_ms, :end_ms, :body,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256,
+    :created_at, :updated_at
+);
+
+insertPortableStudyBookmark:
+INSERT OR REPLACE INTO study_bookmark(
+    id, entry_id, timestamp_ms, label,
+    media_revision_size, media_revision_mtime, media_revision_sha256,
+    created_at, updated_at
+) VALUES (
+    :id, :entry_id, :timestamp_ms, :label,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256,
+    :created_at, :updated_at
+);
+
+insertPortableStudyRange:
+INSERT OR REPLACE INTO study_range(
+    id, entry_id, start_ms, end_ms, label,
+    media_revision_size, media_revision_mtime, media_revision_sha256,
+    created_at, updated_at
+) VALUES (
+    :id, :entry_id, :start_ms, :end_ms, :label,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256,
+    :created_at, :updated_at
+);
+
+upsertPortableEntryStudyState:
+INSERT OR REPLACE INTO entry_study_state(
+    entry_id, is_studied, studied_at, updated_at
+) VALUES (
+    :entry_id, :is_studied, :studied_at, :updated_at
+);
+
 deleteSubtitleTrackIndexesForEntry:
 DELETE FROM subtitle_track_index WHERE entry_id = :entry_id;
 
