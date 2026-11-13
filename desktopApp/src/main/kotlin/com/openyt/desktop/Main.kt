@@ -291,6 +291,7 @@ private fun launchApp(
     var entryLinksSupported by remember { mutableStateOf(false) }
     var sharedUrl by remember { mutableStateOf((initialRoute as? OpenYtRoute.Download)?.url) }
     var pendingEntryRoute by remember { mutableStateOf(initialRoute as? OpenYtRoute.LibraryEntry) }
+    var focusSignal by remember { mutableStateOf(0) }
 
     LaunchedEffect(coordinator, settingsController, libraryController) {
         entryLinksSupported = deepLinksCheck.await()
@@ -302,6 +303,23 @@ private fun launchApp(
         cleanStaleTemporaryFiles(
             File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory),
         )
+    }
+
+    LaunchedEffect(instance) {
+        while (true) {
+            val routes = kotlinx.coroutines.withContext(Dispatchers.IO) { instance.takeRoutes() }
+            if (routes.isNotEmpty()) {
+                routes.forEach { route ->
+                    when (route) {
+                        is OpenYtRoute.Download -> sharedUrl = route.url
+                        is OpenYtRoute.LibraryEntry -> pendingEntryRoute = route
+                        null -> Unit
+                    }
+                }
+                focusSignal++
+            }
+            kotlinx.coroutines.delay(300)
+        }
     }
 
     Window(
@@ -357,20 +375,11 @@ private fun launchApp(
             onDispose { window.dropTarget = null }
         }
 
-        LaunchedEffect(instance, window) {
-            while (true) {
-                val routes = kotlinx.coroutines.withContext(Dispatchers.IO) { instance.takeRoutes() }
-                routes.forEach { route ->
-                    when (route) {
-                        is OpenYtRoute.Download -> sharedUrl = route.url
-                        is OpenYtRoute.LibraryEntry -> pendingEntryRoute = route
-                        null -> Unit
-                    }
-                    window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv()
-                    window.toFront()
-                    window.requestFocus()
-                }
-                kotlinx.coroutines.delay(300)
+        LaunchedEffect(focusSignal, window) {
+            if (focusSignal > 0) {
+                window.extendedState = window.extendedState and java.awt.Frame.ICONIFIED.inv()
+                window.toFront()
+                window.requestFocus()
             }
         }
         DisposableEffect(window) {
