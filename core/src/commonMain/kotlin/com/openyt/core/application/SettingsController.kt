@@ -83,4 +83,10 @@ class SettingsController(
 
     fun setDefaultProfileId(id: String?) =
         update(_settings.value.copy(defaultProfileId = id?.takeIf { it.isNotBlank() }))
+
+    fun setAssetBudgetBytes(bytes: Long) =
+        update(_settings.value.copy(assetBudgetBytes = bytes.coerceAtLeast(16L * 1024L * 1024L)))
+
+    fun setStorageReserveBytes(bytes: Long) =
+        update(_settings.value.copy(storageReserveBytes = bytes.coerceAtLeast(16L * 1024L * 1024L)))
 }

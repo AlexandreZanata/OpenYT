@@ -118,6 +118,8 @@ class AppContainer(context: Context) {
             assetsDirectory = offlineAssetsDirectory,
             repository = assetRepository,
             operationRepository = SqlDelightAssetOperationRepository(db),
+            storageReserveBytesProvider = { settingsController.settings.value.storageReserveBytes },
+            assetBudgetBytesProvider = { settingsController.settings.value.assetBudgetBytes },
         )
     }
     val artworkFetchService: ArtworkFetchService? = run {
