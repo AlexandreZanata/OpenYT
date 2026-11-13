@@ -133,6 +133,9 @@ def main():
                     while not any("handoff=1" in request for request in requested) and time.monotonic() < handoff_deadline:
                         assert gui.poll() is None, "Existing GUI exited during handoff"
                         time.sleep(.1)
+                    if not any("handoff=1" in request for request in requested) and gui.poll() is None:
+                        os.kill(gui.pid, signal.SIGQUIT)
+                        time.sleep(0.5)
                     assert any("handoff=1" in request for request in requested), (
                         f"Existing GUI did not analyze the handed-off URL; requested={requested}; "
                         f"inbox={sorted(p.name for p in (root / 'data/OpenYT/instance-inbox').glob('*')) if (root / 'data/OpenYT/instance-inbox').is_dir() else None}; "
