@@ -179,7 +179,15 @@ class DownloadProfileNativeFlowTest {
         assertEquals("137+140", retriedProvenance.selectedFormatId)
 
         // 6. Complete task through engine and verify task and library entry preserve provenance
-        val completedTask = coordinator2.tasks.value.first { it.id == retriedTask.id }
+        val completedTask = kotlinx.coroutines.withTimeout(5_000) {
+            while (true) {
+                val current = coordinator2.tasks.value.first { it.id == retriedTask.id }
+                if (current.status == DownloadStatus.COMPLETED) return@withTimeout current
+                kotlinx.coroutines.delay(20)
+            }
+            @Suppress("UNREACHABLE_CODE")
+            error("unreachable")
+        }
         assertEquals(DownloadStatus.COMPLETED, completedTask.status)
         assertEquals(provenance, completedTask.request.options.profileProvenance)
 
