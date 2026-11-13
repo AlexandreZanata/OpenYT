@@ -27,7 +27,7 @@ data class PortableSnapshotData(
     val existingProfileNamesLower: Set<String> = customProfiles.map { it.name.trim().lowercase() }.toSet(),
 )
 
-interface PortableBackupSnapshotSource {
+fun interface PortableBackupSnapshotSource {
     suspend fun captureConsistentSnapshot(): PortableSnapshotData
 }
 
