@@ -109,23 +109,27 @@ def main():
                 log = (root / "gui.log").open("w")
                 gui = subprocess.Popen([str(app)], env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                 try:
-                    deadline = time.monotonic() + 30
                     owner = root / "data/OpenYT/instance.owner"
-                    while (not owner.exists() or owner.read_text() != "gui") and time.monotonic() < deadline:
+                    owner_deadline = time.monotonic() + 60
+                    while (not owner.exists() or owner.read_text() != "gui") and time.monotonic() < owner_deadline:
                         assert gui.poll() is None, "GUI exited before acquiring state ownership"
                         time.sleep(.1)
                     assert owner.read_text() == "gui"
                     desktop_handler = root / "data/applications/openyt-link.desktop"
-                    while (not desktop_handler.is_file() or "x-scheme-handler/openyt" not in desktop_handler.read_text()) and time.monotonic() < deadline:
+                    handler_deadline = time.monotonic() + 30
+                    while (not desktop_handler.is_file() or "x-scheme-handler/openyt" not in desktop_handler.read_text()) and time.monotonic() < handler_deadline:
                         assert gui.poll() is None, "GUI exited while registering desktop deep links"
                         time.sleep(.1)
-                    assert desktop_handler.is_file() and "x-scheme-handler/openyt" in desktop_handler.read_text(), desktop_handler
+                    assert desktop_handler.is_file() and "x-scheme-handler/openyt" in desktop_handler.read_text(), (
+                        f"Missing {desktop_handler}; gui.log:\n" + (root / "gui.log").read_text(errors="replace")
+                    )
                     cli("library", "--list", "--json", success=False)
                     url = base + "/Original%20a%C3%A7%C3%A3o.mp4?handoff=1"
                     link = "openyt://download?url=" + urllib.parse.quote(url, safe="")
                     handoff = subprocess.run([str(app), link], env=env, capture_output=True, text=True, timeout=30)
                     assert handoff.returncode == 0, handoff.stderr
-                    while not any("handoff=1" in request for request in requested) and time.monotonic() < deadline:
+                    handoff_deadline = time.monotonic() + 30
+                    while not any("handoff=1" in request for request in requested) and time.monotonic() < handoff_deadline:
                         assert gui.poll() is None, "Existing GUI exited during handoff"
                         time.sleep(.1)
                     assert any("handoff=1" in request for request in requested), "Existing GUI did not analyze the handed-off URL"

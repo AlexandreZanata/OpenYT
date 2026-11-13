@@ -321,7 +321,7 @@ Suggested groups: `StudyRepositoryTest`, `StudySessionTest`, `StudyLinkTest`,
   - Contract & Invariants:
     - Cross-layer offline lifecycle (`StudyPlaybackLocalTest`, `AndroidStudyFlowContractTest`, `WindowsContractHarness` `"study"`): captures live timestamps, executes 5 real A/B repeat loops with mini-player/PiP and pause preservation (`maxOvershootMs=400`, `maxReturnDeltaMs=0` measured on Linux VLCJ+FFmpeg vs `<= 1000 ms` budget), maintains manual studied completion across playback-end resume resets (`resumeMillis == 0`), reopens SQLite cleanly without auto-play or auto-repeat, seeks to exact note timestamps, exports privacy-safe Markdown with clickable local links, dispatches `openyt://library/entry/<id>?t=<ms>` routes, and purges study rows after confirmation while preserving physical media hashes byte-for-byte.
     - Explicit scope limits documented: local entry links remain valid only on libraries preserving that `entry_id` and when `supportsClickableEntryLinks` is verified by host OS dispatch; manual `entry_study_state` completion is independent of end-of-playback resume checkpoint reset.
-  - Status: **IMPLEMENTED — Linux VLCJ verified (`StudyPlaybackLocalTest`: 1/1 passed); Windows MSI CI & Android instrumentation pending final pass**.
+  - Status: **VERIFIED — Linux VLCJ (`StudyPlaybackLocalTest`: 1/1), Windows MSI/EXE CI (`msi-study` & `exe-study`), macOS CI, and Android Emulator CI (`AndroidStudyFlowContractTest`) passed**.
 
 ### Backup — NX-B
 
