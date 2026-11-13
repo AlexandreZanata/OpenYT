@@ -56,6 +56,18 @@ object StudyAnchorInspector {
         ensureMinRangeInterval = true,
     )
 
+    fun inspectTimestamp(
+        timestampMillis: Long,
+        currentRevision: MediaRevision?,
+        knownDurationMillis: Long?,
+    ): StudyAnchorHealth = inspectBounds(
+        timestampMillis = timestampMillis,
+        endMillis = null,
+        anchoredRevision = currentRevision,
+        currentRevision = currentRevision,
+        knownDurationMillis = knownDurationMillis,
+    )
+
     fun inspectBundle(
         bundle: EntryStudyBundle,
         knownDurationMillis: Long?,

@@ -612,6 +612,23 @@ class StudyCaptureAndNavigationTest {
         )
         assertEquals(33_000L, discoveredOut.savedTimestampMillis)
         assertEquals(20_000L, discoveredOut.knownDurationMillis)
+
+        // Direct entry timestamp navigation (used after explicit confirmation from local links)
+        val directPlayer = RecordingPlaybackSession(durationByPath = mapOf(entry1.filePath to 120_000L))
+        val directService = StudyCaptureAndNavigationService(
+            studyService = studyService,
+            playbackLauncher = directPlayer,
+            playbackStore = MemoryPlaybackStore(),
+            entryProvider = { listOf(entry1, entry2) },
+            fileAvailability = FileAvailability { true },
+            nowEpochMillis = { clock + 3_000L },
+        )
+        val directOpen = assertIs<StudyNavigationResult.Opened>(
+            directService.openEntryAtTimestamp(entry1.id, 44_000L, listOf(entry1, entry2)),
+        )
+        assertEquals(StudyNavigationTargetKind.ENTRY_TIMESTAMP, directOpen.targetKind)
+        assertEquals(44_000L, directOpen.requestedPositionMillis)
+        assertEquals(44_000L, directPlayer.currentPositionMillis)
     }
 }
 

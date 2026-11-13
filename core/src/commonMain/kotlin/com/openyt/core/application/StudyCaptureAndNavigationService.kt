@@ -373,6 +373,29 @@ class StudyCaptureAndNavigationService(
     }
 
     /**
+     * Opens [entryId] at an explicit [timestampMillis] (for example, after the user
+     * confirms Playback from an `openyt://library/entry/<id>?t=<ms>` preview).
+     */
+    suspend fun openEntryAtTimestamp(
+        entryId: String,
+        timestampMillis: Long,
+        queueContext: List<LibraryEntry>? = null,
+    ): StudyNavigationResult {
+        val safeTimestamp = timestampMillis.coerceAtLeast(0L)
+        return openTimestampTarget(
+            entryId = entryId,
+            targetKind = StudyNavigationTargetKind.ENTRY_TIMESTAMP,
+            targetId = "$entryId@$safeTimestamp",
+            targetPositionMillis = safeTimestamp,
+            targetEndMillis = null,
+            queueContext = queueContext,
+            inspectHealth = { revision, duration ->
+                StudyAnchorInspector.inspectTimestamp(safeTimestamp, revision, duration)
+            },
+        )
+    }
+
+    /**
      * Explicit user-confirmed anchor update after reviewing a stale or
      * out-of-range note warning. Never invoked implicitly on navigation.
      */

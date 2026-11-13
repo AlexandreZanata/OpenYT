@@ -134,6 +134,7 @@ enum class StudyNavigationTargetKind {
     NOTE,
     BOOKMARK,
     SAVED_RANGE,
+    ENTRY_TIMESTAMP,
 }
 
 /**

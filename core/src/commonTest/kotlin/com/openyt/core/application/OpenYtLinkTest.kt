@@ -11,6 +11,14 @@ class OpenYtLinkTest {
         assertEquals(url, OpenYtLink.parse(OpenYtLink.create(url)))
     }
     @Test
+    fun typedRouteParsesBothDownloadAndLibraryEntryLinks() {
+        val dl = OpenYtLink.create("https://example.com/v?id=1")
+        assertEquals(OpenYtRoute.Download("https://example.com/v?id=1"), OpenYtLink.parseRoute(dl))
+        val entry = OpenYtEntryLink.create("entry-abc", 12_345L)
+        assertEquals(OpenYtRoute.LibraryEntry("entry-abc", 12_345L), OpenYtLink.parseRoute(entry))
+    }
+
+    @Test
     fun malformedOrUnsafeLinksNeverReachTheEngine() {
         for (link in listOf("openyt://download?url=file%3A%2F%2Fetc%2Fpasswd", "openyt://download?url=%FF", "openyt://download?url=%", "openyt://download?url=a&url=b", "https://example.com")) {
             assertNull(OpenYtLink.parse(link))

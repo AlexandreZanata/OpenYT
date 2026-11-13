@@ -1,6 +1,9 @@
 package com.openyt.desktop
 
 import com.openyt.core.application.ShareTextParser
+import com.openyt.core.application.StudyMarkdownExporter
+import com.openyt.core.application.TextExportOutcome
+import com.openyt.core.application.TextFileExporter
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
 import java.awt.dnd.DnDConstants
@@ -8,6 +11,10 @@ import java.awt.dnd.DropTarget
 import java.awt.dnd.DropTargetDropEvent
 import java.io.File
 import javax.swing.JFileChooser
+import javax.swing.JOptionPane
+import javax.swing.SwingUtilities
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class DesktopDropTarget(
     private val onUrlDropped: (String) -> Unit,
@@ -81,4 +88,67 @@ object DesktopSubtitlePicker {
     }
 
     private const val MAX_SUBTITLE_BYTES = 10L * 1024 * 1024
+}
+
+/**
+ * Exports Markdown study notes on desktop through a native Swing save dialog,
+ * preserving user cancellation and surfacing clean IO failures.
+ */
+object DesktopTextFileExporter : TextFileExporter {
+    override val canExport: Boolean = true
+
+    override suspend fun exportMarkdown(
+        suggestedFilename: String,
+        content: String,
+    ): TextExportOutcome {
+        val safeName = if (suggestedFilename.endsWith(".md", ignoreCase = true)) {
+            suggestedFilename
+        } else {
+            StudyMarkdownExporter.suggestedFilename(suggestedFilename)
+        }
+        val selectedFile: File? = withContext(Dispatchers.IO) {
+            var chosen: File? = null
+            val action = {
+                val initialDir = File(System.getProperty("user.home") ?: ".")
+                val chooser = JFileChooser(initialDir)
+                chooser.fileSelectionMode = JFileChooser.FILES_ONLY
+                chooser.fileFilter = javax.swing.filechooser.FileNameExtensionFilter("Markdown (*.md)", "md")
+                chooser.dialogTitle = "OpenYT — export study notes"
+                chooser.selectedFile = File(initialDir, safeName)
+                if (chooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
+                    val candidate = chooser.selectedFile
+                    if (candidate != null) {
+                        val finalFile = if (candidate.extension.isEmpty()) File(candidate.parentFile, "${candidate.name}.md") else candidate
+                        val confirmed = if (!finalFile.exists()) {
+                            true
+                        } else {
+                            JOptionPane.showConfirmDialog(
+                                null,
+                                "Replace existing file ${finalFile.name}?",
+                                "OpenYT",
+                                JOptionPane.YES_NO_OPTION,
+                            ) == JOptionPane.YES_OPTION
+                        }
+                        if (confirmed) chosen = finalFile
+                    }
+                }
+            }
+            if (SwingUtilities.isEventDispatchThread()) {
+                action()
+            } else {
+                SwingUtilities.invokeAndWait(action)
+            }
+            chosen
+        }
+        val target = selectedFile ?: return TextExportOutcome.Canceled
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                target.parentFile?.mkdirs()
+                target.writeText(content, Charsets.UTF_8)
+                TextExportOutcome.Exported(target.name)
+            }.getOrElse { error ->
+                TextExportOutcome.Failed(error.message ?: "Failed to write study notes")
+            }
+        }
+    }
 }

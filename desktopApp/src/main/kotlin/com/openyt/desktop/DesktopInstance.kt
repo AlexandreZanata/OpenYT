@@ -16,16 +16,23 @@ class DesktopInstance private constructor(
     private val lock: FileLock,
     private val key: String,
 ) : AutoCloseable {
-    fun takeLinks(): List<String?> {
+    fun takeLinks(): List<String?> = takeRoutes().map { route ->
+        when (route) {
+            is com.openyt.core.application.OpenYtRoute.Download -> route.url
+            else -> null
+        }
+    }
+
+    fun takeRoutes(): List<com.openyt.core.application.OpenYtRoute?> {
         val inbox = File(root, "instance-inbox")
         return inbox.listFiles().orEmpty().filter { it.name.matches(Regex("[a-f0-9-]{36}\\.link")) }
             .sortedBy { it.lastModified() }.take(50).mapNotNull { file ->
                 try {
                     if (file.length() > 65_536 || System.currentTimeMillis() - file.lastModified() > 60_000) return@mapNotNull null
                     val text = file.readText(Charsets.UTF_8)
-                    if (text == FOCUS) Link(null) else com.openyt.core.application.OpenYtLink.parse(text)?.let(::Link)
+                    if (text == FOCUS) Forwarded(null) else com.openyt.core.application.OpenYtLink.parseRoute(text)?.let(::Forwarded)
                 } finally { file.delete() }
-            }.map { it.url }
+            }.map { it.route }
     }
 
     private val closed = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -35,7 +42,7 @@ class DesktopInstance private constructor(
         }
     }
 
-    private data class Link(val url: String?)
+    private data class Forwarded(val route: com.openyt.core.application.OpenYtRoute?)
 
     companion object {
         private val owned = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
@@ -57,9 +64,23 @@ class DesktopInstance private constructor(
             } catch (e: Exception) { lock.release(); channel.close(); throw e }
         }
 
-        fun forward(root: File, url: String?): Boolean = runCatching {
+        fun forward(root: File, url: String?): Boolean {
+            val route = if (url == null) {
+                null
+            } else {
+                com.openyt.core.application.OpenYtLink.create(url) ?: return false
+                com.openyt.core.application.OpenYtRoute.Download(url)
+            }
+            return forwardRoute(root, route)
+        }
+
+        fun forwardRoute(root: File, route: com.openyt.core.application.OpenYtRoute?): Boolean = runCatching {
             if (File(root, "instance.owner").readText(Charsets.UTF_8) != "gui") return@runCatching false
-            val text = if (url == null) FOCUS else com.openyt.core.application.OpenYtLink.create(url) ?: return@runCatching false
+            val text = if (route == null) {
+                FOCUS
+            } else {
+                com.openyt.core.application.OpenYtLink.formatRoute(route) ?: return@runCatching false
+            }
             if (text.toByteArray(Charsets.UTF_8).size > 65_536) return@runCatching false
             val inbox = File(root, "instance-inbox").apply { mkdirs() }
             privateDirectory(inbox)
