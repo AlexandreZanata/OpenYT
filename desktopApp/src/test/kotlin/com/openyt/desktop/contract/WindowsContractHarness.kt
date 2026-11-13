@@ -460,7 +460,7 @@ object WindowsContractHarness {
                 playbackSessionControl = launcher1,
             )
 
-            runBlocking {
+            val relinkedFinalPath = runBlocking {
                 val health = runtime.controller.analyzeHealth()
                 check(health.entries.single().status == MediaHealthStatus.MISSING) {
                     "Expected MISSING after Windows move, got ${health.entries.single().status}"
@@ -470,15 +470,20 @@ object WindowsContractHarness {
                 val plan = runtime.controller.buildRelinkPlan(entry, scan.exactMatches.single()).getOrThrow()
                 check(plan.contentMode == RelinkContentMode.IDENTICAL_CONTENT && !plan.requiresManualConfirmation)
                 val receipt = runtime.controller.executeRelink(plan, confirmedContentChange = false).getOrThrow()
-                check(receipt.finalPath == movedFile.absolutePath)
+                check(File(receipt.finalPath).canonicalFile == movedFile.canonicalFile) {
+                    "Expected relinked canonical path ${movedFile.canonicalFile}, got ${File(receipt.finalPath).canonicalFile}"
+                }
+                receipt.finalPath
             }
 
             // Reopen DB & verify context + playback + Windows Explorer reveal on moved file
             val reopenedDb = createOpenYtDatabase(dbFile.absolutePath)
             val reopenedRepo = SqlDelightDownloadRepository(reopenedDb)
             val reopenedEntry = runBlocking { reopenedRepo.loadLibrary().single() }
-            check(reopenedEntry.id == entry.id && reopenedEntry.filePath == movedFile.absolutePath)
-            val reopenedCheckpoint = runBlocking { SqlDelightPlaybackStore(reopenedDb).position(movedFile.absolutePath, entry.id) }
+            check(reopenedEntry.id == entry.id && File(reopenedEntry.filePath).canonicalFile == movedFile.canonicalFile) {
+                "Unexpected reopened entry: $reopenedEntry"
+            }
+            val reopenedCheckpoint = runBlocking { SqlDelightPlaybackStore(reopenedDb).position(relinkedFinalPath, entry.id) }
             check(reopenedCheckpoint?.positionMillis == 3_000L) { "Windows relink checkpoint lost: $reopenedCheckpoint" }
             val reopenedBundle = runBlocking { SqlDelightStudyRepository(reopenedDb).loadEntryStudyBundle(entry.id) }
             check(reopenedBundle.notes.single().body == "Preserved on Windows move" && !reopenedBundle.hasStaleAnchors)
@@ -486,7 +491,7 @@ object WindowsContractHarness {
 
             launcher2 = DesktopPlaybackLauncher(SqlDelightPlaybackStore(reopenedDb), { EnStrings }, scope2)
             runBlocking {
-                check(launcher2.openAt(listOf(PlayableMedia(movedFile.absolutePath, entry.title, MediaKind.VIDEO, entryId = entry.id)), 0, 3_000L))
+                check(launcher2.openAt(listOf(PlayableMedia(relinkedFinalPath, entry.title, MediaKind.VIDEO, entryId = entry.id)), 0, 3_000L))
                 var reopenedPlay = false
                 repeat(120) {
                     val snap = launcher2.captureSnapshot()
@@ -496,12 +501,12 @@ object WindowsContractHarness {
                     }
                     delay(100)
                 }
-                check(reopenedPlay) { "Windows VLC failed to play relinked file at ${movedFile.absolutePath}" }
+                check(reopenedPlay) { "Windows VLC failed to play relinked file at $relinkedFinalPath" }
                 launcher2.stop()
                 delay(200)
             }
 
-            check(DesktopMediaActions().reveal(ShareableMedia(movedFile.absolutePath, entry.title, MediaKind.VIDEO))) {
+            check(DesktopMediaActions().reveal(ShareableMedia(relinkedFinalPath, entry.title, MediaKind.VIDEO))) {
                 "Windows Explorer reveal failed on moved recovered file"
             }
             println("PASS NX-R06 Windows VLC handle release, NTFS move, SQLite relink reopen, and Explorer reveal")
