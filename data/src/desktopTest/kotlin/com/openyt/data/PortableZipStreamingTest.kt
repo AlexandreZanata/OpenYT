@@ -102,7 +102,11 @@ class PortableZipStreamingTest {
                 rawName: String,
                 isDirectory: Boolean,
                 declaredSizeBytes: Long,
+                isSymlink: Boolean,
             ): Result<PortableReadEntryDisposition> {
+                if (isSymlink) {
+                    return Result.failure(PortableBackupFailure.SecurityViolation("Symlink entry disallowed").toException())
+                }
                 if (isDirectory) return Result.success(PortableReadEntryDisposition.SKIP_DIRECTORY)
                 return PortableArchivePathRules.validateEntryPath(rawName).map { normalized ->
                     if (normalized == PortableBackupFormat.MANIFEST_ENTRY_NAME) {

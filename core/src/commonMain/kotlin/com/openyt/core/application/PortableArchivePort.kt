@@ -84,6 +84,7 @@ interface PortableArchiveReadPolicy {
         rawName: String,
         isDirectory: Boolean,
         declaredSizeBytes: Long,
+        isSymlink: Boolean = false,
     ): Result<PortableReadEntryDisposition>
 }
 
