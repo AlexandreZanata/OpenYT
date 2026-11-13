@@ -11,4 +11,6 @@ data class LibraryEntry(
     val source: String? = null,
     val tags: List<String> = emptyList(),
     val author: String? = null,
+    val mediaRevision: MediaRevision? = null,
+    val lastVerifiedEpochMillis: Long? = null,
 )

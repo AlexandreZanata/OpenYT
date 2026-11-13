@@ -41,10 +41,17 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="openyt" android:host="download" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="openyt" android:host="library" android:pathPrefix="/entry/" />
+            </intent-filter>
         </activity>
 
         <activity
             android:name=".player.PlayerActivity"
+            android:launchMode="singleTop"
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"

@@ -37,7 +37,11 @@ CREATE TABLE library_entry (
     size_bytes INTEGER,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
     thumbnail_url TEXT,
-    source TEXT
+    source TEXT,
+    media_revision_size INTEGER,
+    media_revision_mtime INTEGER,
+    media_revision_sha256 TEXT,
+    last_verified_at INTEGER
 );
 
 CREATE TABLE collection (
@@ -65,7 +69,10 @@ CREATE TABLE app_settings (
     organization_preset TEXT NOT NULL DEFAULT 'PLAYLIST',
     file_organization_template TEXT,
     clipboard_suggestions INTEGER NOT NULL DEFAULT 0,
-    download_notifications INTEGER NOT NULL DEFAULT 0
+    download_notifications INTEGER NOT NULL DEFAULT 0,
+    default_profile_id TEXT,
+    asset_budget_bytes INTEGER NOT NULL DEFAULT 536870912,
+    storage_reserve_bytes INTEGER NOT NULL DEFAULT 134217728
 );
 
 selectSettings:
@@ -75,13 +82,24 @@ upsertSettings:
 INSERT OR REPLACE INTO app_settings(
     id, theme_mode, language, max_concurrent, downloads_directory, storage_tree_uri,
     speed_limit_bytes_per_second, download_window_start_minutes, download_window_end_minutes,
-    organization_preset, file_organization_template, clipboard_suggestions, download_notifications
+    organization_preset, file_organization_template, clipboard_suggestions, download_notifications,
+    default_profile_id, asset_budget_bytes, storage_reserve_bytes
 )
 VALUES (
     1, :theme_mode, :language, :max_concurrent, :downloads_directory, :storage_tree_uri,
     :speed_limit_bytes_per_second, :download_window_start_minutes, :download_window_end_minutes,
-    :organization_preset, :file_organization_template, :clipboard_suggestions, :download_notifications
+    :organization_preset, :file_organization_template, :clipboard_suggestions, :download_notifications,
+    :default_profile_id, :asset_budget_bytes, :storage_reserve_bytes
 );
+
+updateDefaultProfileId:
+UPDATE app_settings SET default_profile_id = :default_profile_id WHERE id = 1;
+
+insertDefaultSettingsWithProfileId:
+INSERT OR IGNORE INTO app_settings(id, default_profile_id) VALUES (1, :default_profile_id);
+
+selectDefaultProfileId:
+SELECT default_profile_id FROM app_settings WHERE id = 1;
 
 selectAllTasks:
 SELECT * FROM download_task ORDER BY seq ASC;
@@ -125,8 +143,22 @@ selectAllLibrary:
 SELECT * FROM library_entry ORDER BY created_at DESC, id ASC;
 
 insertLibraryEntry:
-INSERT OR REPLACE INTO library_entry(id, title, author, kind, file_path, size_bytes, thumbnail_url, source)
-VALUES (:id, :title, :author, :kind, :file_path, :size_bytes, :thumbnail_url, :source);
+INSERT OR REPLACE INTO library_entry(
+    id, title, author, kind, file_path, size_bytes, thumbnail_url, source,
+    media_revision_size, media_revision_mtime, media_revision_sha256, last_verified_at
+)
+VALUES (
+    :id, :title, :author, :kind, :file_path, :size_bytes, :thumbnail_url, :source,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256, :last_verified_at
+);
+
+updateLibraryRevision:
+UPDATE library_entry SET
+    media_revision_size = :media_revision_size,
+    media_revision_mtime = :media_revision_mtime,
+    media_revision_sha256 = :media_revision_sha256,
+    last_verified_at = :last_verified_at
+WHERE id = :id;
 
 updateLibraryPath:
 UPDATE library_entry SET file_path = ? WHERE id = ?;
@@ -205,8 +237,11 @@ DELETE FROM collection_entry WHERE collection_id = :collection_id AND entry_id =
 CREATE TABLE playback_position (
     path TEXT NOT NULL PRIMARY KEY,
     position_millis INTEGER NOT NULL,
-    duration_millis INTEGER NOT NULL DEFAULT 0
+    duration_millis INTEGER NOT NULL DEFAULT 0,
+    entry_id TEXT
 );
+
+CREATE INDEX playback_position_entry_idx ON playback_position(entry_id);
 
 CREATE TABLE playback_session (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -216,8 +251,17 @@ CREATE TABLE playback_session (
 selectPlaybackPosition:
 SELECT * FROM playback_position WHERE path = ?;
 
+selectPlaybackPositionByEntryId:
+SELECT * FROM playback_position WHERE entry_id = ?;
+
 savePlaybackPosition:
-INSERT OR REPLACE INTO playback_position VALUES (?, ?, ?);
+INSERT OR REPLACE INTO playback_position(path, position_millis, duration_millis, entry_id) VALUES (?, ?, ?, ?);
+
+updatePlaybackPositionEntryId:
+UPDATE playback_position SET entry_id = :entry_id WHERE path = :path;
+
+deletePlaybackPositionByEntryId:
+DELETE FROM playback_position WHERE entry_id = :entry_id;
 
 selectPlaybackQueue:
 SELECT queue_json FROM playback_session WHERE id = 1;
@@ -232,3 +276,705 @@ saveSubscription:
 INSERT OR REPLACE INTO subscription_rule VALUES (?, ?);
 deleteSubscription:
 DELETE FROM subscription_rule WHERE id = ?;
+
+CREATE TABLE download_profile (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    is_builtin INTEGER NOT NULL DEFAULT 0,
+    definition_json TEXT NOT NULL
+);
+
+selectAllProfiles:
+SELECT * FROM download_profile ORDER BY is_builtin DESC, name ASC;
+
+selectProfileById:
+SELECT * FROM download_profile WHERE id = :id;
+
+insertProfile:
+INSERT OR REPLACE INTO download_profile(id, name, is_builtin, definition_json)
+VALUES (:id, :name, :is_builtin, :definition_json);
+
+deleteProfile:
+DELETE FROM download_profile WHERE id = :id;
+
+CREATE TABLE profile_destination_binding (
+    profile_id TEXT NOT NULL PRIMARY KEY,
+    destination_directory TEXT,
+    storage_tree_uri TEXT
+);
+
+selectProfileBinding:
+SELECT * FROM profile_destination_binding WHERE profile_id = :profile_id;
+
+selectAllProfileBindings:
+SELECT * FROM profile_destination_binding;
+
+insertProfileBinding:
+INSERT OR REPLACE INTO profile_destination_binding(profile_id, destination_directory, storage_tree_uri)
+VALUES (:profile_id, :destination_directory, :storage_tree_uri);
+
+deleteProfileBinding:
+DELETE FROM profile_destination_binding WHERE profile_id = :profile_id;
+
+CREATE TABLE offline_asset (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    language TEXT,
+    source_type TEXT,
+    relative_locator TEXT NOT NULL,
+    byte_count INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'PENDING',
+    is_required INTEGER NOT NULL DEFAULT 1,
+    is_pinned INTEGER NOT NULL DEFAULT 0,
+    media_revision_size INTEGER NOT NULL,
+    media_revision_mtime INTEGER NOT NULL,
+    media_revision_sha256 TEXT,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    last_verified_at INTEGER,
+    failure_detail TEXT
+);
+
+CREATE INDEX offline_asset_entry_idx ON offline_asset(entry_id);
+
+selectAssetsForEntry:
+SELECT * FROM offline_asset WHERE entry_id = :entry_id ORDER BY kind ASC, language ASC, id ASC;
+
+selectAssetById:
+SELECT * FROM offline_asset WHERE id = :id;
+
+selectAllAssets:
+SELECT * FROM offline_asset ORDER BY created_at DESC, id ASC;
+
+insertAsset:
+INSERT OR REPLACE INTO offline_asset(
+    id, entry_id, kind, language, source_type, relative_locator, byte_count, sha256,
+    state, is_required, is_pinned, media_revision_size, media_revision_mtime,
+    media_revision_sha256, created_at, last_verified_at, failure_detail
+) VALUES (
+    :id, :entry_id, :kind, :language, :source_type, :relative_locator, :byte_count, :sha256,
+    :state, :is_required, :is_pinned, :media_revision_size, :media_revision_mtime,
+    :media_revision_sha256, :created_at, :last_verified_at, :failure_detail
+);
+
+updateAssetState:
+UPDATE offline_asset SET
+    state = :state,
+    last_verified_at = :last_verified_at,
+    failure_detail = :failure_detail
+WHERE id = :id;
+
+updateAssetPin:
+UPDATE offline_asset SET is_pinned = :is_pinned WHERE id = :id;
+
+deleteAsset:
+DELETE FROM offline_asset WHERE id = :id;
+
+deleteAssetsForEntry:
+DELETE FROM offline_asset WHERE entry_id = :entry_id;
+
+invalidateAssetsForEntry:
+UPDATE offline_asset SET state = :state WHERE entry_id = :entry_id;
+
+CREATE TABLE asset_operation (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    source_path TEXT NOT NULL,
+    language TEXT,
+    source_type TEXT,
+    timeline_basis TEXT,
+    is_required INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'QUEUED',
+    staging_path TEXT,
+    target_locator TEXT,
+    asset_id TEXT,
+    byte_count INTEGER,
+    expected_size_bytes INTEGER,
+    sha256 TEXT,
+    error TEXT,
+    attempt INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+);
+
+CREATE INDEX asset_operation_entry_idx ON asset_operation(entry_id);
+CREATE INDEX asset_operation_status_idx ON asset_operation(status);
+
+selectOperationById:
+SELECT * FROM asset_operation WHERE id = :id;
+
+selectOperationsForEntry:
+SELECT * FROM asset_operation WHERE entry_id = :entry_id ORDER BY created_at DESC;
+
+selectActiveOperations:
+SELECT * FROM asset_operation WHERE status IN ('QUEUED', 'RUNNING') ORDER BY created_at ASC;
+
+findPendingOperation:
+SELECT * FROM asset_operation
+WHERE entry_id = :entry_id
+  AND kind = :kind
+  AND (language = :language OR (language IS NULL AND :language IS NULL))
+  AND source_path = :source_path
+  AND status IN ('QUEUED', 'RUNNING')
+LIMIT 1;
+
+insertOperation:
+INSERT OR REPLACE INTO asset_operation(
+    id, entry_id, kind, source_path, language, source_type, timeline_basis,
+    is_required, status, staging_path, target_locator, asset_id,
+    byte_count, expected_size_bytes, sha256, error, attempt, created_at, updated_at
+) VALUES (
+    :id, :entry_id, :kind, :source_path, :language, :source_type, :timeline_basis,
+    :is_required, :status, :staging_path, :target_locator, :asset_id,
+    :byte_count, :expected_size_bytes, :sha256, :error, :attempt, :created_at, :updated_at
+);
+
+updateOperation:
+UPDATE asset_operation SET
+    status = :status,
+    staging_path = :staging_path,
+    target_locator = :target_locator,
+    asset_id = :asset_id,
+    byte_count = :byte_count,
+    expected_size_bytes = :expected_size_bytes,
+    sha256 = :sha256,
+    error = :error,
+    attempt = :attempt,
+    updated_at = :updated_at
+WHERE id = :id;
+
+markRunningOperationsInterrupted:
+UPDATE asset_operation SET
+    status = 'INTERRUPTED',
+    updated_at = (strftime('%s','now') * 1000)
+WHERE status = 'RUNNING';
+
+deleteOperation:
+DELETE FROM asset_operation WHERE id = :id;
+
+deleteOperationsForEntry:
+DELETE FROM asset_operation WHERE entry_id = :entry_id;
+
+CREATE TABLE subtitle_track_index (
+    track_id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    language TEXT,
+    media_revision_token TEXT NOT NULL,
+    track_revision TEXT NOT NULL,
+    active_revision INTEGER NOT NULL DEFAULT 0,
+    state TEXT NOT NULL DEFAULT 'PENDING',
+    total_cues INTEGER NOT NULL DEFAULT 0,
+    timebase_offset_ms INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+);
+
+CREATE INDEX subtitle_track_index_entry_idx ON subtitle_track_index(entry_id);
+CREATE INDEX subtitle_track_index_state_idx ON subtitle_track_index(state);
+
+CREATE TABLE subtitle_cue (
+    id TEXT NOT NULL PRIMARY KEY,
+    track_id TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    cue_id TEXT NOT NULL,
+    start_ms INTEGER NOT NULL,
+    end_ms INTEGER NOT NULL,
+    display_text TEXT NOT NULL,
+    plain_text TEXT NOT NULL,
+    speaker TEXT,
+    original_index INTEGER NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+);
+
+CREATE INDEX subtitle_cue_track_rev_idx ON subtitle_cue(track_id, revision);
+CREATE INDEX subtitle_cue_entry_idx ON subtitle_cue(entry_id);
+CREATE INDEX subtitle_cue_start_time_idx ON subtitle_cue(track_id, start_ms);
+
+CREATE VIRTUAL TABLE subtitle_cue_fts USING fts4(
+    cue_id,
+    track_id,
+    entry_id,
+    revision,
+    start_ms,
+    end_ms,
+    plain_text,
+    tokenize=unicode61
+);
+
+selectSubtitleTrackIndex:
+SELECT * FROM subtitle_track_index WHERE track_id = :track_id;
+
+selectSubtitleTrackIndexesForEntry:
+SELECT * FROM subtitle_track_index WHERE entry_id = :entry_id ORDER BY created_at ASC;
+
+selectAllSubtitleTrackIndexes:
+SELECT * FROM subtitle_track_index ORDER BY created_at ASC;
+
+selectActiveIndexingTrackIndexes:
+SELECT * FROM subtitle_track_index WHERE state = 'INDEXING';
+
+upsertSubtitleTrackIndex:
+INSERT OR REPLACE INTO subtitle_track_index (
+    track_id, entry_id, language, media_revision_token, track_revision,
+    active_revision, state, total_cues, timebase_offset_ms, error_message,
+    created_at, updated_at
+) VALUES (
+    :track_id, :entry_id, :language, :media_revision_token, :track_revision,
+    :active_revision, :state, :total_cues, :timebase_offset_ms, :error_message,
+    :created_at, :updated_at
+);
+
+updateSubtitleTrackIndexState:
+UPDATE subtitle_track_index
+SET state = :state,
+    error_message = :error_message,
+    updated_at = :updated_at
+WHERE track_id = :track_id;
+
+updateSubtitleTrackIndexCommittedRevision:
+UPDATE subtitle_track_index
+SET active_revision = :active_revision,
+    state = :state,
+    total_cues = :total_cues,
+    timebase_offset_ms = :timebase_offset_ms,
+    error_message = NULL,
+    updated_at = :updated_at
+WHERE track_id = :track_id;
+
+deleteSubtitleTrackIndex:
+DELETE FROM subtitle_track_index WHERE track_id = :track_id;
+
+deleteSubtitleTrackIndexesForEntry:
+DELETE FROM subtitle_track_index WHERE entry_id = :entry_id;
+
+invalidateSubtitleIndexesForEntry:
+UPDATE subtitle_track_index
+SET state = :state,
+    updated_at = :updated_at
+WHERE entry_id = :entry_id;
+
+insertSubtitleCue:
+INSERT OR REPLACE INTO subtitle_cue (
+    id, track_id, entry_id, revision, cue_id,
+    start_ms, end_ms, display_text, plain_text,
+    speaker, original_index, created_at
+) VALUES (
+    :id, :track_id, :entry_id, :revision, :cue_id,
+    :start_ms, :end_ms, :display_text, :plain_text,
+    :speaker, :original_index, :created_at
+);
+
+selectCuesForTrackAndRevision:
+SELECT * FROM subtitle_cue
+WHERE track_id = :track_id AND revision = :revision
+ORDER BY start_ms ASC, original_index ASC;
+
+selectActiveCuesForTrack:
+SELECT c.* FROM subtitle_cue c
+INNER JOIN subtitle_track_index i ON c.track_id = i.track_id
+WHERE c.track_id = :track_id AND c.revision = i.active_revision AND i.active_revision > 0
+ORDER BY c.start_ms ASC, c.original_index ASC;
+
+countCuesForTrackAndRevision:
+SELECT count(*) FROM subtitle_cue WHERE track_id = :track_id AND revision = :revision;
+
+deleteCuesForTrackAndRevision:
+DELETE FROM subtitle_cue WHERE track_id = :track_id AND revision = :revision;
+
+deleteCuesForTrackExceptRevision:
+DELETE FROM subtitle_cue WHERE track_id = :track_id AND revision != :active_revision;
+
+deleteCuesForTrack:
+DELETE FROM subtitle_cue WHERE track_id = :track_id;
+
+deleteCuesForEntry:
+DELETE FROM subtitle_cue WHERE entry_id = :entry_id;
+
+insertSubtitleCueFts:
+INSERT INTO subtitle_cue_fts(cue_id, track_id, entry_id, revision, start_ms, end_ms, plain_text)
+VALUES (:cue_id, :track_id, :entry_id, :revision, :start_ms, :end_ms, :plain_text);
+
+countFtsCuesForTrackAndRevision:
+SELECT count(*) FROM subtitle_cue_fts WHERE track_id = :track_id AND revision = :revision;
+
+deleteFtsCuesForTrackAndRevision:
+DELETE FROM subtitle_cue_fts WHERE track_id = :track_id AND revision = :revision;
+
+deleteFtsCuesForTrackExceptRevision:
+DELETE FROM subtitle_cue_fts WHERE track_id = :track_id AND revision != :active_revision;
+
+deleteFtsCuesForTrack:
+DELETE FROM subtitle_cue_fts WHERE track_id = :track_id;
+
+deleteFtsCuesForEntry:
+DELETE FROM subtitle_cue_fts WHERE entry_id = :entry_id;
+
+countCuesForTrackExceptRevision:
+SELECT count(*) FROM subtitle_cue WHERE track_id = :track_id AND revision != :active_revision;
+
+countFtsCuesForTrackExceptRevision:
+SELECT count(*) FROM subtitle_cue_fts WHERE track_id = :track_id AND revision != :active_revision;
+
+deleteOrphanedSubtitleCues:
+DELETE FROM subtitle_cue WHERE track_id NOT IN (SELECT track_id FROM subtitle_track_index);
+
+deleteOrphanedSubtitleFtsCues:
+DELETE FROM subtitle_cue_fts WHERE track_id NOT IN (SELECT track_id FROM subtitle_track_index);
+
+countOrphanedSubtitleCues:
+SELECT count(*) FROM subtitle_cue WHERE track_id NOT IN (SELECT track_id FROM subtitle_track_index);
+
+countOrphanedSubtitleFtsCues:
+SELECT count(*) FROM subtitle_cue_fts WHERE track_id NOT IN (SELECT track_id FROM subtitle_track_index);
+
+selectLibraryEntryById:
+SELECT * FROM library_entry WHERE id = :id;
+
+countLibraryEntries:
+SELECT count(*) FROM library_entry;
+
+countEntriesInCollection:
+SELECT count(*) FROM collection_entry WHERE collection_id = :collection_id;
+
+searchSubtitleCuesLibrary:
+SELECT
+    c.cue_id,
+    c.track_id,
+    c.entry_id,
+    c.start_ms,
+    c.end_ms,
+    c.display_text,
+    c.plain_text,
+    c.speaker,
+    paged.language,
+    paged.timebase_offset_ms,
+    le.title AS entry_title
+FROM (
+    SELECT
+        f.cue_id,
+        f.track_id,
+        f.revision,
+        i.entry_id,
+        i.language,
+        i.timebase_offset_ms
+    FROM subtitle_cue_fts f
+    INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+    INNER JOIN library_entry le ON le.id = i.entry_id
+    WHERE f.plain_text MATCH :match_query
+      AND i.active_revision > 0
+      AND i.state IN ('READY', 'STALE')
+      AND (:language IS NULL OR i.language = :language)
+      AND (:track_id IS NULL OR f.track_id = :track_id)
+    ORDER BY i.entry_id ASC, CAST(f.start_ms AS INTEGER) ASC, f.track_id ASC, f.cue_id ASC
+    LIMIT :limit OFFSET :offset
+) paged
+INNER JOIN subtitle_cue c ON c.id = (paged.track_id || ':' || paged.revision || ':' || paged.cue_id)
+INNER JOIN library_entry le ON le.id = paged.entry_id
+ORDER BY c.entry_id ASC, c.start_ms ASC, c.track_id ASC, c.cue_id ASC;
+
+countSubtitleCuesLibrary:
+SELECT count(*)
+FROM subtitle_cue_fts f
+INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+INNER JOIN library_entry le ON le.id = i.entry_id
+WHERE f.plain_text MATCH :match_query
+  AND i.active_revision > 0
+  AND i.state IN ('READY', 'STALE')
+  AND (:language IS NULL OR i.language = :language)
+  AND (:track_id IS NULL OR f.track_id = :track_id);
+
+searchSubtitleCuesEntry:
+SELECT
+    c.cue_id,
+    c.track_id,
+    c.entry_id,
+    c.start_ms,
+    c.end_ms,
+    c.display_text,
+    c.plain_text,
+    c.speaker,
+    paged.language,
+    paged.timebase_offset_ms,
+    le.title AS entry_title
+FROM (
+    SELECT
+        f.cue_id,
+        f.track_id,
+        f.revision,
+        i.entry_id,
+        i.language,
+        i.timebase_offset_ms
+    FROM subtitle_cue_fts f
+    INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+    WHERE f.plain_text MATCH :match_query
+      AND i.entry_id = :entry_id
+      AND i.active_revision > 0
+      AND i.state IN ('READY', 'STALE')
+      AND (:language IS NULL OR i.language = :language)
+      AND (:track_id IS NULL OR f.track_id = :track_id)
+    ORDER BY CAST(f.start_ms AS INTEGER) ASC, f.track_id ASC, f.cue_id ASC
+    LIMIT :limit OFFSET :offset
+) paged
+INNER JOIN subtitle_cue c ON c.id = (paged.track_id || ':' || paged.revision || ':' || paged.cue_id)
+INNER JOIN library_entry le ON le.id = paged.entry_id
+ORDER BY c.start_ms ASC, c.track_id ASC, c.cue_id ASC;
+
+countSubtitleCuesEntry:
+SELECT count(*)
+FROM subtitle_cue_fts f
+INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+WHERE f.plain_text MATCH :match_query
+  AND i.entry_id = :entry_id
+  AND i.active_revision > 0
+  AND i.state IN ('READY', 'STALE')
+  AND (:language IS NULL OR i.language = :language)
+  AND (:track_id IS NULL OR f.track_id = :track_id);
+
+searchSubtitleCuesCollection:
+SELECT
+    c.cue_id,
+    c.track_id,
+    c.entry_id,
+    c.start_ms,
+    c.end_ms,
+    c.display_text,
+    c.plain_text,
+    c.speaker,
+    paged.language,
+    paged.timebase_offset_ms,
+    le.title AS entry_title
+FROM (
+    SELECT
+        f.cue_id,
+        f.track_id,
+        f.revision,
+        i.entry_id,
+        i.language,
+        i.timebase_offset_ms
+    FROM subtitle_cue_fts f
+    INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+    INNER JOIN library_entry le ON le.id = i.entry_id
+    WHERE f.plain_text MATCH :match_query
+      AND i.entry_id IN (SELECT entry_id FROM collection_entry WHERE collection_id = :collection_id)
+      AND i.active_revision > 0
+      AND i.state IN ('READY', 'STALE')
+      AND (:language IS NULL OR i.language = :language)
+      AND (:track_id IS NULL OR f.track_id = :track_id)
+    ORDER BY i.entry_id ASC, CAST(f.start_ms AS INTEGER) ASC, f.track_id ASC, f.cue_id ASC
+    LIMIT :limit OFFSET :offset
+) paged
+INNER JOIN subtitle_cue c ON c.id = (paged.track_id || ':' || paged.revision || ':' || paged.cue_id)
+INNER JOIN library_entry le ON le.id = paged.entry_id
+ORDER BY c.entry_id ASC, c.start_ms ASC, c.track_id ASC, c.cue_id ASC;
+
+countSubtitleCuesCollection:
+SELECT count(*)
+FROM subtitle_cue_fts f
+INNER JOIN subtitle_track_index i ON f.track_id = i.track_id AND f.revision = i.active_revision
+INNER JOIN library_entry le ON le.id = i.entry_id
+WHERE f.plain_text MATCH :match_query
+  AND i.entry_id IN (SELECT entry_id FROM collection_entry WHERE collection_id = :collection_id)
+  AND i.active_revision > 0
+  AND i.state IN ('READY', 'STALE')
+  AND (:language IS NULL OR i.language = :language)
+  AND (:track_id IS NULL OR f.track_id = :track_id);
+
+countIndexesInLibrary:
+SELECT
+    count(*) AS total,
+    coalesce(sum(CASE WHEN i.state IN ('READY', 'STALE') AND i.active_revision > 0 THEN 1 ELSE 0 END), 0) AS ready,
+    coalesce(sum(CASE WHEN i.state = 'FAILED' THEN 1 ELSE 0 END), 0) AS failed
+FROM subtitle_track_index i
+INNER JOIN library_entry le ON le.id = i.entry_id;
+
+countIndexesForEntry:
+SELECT
+    count(*) AS total,
+    coalesce(sum(CASE WHEN i.state IN ('READY', 'STALE') AND i.active_revision > 0 THEN 1 ELSE 0 END), 0) AS ready,
+    coalesce(sum(CASE WHEN i.state = 'FAILED' THEN 1 ELSE 0 END), 0) AS failed
+FROM subtitle_track_index i
+INNER JOIN library_entry le ON le.id = i.entry_id
+WHERE i.entry_id = :entry_id;
+
+countIndexesInCollection:
+SELECT
+    count(*) AS total,
+    coalesce(sum(CASE WHEN i.state IN ('READY', 'STALE') AND i.active_revision > 0 THEN 1 ELSE 0 END), 0) AS ready,
+    coalesce(sum(CASE WHEN i.state = 'FAILED' THEN 1 ELSE 0 END), 0) AS failed
+FROM subtitle_track_index i
+INNER JOIN library_entry le ON le.id = i.entry_id
+WHERE i.entry_id IN (SELECT entry_id FROM collection_entry WHERE collection_id = :collection_id);
+
+CREATE TABLE study_note (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    timestamp_ms INTEGER NOT NULL,
+    end_ms INTEGER,
+    body TEXT NOT NULL,
+    media_revision_size INTEGER,
+    media_revision_mtime INTEGER,
+    media_revision_sha256 TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX study_note_entry_time_idx
+    ON study_note(entry_id, timestamp_ms, end_ms, created_at, id);
+
+CREATE TABLE study_bookmark (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    timestamp_ms INTEGER NOT NULL,
+    label TEXT NOT NULL,
+    media_revision_size INTEGER,
+    media_revision_mtime INTEGER,
+    media_revision_sha256 TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX study_bookmark_entry_time_idx
+    ON study_bookmark(entry_id, timestamp_ms, created_at, id);
+
+CREATE TABLE study_range (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    start_ms INTEGER NOT NULL,
+    end_ms INTEGER NOT NULL,
+    label TEXT,
+    media_revision_size INTEGER,
+    media_revision_mtime INTEGER,
+    media_revision_sha256 TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX study_range_entry_time_idx
+    ON study_range(entry_id, start_ms, end_ms, created_at, id);
+
+CREATE TABLE entry_study_state (
+    entry_id TEXT NOT NULL PRIMARY KEY,
+    is_studied INTEGER NOT NULL DEFAULT 0,
+    studied_at INTEGER,
+    updated_at INTEGER NOT NULL
+);
+
+selectStudyNotesForEntry:
+SELECT * FROM study_note
+WHERE entry_id = :entry_id
+ORDER BY timestamp_ms ASC, COALESCE(end_ms, -1) ASC, created_at ASC, id ASC;
+
+selectStudyNoteById:
+SELECT * FROM study_note WHERE id = :id;
+
+upsertStudyNote:
+INSERT OR REPLACE INTO study_note(
+    id, entry_id, timestamp_ms, end_ms, body,
+    media_revision_size, media_revision_mtime, media_revision_sha256,
+    created_at, updated_at
+) VALUES (
+    :id, :entry_id, :timestamp_ms, :end_ms, :body,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256,
+    :created_at, :updated_at
+);
+
+deleteStudyNote:
+DELETE FROM study_note WHERE id = :id;
+
+deleteStudyNotesForEntry:
+DELETE FROM study_note WHERE entry_id = :entry_id;
+
+selectStudyBookmarksForEntry:
+SELECT * FROM study_bookmark
+WHERE entry_id = :entry_id
+ORDER BY timestamp_ms ASC, created_at ASC, id ASC;
+
+selectStudyBookmarkById:
+SELECT * FROM study_bookmark WHERE id = :id;
+
+upsertStudyBookmark:
+INSERT OR REPLACE INTO study_bookmark(
+    id, entry_id, timestamp_ms, label,
+    media_revision_size, media_revision_mtime, media_revision_sha256,
+    created_at, updated_at
+) VALUES (
+    :id, :entry_id, :timestamp_ms, :label,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256,
+    :created_at, :updated_at
+);
+
+deleteStudyBookmark:
+DELETE FROM study_bookmark WHERE id = :id;
+
+deleteStudyBookmarksForEntry:
+DELETE FROM study_bookmark WHERE entry_id = :entry_id;
+
+selectStudyRangesForEntry:
+SELECT * FROM study_range
+WHERE entry_id = :entry_id
+ORDER BY start_ms ASC, end_ms ASC, created_at ASC, id ASC;
+
+selectStudyRangeById:
+SELECT * FROM study_range WHERE id = :id;
+
+upsertStudyRange:
+INSERT OR REPLACE INTO study_range(
+    id, entry_id, start_ms, end_ms, label,
+    media_revision_size, media_revision_mtime, media_revision_sha256,
+    created_at, updated_at
+) VALUES (
+    :id, :entry_id, :start_ms, :end_ms, :label,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256,
+    :created_at, :updated_at
+);
+
+deleteStudyRange:
+DELETE FROM study_range WHERE id = :id;
+
+deleteStudyRangesForEntry:
+DELETE FROM study_range WHERE entry_id = :entry_id;
+
+selectEntryStudyState:
+SELECT * FROM entry_study_state WHERE entry_id = :entry_id;
+
+upsertEntryStudyState:
+INSERT OR REPLACE INTO entry_study_state(
+    entry_id, is_studied, studied_at, updated_at
+) VALUES (
+    :entry_id, :is_studied, :studied_at, :updated_at
+);
+
+selectStudiedEntryIds:
+SELECT entry_id FROM entry_study_state WHERE is_studied = 1 ORDER BY entry_id ASC;
+
+deleteEntryStudyState:
+DELETE FROM entry_study_state WHERE entry_id = :entry_id;
+
+selectCollectionStudyProgress:
+SELECT
+    ce.collection_id,
+    count(DISTINCT le.id) AS total_members,
+    coalesce(sum(CASE WHEN ess.is_studied = 1 THEN 1 ELSE 0 END), 0) AS studied_members
+FROM collection_entry ce
+INNER JOIN library_entry le ON le.id = ce.entry_id
+LEFT JOIN entry_study_state ess ON ess.entry_id = le.id
+WHERE ce.collection_id = :collection_id
+GROUP BY ce.collection_id;
+
+selectAllCollectionStudyProgress:
+SELECT
+    c.id AS collection_id,
+    count(le.id) AS total_members,
+    coalesce(sum(CASE WHEN le.id IS NOT NULL AND ess.is_studied = 1 THEN 1 ELSE 0 END), 0) AS studied_members
+FROM collection c
+LEFT JOIN collection_entry ce ON ce.collection_id = c.id
+LEFT JOIN library_entry le ON le.id = ce.entry_id
+LEFT JOIN entry_study_state ess ON ess.entry_id = le.id
+GROUP BY c.id
+ORDER BY c.created_at ASC, c.id ASC;
+
+

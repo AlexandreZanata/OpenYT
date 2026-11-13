@@ -108,7 +108,14 @@ class AndroidYtDlpEngine(
                         addOption("-P", directory.absolutePath)
                         addOption("--paths", "temp:${tempDirectory.absolutePath}")
                         addOption("-o", request.fileNameTemplate)
-                        addOption("--print", if (request.kind == MediaKind.SUBTITLE) YtDlpOutputParser.SUBTITLE_PATH_TEMPLATE else YtDlpOutputParser.FILE_PATH_TEMPLATE)
+                        if (request.kind == MediaKind.SUBTITLE) {
+                            addOption("--print", YtDlpOutputParser.SUBTITLE_PATH_TEMPLATE)
+                        } else {
+                            addOption("--print", YtDlpOutputParser.FILE_PATH_TEMPLATE)
+                            if (request.options.subtitle != null) {
+                                addOption("--print", YtDlpOutputParser.SUBTITLE_PATH_TEMPLATE)
+                            }
+                        }
                         addOption("--progress-template", PROGRESS_TEMPLATE)
                         request.limitBytesPerSecond?.let {
                             addOption("--limit-rate", it.toString())
@@ -130,12 +137,43 @@ class AndroidYtDlpEngine(
                     }
                 }
 
+                val expectedContainer = when (request.kind) {
+                    MediaKind.VIDEO -> request.options.profileProvenance?.resolvedContainer
+                    MediaKind.AUDIO -> request.options.profileProvenance?.resolvedContainer ?: request.options.audioPreset.extension
+                    MediaKind.SUBTITLE -> null
+                }
                 val file = com.openyt.data.confirmedEngineOutput(
-                    YtDlpOutputParser.extractFilePath(response.out), directory, tempDirectory,
+                    YtDlpOutputParser.extractFilePath(response.out, allowSubtitlesAsPrimary = request.kind == MediaKind.SUBTITLE), directory, tempDirectory,
                     request.kind == MediaKind.SUBTITLE,
+                    expectedContainer,
                 )
                 if (file != null) {
-                    send(DownloadEvent.Completed(file.absolutePath, file.length()))
+                    val artifactReceipts = YtDlpOutputParser.extractArtifactReceipts(response.out)
+                    val inspector = com.openyt.data.JvmMediaFileInspector()
+                    val confirmedArtifacts = artifactReceipts.mapNotNull { receipt ->
+                        val candidate = File(receipt.filePath)
+                        val resolvedPath = when {
+                            candidate.exists() -> candidate.canonicalPath
+                            receipt.filePath.startsWith(tempDirectory.absolutePath) -> {
+                                val rel = candidate.relativeToOrNull(tempDirectory)
+                                if (rel != null) File(directory, rel.path).takeIf { it.exists() }?.canonicalPath ?: receipt.filePath
+                                else receipt.filePath
+                            }
+                            else -> receipt.filePath
+                        }
+                        val resolvedReceipt = receipt.copy(filePath = resolvedPath)
+                        val validation = com.openyt.core.application.CompanionArtifactValidator.validateReceipt(
+                            receipt = resolvedReceipt,
+                            allowedRoots = listOf(directory.absolutePath, tempDirectory.absolutePath),
+                            fileInspector = inspector,
+                        )
+                        if (validation is com.openyt.core.application.ArtifactValidationResult.Valid) {
+                            validation.receipt.copy(byteCount = validation.sizeBytes)
+                        } else {
+                            null
+                        }
+                    }
+                    send(DownloadEvent.Completed(file.absolutePath, file.length(), artifacts = confirmedArtifacts))
                 } else {
                     send(
                         DownloadEvent.Failed(

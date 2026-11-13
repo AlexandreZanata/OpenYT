@@ -125,4 +125,64 @@ class YtDlpSupportTest {
             YtDlpProgressParser.parse("OPENYT_PROGRESS:25%|-1|NaN|Infinity|-Infinity"),
         )
     }
+
+    @Test
+    fun extractArtifactReceiptsCapturesMultipleLanguageTracksAndArtwork() {
+        val stdout = """
+            [download] Destination: /tmp/down/video.mp4
+            OPENYT_SUBTITLES:{"en": {"filepath": "/tmp/down/video.en.vtt", "ext": "vtt"}, "pt": {"filepath": "/tmp/down/video.pt.vtt", "ext": "vtt"}, "es": {"filepath": "/tmp/down/video.es.vtt", "ext": "vtt"}}
+            OPENYT_THUMBNAIL:{"filepath": "/tmp/down/video.jpg"}
+            OPENYT_ARTIFACT:{"kind": "SUBTITLE", "filepath": "/tmp/down/video.fr.srt", "language": "fr", "timelineBasis": "SOURCE", "isRequired": true}
+            [download] 100% of 10.00MiB
+        """.trimIndent()
+
+        val receipts = YtDlpOutputParser.extractArtifactReceipts(stdout)
+        assertEquals(5, receipts.size)
+
+        val subEn = receipts.firstOrNull { it.language == "en" }
+        kotlin.test.assertNotNull(subEn)
+        assertEquals("/tmp/down/video.en.vtt", subEn.filePath)
+        assertEquals(com.openyt.core.domain.AssetKind.SUBTITLE, subEn.kind)
+        assertEquals("SUBTITLE_VTT", subEn.sourceType)
+        assertEquals("SOURCE", subEn.timelineBasis)
+
+        val subPt = receipts.firstOrNull { it.language == "pt" }
+        kotlin.test.assertNotNull(subPt)
+        assertEquals("/tmp/down/video.pt.vtt", subPt.filePath)
+
+        val subEs = receipts.firstOrNull { it.language == "es" }
+        kotlin.test.assertNotNull(subEs)
+        assertEquals("/tmp/down/video.es.vtt", subEs.filePath)
+
+        val artwork = receipts.firstOrNull { it.kind == com.openyt.core.domain.AssetKind.ARTWORK }
+        kotlin.test.assertNotNull(artwork)
+        assertEquals("/tmp/down/video.jpg", artwork.filePath)
+        assertEquals("THUMBNAIL", artwork.sourceType)
+
+        val manualSub = receipts.firstOrNull { it.language == "fr" }
+        kotlin.test.assertNotNull(manualSub)
+        assertEquals(com.openyt.core.domain.AssetKind.SUBTITLE, manualSub.kind)
+        kotlin.test.assertTrue(manualSub.isRequired)
+    }
+
+    @Test
+    fun unrelatedNeighboringFilesNeverAttachedByGuessing() {
+        val stdoutWithoutMarkers = """
+            [download] Destination: /tmp/down/video.mp4
+            [download] 100% of 15.00MiB in 00:02
+        """.trimIndent()
+
+        val receipts = YtDlpOutputParser.extractArtifactReceipts(stdoutWithoutMarkers)
+        kotlin.test.assertTrue(receipts.isEmpty(), "Receipts must be empty when engine emits no explicit artifact markers")
+    }
+
+    @Test
+    fun artifactPathsPreserveQuotesUnicodeAndNetworkShares() {
+        val path = "C:\\Users\\João\\Downloads\\Curso \"Básico\"\\Aula ção.pt.vtt"
+        val stdout = """OPENYT_SUBTITLES:{"pt": {"filepath": ${Json.encodeToString(path)}, "ext": "vtt"}}"""
+        val receipts = YtDlpOutputParser.extractArtifactReceipts(stdout)
+        assertEquals(1, receipts.size)
+        assertEquals(path, receipts.first().filePath)
+        assertEquals("pt", receipts.first().language)
+    }
 }

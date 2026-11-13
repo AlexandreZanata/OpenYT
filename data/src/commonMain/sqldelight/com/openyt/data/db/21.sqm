@@ -1,0 +1,47 @@
+CREATE TABLE subtitle_track_index (
+    track_id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    language TEXT,
+    media_revision_token TEXT NOT NULL,
+    track_revision TEXT NOT NULL,
+    active_revision INTEGER NOT NULL DEFAULT 0,
+    state TEXT NOT NULL DEFAULT 'PENDING',
+    total_cues INTEGER NOT NULL DEFAULT 0,
+    timebase_offset_ms INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+);
+
+CREATE INDEX subtitle_track_index_entry_idx ON subtitle_track_index(entry_id);
+CREATE INDEX subtitle_track_index_state_idx ON subtitle_track_index(state);
+
+CREATE TABLE subtitle_cue (
+    id TEXT NOT NULL PRIMARY KEY,
+    track_id TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    cue_id TEXT NOT NULL,
+    start_ms INTEGER NOT NULL,
+    end_ms INTEGER NOT NULL,
+    display_text TEXT NOT NULL,
+    plain_text TEXT NOT NULL,
+    speaker TEXT,
+    original_index INTEGER NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+);
+
+CREATE INDEX subtitle_cue_track_rev_idx ON subtitle_cue(track_id, revision);
+CREATE INDEX subtitle_cue_entry_idx ON subtitle_cue(entry_id);
+CREATE INDEX subtitle_cue_start_time_idx ON subtitle_cue(track_id, start_ms);
+
+CREATE VIRTUAL TABLE subtitle_cue_fts USING fts4(
+    cue_id,
+    track_id,
+    entry_id,
+    revision,
+    start_ms,
+    end_ms,
+    plain_text,
+    tokenize=unicode61
+);

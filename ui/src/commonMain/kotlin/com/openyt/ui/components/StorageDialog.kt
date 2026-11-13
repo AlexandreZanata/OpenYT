@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.openyt.core.application.OfflineStorageBreakdown
 import com.openyt.core.application.StorageReport
 import com.openyt.ui.i18n.LocalStrings
 import com.openyt.ui.i18n.FeatureText
@@ -34,6 +35,7 @@ fun StorageDialog(
     onRetry: () -> Unit,
     onImport: (() -> Unit)?,
     onDismiss: () -> Unit,
+    offlineStorage: OfflineStorageBreakdown? = null,
 ) {
     val strings = LocalStrings.current
     AlertDialog(
@@ -73,6 +75,15 @@ fun StorageDialog(
                                 "${report.totalEntries} ${if (report.totalEntries == 1) strings.features[FeatureText.ITEM_SINGULAR] else strings.entriesCount} · " +
                                     (formatBytes(report.totalBytes) ?: "0 B"),
                             )
+                        }
+                        offlineStorage?.let { breakdown ->
+                            item {
+                                StorageSection(strings.offline.offlineAssets, false)
+                                StorageMetric(strings.offline.originalMedia, breakdown.originalMediaBytes)
+                                StorageMetric(strings.offline.offlineAssets, breakdown.durableAssetBytes)
+                                StorageMetric(strings.offline.renderingCache, breakdown.renderingCacheBytes)
+                                StorageMetric(strings.offline.managedTotal, breakdown.managedBytes)
+                            }
                         }
                         item { StorageSection(strings.storageLargest, report.largest.isEmpty()) }
                         items(report.largest) { entry ->
@@ -133,6 +144,17 @@ private fun StorageSection(title: String, empty: Boolean) {
         HorizontalDivider()
         Text(title, style = MaterialTheme.typography.labelLarge)
         if (empty) Text(LocalStrings.current.storageNone)
+    }
+}
+
+@Composable
+private fun StorageMetric(label: String, sizeBytes: Long) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodySmall)
+        Text(formatBytes(sizeBytes) ?: "0 B", style = MaterialTheme.typography.labelSmall)
     }
 }
 

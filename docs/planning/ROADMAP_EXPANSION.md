@@ -1,5 +1,10 @@
 # OpenYT Expansion Roadmap
 
+For the next program after 4.0.1, use the
+[personal media library execution plan](NEXT_EXPANSION/README.md). Its `NX` task
+IDs and pending tracker are separate from this historical implementation audit.
+The next program is planned, not implemented by this document update.
+
 Status: 4.0.0 delivery implementation is present for C4–C6, D1–D3/D5–D6,
 E1–E7, F3–F5 and G2–G5. D4 and G1 are closed as rejected viability decisions
 in ADR-0023, as their original exit criteria allow. F1/F2 now use available

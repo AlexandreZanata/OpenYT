@@ -19,4 +19,25 @@ class ConfirmedEngineOutputTest {
             assertNull(confirmedEngineOutput(null, root, temp, true))
         } finally { root.deleteRecursively() }
     }
+
+    @Test fun confirmsExpectedExtensionAndRejectsMismatches() {
+        val root = Files.createTempDirectory("openyt-extension-contract").toFile()
+        try {
+            val temp = File(root, ".temp").apply { mkdirs() }
+            val mp4File = File(root, "Vídeo.mp4").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+            val mkvFile = File(root, "Vídeo.mkv").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+
+            // Matching extension succeeds
+            assertEquals(mp4File, confirmedEngineOutput(mp4File.absolutePath, root, temp, false, "mp4"))
+            assertEquals(mp4File, confirmedEngineOutput(mp4File.absolutePath, root, temp, false, "MP4"))
+
+            // Mismatched extension is rejected
+            assertNull(confirmedEngineOutput(mp4File.absolutePath, root, temp, false, "mkv"))
+            assertNull(confirmedEngineOutput(mkvFile.absolutePath, root, temp, false, "mp4"))
+
+            // Null expected extension accepts any existing file
+            assertEquals(mp4File, confirmedEngineOutput(mp4File.absolutePath, root, temp, false, null))
+            assertEquals(mkvFile, confirmedEngineOutput(mkvFile.absolutePath, root, temp, false, null))
+        } finally { root.deleteRecursively() }
+    }
 }
