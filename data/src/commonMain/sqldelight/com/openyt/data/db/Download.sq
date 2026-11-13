@@ -1090,4 +1090,50 @@ LEFT JOIN entry_study_state ess ON ess.entry_id = le.id
 GROUP BY c.id
 ORDER BY c.created_at ASC, c.id ASC;
 
+relinkUpdateLibraryEntryLocation:
+UPDATE library_entry
+SET file_path = :file_path,
+    size_bytes = :size_bytes,
+    media_revision_size = :media_revision_size,
+    media_revision_mtime = :media_revision_mtime,
+    media_revision_sha256 = :media_revision_sha256,
+    last_verified_at = :last_verified_at
+WHERE id = :id;
+
+relinkDeletePlaybackByPath:
+DELETE FROM playback_position WHERE path = :path;
+
+relinkStampNullStudyNoteRevisions:
+UPDATE study_note
+SET media_revision_size = :rev_size,
+    media_revision_mtime = :rev_mtime,
+    media_revision_sha256 = :rev_sha
+WHERE entry_id = :entry_id
+  AND media_revision_size IS NULL
+  AND media_revision_sha256 IS NULL;
+
+relinkStampNullStudyBookmarkRevisions:
+UPDATE study_bookmark
+SET media_revision_size = :rev_size,
+    media_revision_mtime = :rev_mtime,
+    media_revision_sha256 = :rev_sha
+WHERE entry_id = :entry_id
+  AND media_revision_size IS NULL
+  AND media_revision_sha256 IS NULL;
+
+relinkStampNullStudyRangeRevisions:
+UPDATE study_range
+SET media_revision_size = :rev_size,
+    media_revision_mtime = :rev_mtime,
+    media_revision_sha256 = :rev_sha
+WHERE entry_id = :entry_id
+  AND media_revision_size IS NULL
+  AND media_revision_sha256 IS NULL;
+
+relinkMarkOfflineAssetsStale:
+UPDATE offline_asset
+SET state = 'STALE'
+WHERE entry_id = :entry_id;
+
+
 
