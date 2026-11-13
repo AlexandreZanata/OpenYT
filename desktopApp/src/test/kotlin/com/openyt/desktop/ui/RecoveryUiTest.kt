@@ -197,7 +197,9 @@ class RecoveryUiTest(
 
         onNodeWithTag("recovery-dialog-scroll").performScrollToNode(hasText(rStrings.scanFoldersAction))
         onNodeWithText(rStrings.scanFoldersAction).performClick()
-        waitForIdle()
+        waitUntil(timeoutMillis = 5_000L) {
+            onAllNodes(hasText(rStrings.exactMatchesHeader)).fetchSemanticsNodes().isNotEmpty()
+        }
 
         // Both exact SHA-256 and heuristic sections are explicitly separated
         onNodeWithTag("recovery-dialog-scroll").performScrollToNode(hasText(rStrings.exactMatchesHeader))
@@ -208,7 +210,9 @@ class RecoveryUiTest(
         // Choose heuristic candidate -> manual confirmation + warnings required
         onNodeWithTag("recovery-dialog-scroll").performScrollToNode(hasTestTag("candidate-select-video-alt.mp4"))
         onNodeWithTag("candidate-select-video-alt.mp4").performClick()
-        waitForIdle()
+        waitUntil(timeoutMillis = 5_000L) {
+            onAllNodes(hasText(rStrings.warnStaleStudyAnchors)).fetchSemanticsNodes().isNotEmpty()
+        }
 
         onNodeWithTag("recovery-dialog-scroll").performScrollToNode(hasText(rStrings.warnStaleStudyAnchors))
         onNodeWithText(rStrings.warnStaleStudyAnchors).assertIsDisplayed()
@@ -216,14 +220,15 @@ class RecoveryUiTest(
         onNodeWithText(rStrings.warnSubtitleInvalidated).assertIsDisplayed()
 
         // Confirm action disabled until manual confirmation checkbox is checked
-        onNodeWithText(rStrings.confirmRelinkAction).assertIsNotEnabled()
+        onNodeWithTag("recovery-confirm-relink-button").assertIsDisplayed().assertIsNotEnabled()
         onNodeWithTag("recovery-dialog-scroll").performScrollToNode(hasTestTag("recovery-manual-confirm-checkbox"))
         onNodeWithTag("recovery-manual-confirm-checkbox").performClick()
         waitForIdle()
 
-        onNodeWithText(rStrings.confirmRelinkAction).assertIsEnabled()
-        onNodeWithText(rStrings.confirmRelinkAction).performClick()
-        waitForIdle()
+        onNodeWithTag("recovery-confirm-relink-button").assertIsDisplayed().assertIsEnabled().performClick()
+        waitUntil(timeoutMillis = 5_000L) {
+            onAllNodes(hasText(rStrings.relinkSuccessTitle)).fetchSemanticsNodes().isNotEmpty()
+        }
 
         onNodeWithTag("recovery-dialog-scroll").performScrollToNode(hasText(rStrings.relinkSuccessTitle))
         onNodeWithText(rStrings.relinkSuccessTitle).assertIsDisplayed()
@@ -289,6 +294,9 @@ class RecoveryUiTest(
         onNodeWithTag("recovery-dialog-scroll").performScrollToNode(hasText(rStrings.heuristicDuplicatesHeader))
         onNodeWithText(rStrings.heuristicDuplicatesHeader).assertIsDisplayed()
 
+        waitUntil(timeoutMillis = 5_000L) {
+            onAllNodes(hasTestTag("duplicate-checkbox-e-dup-2")).fetchSemanticsNodes().isNotEmpty()
+        }
         onNodeWithTag("recovery-dialog-scroll").performScrollToNode(hasTestTag("duplicate-checkbox-e-dup-2"))
         onNodeWithTag("duplicate-checkbox-e-dup-2").performClick()
         waitForIdle()

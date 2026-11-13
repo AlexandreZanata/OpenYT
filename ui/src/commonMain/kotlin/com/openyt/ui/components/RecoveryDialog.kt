@@ -238,34 +238,14 @@ fun RecoveryDialog(
             tonalElevation = 6.dp,
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
                     rStrings.dialogTitle,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.semantics { heading() },
                 )
-
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    FilterChip(
-                        selected = activeTab == RecoveryDialogTab.HEALTH,
-                        enabled = !isBusy,
-                        onClick = { activeTab = RecoveryDialogTab.HEALTH },
-                        label = { Text(rStrings.tabHealth) },
-                        modifier = Modifier.testTag("recovery-tab-health"),
-                    )
-                    FilterChip(
-                        selected = activeTab == RecoveryDialogTab.DUPLICATES,
-                        enabled = !isBusy,
-                        onClick = { activeTab = RecoveryDialogTab.DUPLICATES },
-                        label = { Text(rStrings.tabDuplicates) },
-                        modifier = Modifier.testTag("recovery-tab-duplicates"),
-                    )
-                }
 
                 Column(
                     modifier = Modifier
@@ -275,6 +255,25 @@ fun RecoveryDialog(
                         .testTag("recovery-dialog-scroll"),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        FilterChip(
+                            selected = activeTab == RecoveryDialogTab.HEALTH,
+                            enabled = !isBusy,
+                            onClick = { activeTab = RecoveryDialogTab.HEALTH },
+                            label = { Text(rStrings.tabHealth) },
+                            modifier = Modifier.testTag("recovery-tab-health"),
+                        )
+                        FilterChip(
+                            selected = activeTab == RecoveryDialogTab.DUPLICATES,
+                            enabled = !isBusy,
+                            onClick = { activeTab = RecoveryDialogTab.DUPLICATES },
+                            label = { Text(rStrings.tabDuplicates) },
+                            modifier = Modifier.testTag("recovery-tab-duplicates"),
+                        )
+                    }
                     if (activeTab == RecoveryDialogTab.HEALTH) {
                         val targetEntry = selectedHealthEntry
                         val currentPlan = pendingPlan
@@ -610,6 +609,7 @@ fun RecoveryDialog(
                                 Button(
                                     enabled = !currentPlan.requiresManualConfirmation || manualConfirmed,
                                     onClick = { executeRelinkPlan(currentPlan) },
+                                    modifier = Modifier.testTag("recovery-confirm-relink-button"),
                                 ) {
                                     Text(rStrings.confirmRelinkAction)
                                 }

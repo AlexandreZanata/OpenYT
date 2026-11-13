@@ -211,7 +211,7 @@ class RelinkJournalTest {
         assertTrue(receipt.copiedFromSaf)
         assertEquals(1, receipt.staleAssetsFlagged)
         assertTrue(receipt.subtitleIndexesInvalidated)
-        assertTrue(File(receipt.finalPath).startsWith(ownedRecoveryRoot))
+        assertTrue(File(receipt.finalPath).canonicalFile.startsWith(ownedRecoveryRoot.canonicalFile))
         assertEquals(safBytes.toList(), File(receipt.finalPath).readBytes().toList())
         assertTrue(oldFile.isFile, "Previous user file must NEVER be auto-deleted during relink")
 
