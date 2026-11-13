@@ -155,14 +155,20 @@ class AndroidAbRepeatContractTest {
                 if (controller.state.value.loopCount >= 2 && !checkedPause) {
                     checkedPause = true
                     launcher.pause()
-                    delay(350)
+                    repeat(40) {
+                        if (controller.state.value.status == AbRepeatStatus.PAUSED) return@repeat
+                        delay(100)
+                    }
                     assertEquals(AbRepeatStatus.PAUSED, controller.state.value.status)
                     val pausedPos = launcher.captureSnapshot()?.positionMillis ?: 0L
                     delay(400)
                     val pausedPosAfter = launcher.captureSnapshot()?.positionMillis ?: 0L
                     assertTrue("Pause must keep position stationary", abs(pausedPosAfter - pausedPos) <= 250L)
                     launcher.play()
-                    delay(150)
+                    repeat(40) {
+                        if (controller.state.value.status == AbRepeatStatus.ACTIVE) return@repeat
+                        delay(100)
+                    }
                     assertEquals(AbRepeatStatus.ACTIVE, controller.state.value.status)
                 }
                 delay(80)

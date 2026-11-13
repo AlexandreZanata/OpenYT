@@ -236,20 +236,33 @@ data class AppStrings(
     val supported: String,
     val notSupported: String,
     val settingsHint: String,
-    val errorInvalidUrl: String,
-    val errorUnsupported: String,
-    val errorUnavailable: String,
-    val errorNetwork: String,
-    val errorSpace: String,
-    val errorPermission: String,
-    val errorDependency: String,
-    val errorProcessing: String,
-    val errorOutputMissing: String,
-    val errorUnexpected: String,
+    val errors: ErrorStrings,
     val offline: OfflineStrings,
     val timedSearch: TimedSearchStrings,
     val study: StudyStrings,
+    val portable: PortableStrings,
+    val recovery: RecoveryStrings,
 ) {
+    val errorOutputMissing: String
+        get() = errors.outputMissing
+    val errorUnexpected: String
+        get() = errors.unexpected
+    val errorInvalidUrl: String
+        get() = errors.invalidUrl
+    val errorUnsupported: String
+        get() = errors.unsupported
+    val errorUnavailable: String
+        get() = errors.unavailable
+    val errorNetwork: String
+        get() = errors.network
+    val errorSpace: String
+        get() = errors.space
+    val errorPermission: String
+        get() = errors.permission
+    val errorDependency: String
+        get() = errors.dependency
+    val errorProcessing: String
+        get() = errors.processing
     val storagePanel: String get() = storage.storagePanel
     val storageTotals: String get() = storage.storageTotals
     val storageLargest: String get() = storage.storageLargest
@@ -262,6 +275,19 @@ data class AppStrings(
     val storageFailed: String get() = storage.storageFailed
     val folderImportFailed: String get() = storage.folderImportFailed
 }
+
+data class ErrorStrings(
+    val invalidUrl: String,
+    val unsupported: String,
+    val unavailable: String,
+    val network: String,
+    val space: String,
+    val permission: String,
+    val dependency: String,
+    val processing: String,
+    val outputMissing: String,
+    val unexpected: String,
+)
 
 data class OfflineStrings(
     val readinessLabel: String,
@@ -633,16 +659,18 @@ val PtBrStrings = AppStrings(
     supported = "suportado",
     notSupported = "não suportado",
     settingsHint = "As preferências são salvas localmente neste dispositivo.",
-    errorInvalidUrl = "O endereço informado não é válido.",
-    errorUnsupported = "Esta fonte não é suportada.",
-    errorUnavailable = "O conteúdo não está disponível na fonte.",
-    errorNetwork = "Falha de rede. Verifique a conexão e tente novamente.",
-    errorSpace = "Espaço insuficiente no armazenamento.",
-    errorPermission = "Permissão negada para gravar o arquivo.",
-    errorDependency = "Uma dependência necessária não foi encontrada.",
-    errorProcessing = "O mecanismo não conseguiu processar esta mídia.",
-    errorOutputMissing = "O download terminou, mas o arquivo final não foi localizado ou está vazio. Verifique a pasta de destino. Se o arquivo estiver lá, importe a pasta na Biblioteca.",
-    errorUnexpected = "Ocorreu um erro inesperado.",
+    errors = ErrorStrings(
+        invalidUrl = "O endereço informado não é válido.",
+        unsupported = "Esta fonte não é suportada.",
+        unavailable = "O conteúdo não está disponível na fonte.",
+        network = "Falha de rede. Verifique a conexão e tente novamente.",
+        space = "Espaço insuficiente no armazenamento.",
+        permission = "Permissão negada para gravar o arquivo.",
+        dependency = "Uma dependência necessária não foi encontrada.",
+        processing = "O mecanismo não conseguiu processar esta mídia.",
+        outputMissing = "O download terminou, mas o arquivo final não foi localizado ou está vazio. Verifique a pasta de destino. Se o arquivo estiver lá, importe a pasta na Biblioteca.",
+        unexpected = "Ocorreu um erro inesperado.",
+    ),
     offline = OfflineStrings(
         readinessLabel = "Disponibilidade offline",
         ready = "Pronto para uso offline",
@@ -681,6 +709,8 @@ val PtBrStrings = AppStrings(
     ),
     timedSearch = PtBrTimedSearchStrings,
     study = PtBrStudyStrings,
+    portable = PtBrPortableStrings,
+    recovery = PtBrRecoveryStrings,
 )
 
 val EnStrings = AppStrings(
@@ -927,16 +957,18 @@ val EnStrings = AppStrings(
     supported = "supported",
     notSupported = "not supported",
     settingsHint = "Preferences are stored locally on this device.",
-    errorInvalidUrl = "The address is not valid.",
-    errorUnsupported = "This source is not supported.",
-    errorUnavailable = "The content is not available from the source.",
-    errorNetwork = "Network failure. Check your connection and try again.",
-    errorSpace = "Not enough storage space.",
-    errorPermission = "Permission denied while writing the file.",
-    errorDependency = "A required dependency was not found.",
-    errorProcessing = "The engine could not process this media.",
-    errorOutputMissing = "The download ended, but the final file could not be found or is empty. Check the destination folder. If the file is there, import the folder in Library.",
-    errorUnexpected = "An unexpected error occurred.",
+    errors = ErrorStrings(
+        invalidUrl = "The address is not valid.",
+        unsupported = "This source is not supported.",
+        unavailable = "The content is not available from the source.",
+        network = "Network failure. Check your connection and try again.",
+        space = "Not enough storage space.",
+        permission = "Permission denied while writing the file.",
+        dependency = "A required dependency was not found.",
+        processing = "The engine could not process this media.",
+        outputMissing = "The download ended, but the final file could not be found or is empty. Check the destination folder. If the file is there, import the folder in Library.",
+        unexpected = "An unexpected error occurred.",
+    ),
     offline = OfflineStrings(
         readinessLabel = "Offline availability",
         ready = "Ready for offline use",
@@ -975,6 +1007,8 @@ val EnStrings = AppStrings(
     ),
     timedSearch = EnTimedSearchStrings,
     study = EnStudyStrings,
+    portable = EnPortableStrings,
+    recovery = EnRecoveryStrings,
 )
 
 val LocalStrings = staticCompositionLocalOf { PtBrStrings }

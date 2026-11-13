@@ -181,6 +181,7 @@ function Validate-Installed([string]$Format) {
         Run-Launcher $testExe @('reveal', ('"' + $video + '"')) "$Format-reveal-video"
         Assert-ExplorerSelection $video
         Run-Launcher $testExe @('study', ('"' + (Join-Path $work "$Format-vídeo & ação.mp4") + '"')) "$Format-study"
+        Run-Launcher $testExe @('recovery', ('"' + $video + '"')) "$Format-recovery"
     } finally {
         Remove-Item $testExe, $testCfg, $testJar -ErrorAction SilentlyContinue
     }

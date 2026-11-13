@@ -233,6 +233,29 @@ private fun launchApp(
     }
     val mediaActions = remember { DesktopMediaActions() }
     val downloadsDirectory = remember { defaultDownloadsDirectory() }
+    val portableBackup = remember(
+        database,
+        offlineAssetStore,
+        subtitleIndexRepository,
+        settingsController,
+        downloadsDirectory,
+    ) {
+        database?.let { db ->
+            com.openyt.data.createPortableBackupRuntime(
+                database = db,
+                stagingRoot = File(defaultDatabasePath()).parentFile.resolve("portable-staging"),
+                ownedAssetsRoot = offlineAssetsDirectory,
+                streamBridge = com.openyt.data.FilePortableStreamBridge(),
+                defaultDestinationRoot = {
+                    settingsController.settings.value.downloadsDirectory ?: downloadsDirectory
+                },
+                offlineAssetStore = offlineAssetStore,
+                subtitleIndexRepository = subtitleIndexRepository,
+                appVersion = BuildInfo.version,
+            )
+        }
+    }
+    val portableArchivePicker = remember { DesktopPortableArchivePicker() }
     val subscriptions = remember(database) {
         database?.let { SubscriptionController(SqlDelightSubscriptions(it), RssFeedReader(), engine, coordinator,
             { settingsController.settings.value.downloadsDirectory ?: downloadsDirectory },
@@ -262,6 +285,35 @@ private fun launchApp(
     val urlOpener = remember { DesktopUrlOpener() }
     val folderPicker = remember { FolderPicker { current -> DesktopFolderPicker.pick(current) } }
     val studyRepository = remember(database) { database?.let(::SqlDelightStudyRepository) }
+    val recoveryRuntime = remember(
+        database,
+        offlineAssetRepository,
+        subtitleIndexRepository,
+        studyRepository,
+        settingsController,
+        downloadsDirectory,
+        playbackLauncher,
+    ) {
+        val db = database
+        val repo = repository
+        if (db != null && repo != null) {
+            com.openyt.data.createLibraryRecoveryRuntime(
+                database = db,
+                downloadRepository = repo,
+                offlineAssetRepository = offlineAssetRepository,
+                subtitleIndexRepository = subtitleIndexRepository,
+                studyRepository = studyRepository,
+                stagingRoot = File(defaultDatabasePath()).parentFile.resolve("portable-staging"),
+                ownedRecoveryRootProvider = {
+                    settingsController.settings.value.downloadsDirectory ?: downloadsDirectory
+                },
+                playbackSessionControl = playbackLauncher,
+            )
+        } else {
+            null
+        }
+    }
+    val recoveryLocationPicker = remember { DesktopRecoveryLocationPicker() }
     val studyService = remember(studyRepository) {
         studyRepository?.let { repo ->
             StudyService(
@@ -303,6 +355,8 @@ private fun launchApp(
         cleanStaleTemporaryFiles(
             File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory),
         )
+        portableBackup?.reconcileOnStartup()
+        recoveryRuntime?.relinkExecutor?.reconcileAfterRestart()
     }
 
     LaunchedEffect(instance) {
@@ -462,6 +516,10 @@ private fun launchApp(
             ),
             initialEntryRoute = pendingEntryRoute,
             onEntryRouteConsumed = { pendingEntryRoute = null },
+            portableBackupController = portableBackup?.controller,
+            portableArchivePicker = portableArchivePicker,
+            libraryRecoveryController = recoveryRuntime?.controller,
+            recoveryLocationPicker = recoveryLocationPicker,
         )
     }
 }

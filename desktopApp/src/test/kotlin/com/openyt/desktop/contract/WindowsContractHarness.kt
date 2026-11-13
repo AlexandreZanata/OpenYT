@@ -1,6 +1,7 @@
 package com.openyt.desktop.contract
 
 import com.openyt.core.application.FileAvailability
+import com.openyt.core.application.MediaHealthStatus
 import com.openyt.core.application.OpenYtEntryLink
 import com.openyt.core.application.OpenYtLink
 import com.openyt.core.application.OpenYtRoute
@@ -8,6 +9,7 @@ import com.openyt.core.application.PlayableMedia
 import com.openyt.core.application.PlaybackCheckpoint
 import com.openyt.core.application.PlaybackSessionListener
 import com.openyt.core.application.PlaybackSessionState
+import com.openyt.core.application.RelinkContentMode
 import com.openyt.core.application.StudyAbRepeatController
 import com.openyt.core.application.StudyCaptureAndNavigationService
 import com.openyt.core.application.StudyExportOptions
@@ -28,8 +30,11 @@ import com.openyt.core.domain.StudyNavigationResult
 import com.openyt.core.domain.StudyNote
 import com.openyt.core.domain.StudyResult
 import com.openyt.data.SqlDelightDownloadRepository
+import com.openyt.data.SqlDelightOfflineAssetRepository
 import com.openyt.data.SqlDelightPlaybackStore
 import com.openyt.data.SqlDelightStudyRepository
+import com.openyt.data.SqlDelightSubtitleIndexRepository
+import com.openyt.data.createLibraryRecoveryRuntime
 import com.openyt.data.createOpenYtDatabase
 import com.openyt.desktop.DesktopDeepLinks
 import com.openyt.desktop.downloader.ExecutableLocator
@@ -70,6 +75,7 @@ object WindowsContractHarness {
                 "reveal" -> check(DesktopMediaActions().reveal(ShareableMedia(file.path, "Regression", MediaKind.VIDEO)))
                 "play" -> play(file)
                 "study" -> study(file)
+                "recovery" -> recovery(file)
                 else -> error("Unknown contract")
             }
             println("PASS ${args[0]} with the installed application runtime")
@@ -376,6 +382,147 @@ object WindowsContractHarness {
             launcher2?.close()
             scope1.cancel()
             scope2.cancel()
+        }
+    }
+
+    private fun recovery(sourceVideo: File) {
+        check(DesktopVlcRuntime.bundledDirectory() != null) { "Packaged VLC runtime missing" }
+        check(sourceVideo.isFile) { "Missing Windows recovery source video: ${sourceVideo.absolutePath}" }
+        val workDir = java.nio.file.Files.createTempDirectory("openyt-win-recovery-").toFile()
+        val origDir = File(workDir, "downloads").apply { mkdirs() }
+        val movedDir = File(workDir, "moved/Subfolder & Notas").apply { mkdirs() }
+        val origFile = File(origDir, sourceVideo.name)
+        sourceVideo.copyTo(origFile, overwrite = true)
+        val initialHash = sha256Hex(origFile)
+        val revision = MediaRevision(origFile.length(), origFile.lastModified(), initialHash)
+
+        val dbFile = File(workDir, "recovery-contract.db")
+        val db = createOpenYtDatabase(dbFile.absolutePath)
+        val repo = SqlDelightDownloadRepository(db)
+        val offlineRepo = SqlDelightOfflineAssetRepository(db)
+        val subIndexRepo = SqlDelightSubtitleIndexRepository(db)
+        val studyRepo = SqlDelightStudyRepository(db)
+        val playbackStore = SqlDelightPlaybackStore(db)
+
+        val scope1 = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val scope2 = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val launcher1 = DesktopPlaybackLauncher(playbackStore, { EnStrings }, scope1)
+        var launcher2: DesktopPlaybackLauncher? = null
+
+        try {
+            val entry = LibraryEntry(
+                id = "win-rec-1",
+                title = "Windows Recovery Fixture",
+                kind = MediaKind.VIDEO,
+                filePath = origFile.absolutePath,
+                sizeBytes = origFile.length(),
+                createdAtEpochMillis = System.currentTimeMillis(),
+                mediaRevision = revision,
+            )
+            runBlocking {
+                repo.insertLibraryEntry(entry)
+                repo.insertCollection(Collection("col-win-rec", "Windows Study"))
+                repo.addEntryToCollection("col-win-rec", entry.id)
+                playbackStore.savePosition(origFile.absolutePath, PlaybackCheckpoint(3_000L, 60_000L, entry.id), entry.id)
+                studyRepo.upsertNote(
+                    StudyNote("win-note-rec", entry.id, 3_000L, null, "Preserved on Windows move", revision, 100L, 100L),
+                )
+            }
+
+            // Open media in bundled Windows VLC, verify playing, then stop so NTFS file handle is released
+            val preRelinkCheckpoint = runBlocking {
+                check(launcher1.openAt(listOf(PlayableMedia(origFile.absolutePath, entry.title, MediaKind.VIDEO, entryId = entry.id)), 0, 3_000L))
+                var started = false
+                repeat(120) {
+                    val snap = launcher1.captureSnapshot()
+                    if (snap?.state == PlaybackSessionState.PLAYING && snap.positionMillis >= 1_000L) {
+                        started = true
+                        return@repeat
+                    }
+                    delay(100)
+                }
+                check(started) { "Windows VLC did not reach PLAYING before recovery stop" }
+                launcher1.stop()
+                delay(350)
+                playbackStore.position(origFile.absolutePath, entry.id)
+                    ?: error("Missing Windows playback checkpoint after stop")
+            }
+            check(preRelinkCheckpoint.positionMillis >= 1_000L) {
+                "Expected pre-relink Windows checkpoint >= 1000ms, got $preRelinkCheckpoint"
+            }
+
+            val movedFile = File(movedDir, "Moved-${origFile.name}")
+            java.nio.file.Files.move(origFile.toPath(), movedFile.toPath())
+
+            val runtime = createLibraryRecoveryRuntime(
+                database = db,
+                downloadRepository = repo,
+                offlineAssetRepository = offlineRepo,
+                subtitleIndexRepository = subIndexRepo,
+                studyRepository = studyRepo,
+                stagingRoot = File(workDir, "staging"),
+                ownedRecoveryRootProvider = { origDir.absolutePath },
+                playbackSessionControl = launcher1,
+            )
+
+            val relinkedFinalPath = runBlocking {
+                val health = runtime.controller.analyzeHealth()
+                check(health.entries.single().status == MediaHealthStatus.MISSING) {
+                    "Expected MISSING after Windows move, got ${health.entries.single().status}"
+                }
+                val scan = runtime.controller.scanCandidates(entry, listOf(movedDir.absolutePath), emptyList())
+                check(scan.exactMatches.size == 1) { "Expected 1 exact match after Windows move, got ${scan.exactMatches.size}" }
+                val plan = runtime.controller.buildRelinkPlan(entry, scan.exactMatches.single()).getOrThrow()
+                check(plan.contentMode == RelinkContentMode.IDENTICAL_CONTENT && !plan.requiresManualConfirmation)
+                val receipt = runtime.controller.executeRelink(plan, confirmedContentChange = false).getOrThrow()
+                check(File(receipt.finalPath).canonicalFile == movedFile.canonicalFile) {
+                    "Expected relinked canonical path ${movedFile.canonicalFile}, got ${File(receipt.finalPath).canonicalFile}"
+                }
+                receipt.finalPath
+            }
+
+            // Reopen DB & verify context + playback + Windows Explorer reveal on moved file
+            val reopenedDb = createOpenYtDatabase(dbFile.absolutePath)
+            val reopenedRepo = SqlDelightDownloadRepository(reopenedDb)
+            val reopenedEntry = runBlocking { reopenedRepo.loadLibrary().single() }
+            check(reopenedEntry.id == entry.id && File(reopenedEntry.filePath).canonicalFile == movedFile.canonicalFile) {
+                "Unexpected reopened entry: $reopenedEntry"
+            }
+            val reopenedCheckpoint = runBlocking { SqlDelightPlaybackStore(reopenedDb).position(relinkedFinalPath, entry.id) }
+            check(reopenedCheckpoint == preRelinkCheckpoint) {
+                "Windows relink checkpoint lost: expected=$preRelinkCheckpoint actual=$reopenedCheckpoint"
+            }
+            val reopenedBundle = runBlocking { SqlDelightStudyRepository(reopenedDb).loadEntryStudyBundle(entry.id) }
+            check(reopenedBundle.notes.single().body == "Preserved on Windows move" && !reopenedBundle.hasStaleAnchors)
+            check(sha256Hex(movedFile) == initialHash)
+
+            launcher2 = DesktopPlaybackLauncher(SqlDelightPlaybackStore(reopenedDb), { EnStrings }, scope2)
+            runBlocking {
+                check(launcher2.openAt(listOf(PlayableMedia(relinkedFinalPath, entry.title, MediaKind.VIDEO, entryId = entry.id)), 0, 3_000L))
+                var reopenedPlay = false
+                repeat(120) {
+                    val snap = launcher2.captureSnapshot()
+                    if (snap?.state == PlaybackSessionState.PLAYING) {
+                        reopenedPlay = true
+                        return@repeat
+                    }
+                    delay(100)
+                }
+                check(reopenedPlay) { "Windows VLC failed to play relinked file at $relinkedFinalPath" }
+                launcher2.stop()
+                delay(200)
+            }
+
+            check(DesktopMediaActions().reveal(ShareableMedia(relinkedFinalPath, entry.title, MediaKind.VIDEO))) {
+                "Windows Explorer reveal failed on moved recovered file"
+            }
+            println("PASS NX-R06 Windows VLC handle release, NTFS move, SQLite relink reopen, and Explorer reveal")
+        } finally {
+            launcher1.close()
+            launcher2?.close()
+            scope1.cancel()
+            scope2.cancel()
+            workDir.deleteRecursively()
         }
     }
 

@@ -548,6 +548,119 @@ WHERE track_id = :track_id;
 deleteSubtitleTrackIndex:
 DELETE FROM subtitle_track_index WHERE track_id = :track_id;
 
+selectPortablePlaybackPositions:
+SELECT path, position_millis, duration_millis, entry_id FROM playback_position;
+
+selectPortableStudyNotes:
+SELECT id, entry_id, timestamp_ms, end_ms, body, media_revision_size, media_revision_mtime, media_revision_sha256, created_at, updated_at
+FROM study_note
+ORDER BY timestamp_ms ASC, end_ms ASC, created_at ASC, id ASC;
+
+selectPortableStudyBookmarks:
+SELECT id, entry_id, timestamp_ms, label, media_revision_size, media_revision_mtime, media_revision_sha256, created_at, updated_at
+FROM study_bookmark
+ORDER BY timestamp_ms ASC, created_at ASC, id ASC;
+
+selectPortableStudyRanges:
+SELECT id, entry_id, start_ms, end_ms, label, media_revision_size, media_revision_mtime, media_revision_sha256, created_at, updated_at
+FROM study_range
+ORDER BY start_ms ASC, end_ms ASC, created_at ASC, id ASC;
+
+selectPortableEntryStudyStates:
+SELECT entry_id, is_studied, studied_at, updated_at FROM entry_study_state;
+
+CREATE TABLE portable_operation (
+    id TEXT NOT NULL PRIMARY KEY,
+    direction TEXT NOT NULL,
+    status TEXT NOT NULL,
+    bundle_id TEXT,
+    archive_locator TEXT NOT NULL,
+    archive_sha256 TEXT,
+    destination_root TEXT,
+    staging_dir TEXT,
+    total_bytes INTEGER NOT NULL DEFAULT 0,
+    completed_bytes INTEGER NOT NULL DEFAULT 0,
+    entries_total INTEGER NOT NULL DEFAULT 0,
+    entries_done INTEGER NOT NULL DEFAULT 0,
+    plan_json TEXT,
+    error TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX portable_operation_status_idx ON portable_operation(status, updated_at);
+
+selectPortableOperationById:
+SELECT * FROM portable_operation WHERE id = :id;
+
+selectAllPortableOperations:
+SELECT * FROM portable_operation ORDER BY created_at DESC, id DESC;
+
+selectActivePortableOperations:
+SELECT * FROM portable_operation
+WHERE status IN ('PLANNED', 'RUNNING', 'STAGING_VERIFIED', 'COMMITTING')
+ORDER BY created_at ASC;
+
+insertPortableOperation:
+INSERT OR REPLACE INTO portable_operation(
+    id, direction, status, bundle_id, archive_locator, archive_sha256,
+    destination_root, staging_dir, total_bytes, completed_bytes,
+    entries_total, entries_done, plan_json, error, created_at, updated_at
+) VALUES (
+    :id, :direction, :status, :bundle_id, :archive_locator, :archive_sha256,
+    :destination_root, :staging_dir, :total_bytes, :completed_bytes,
+    :entries_total, :entries_done, :plan_json, :error, :created_at, :updated_at
+);
+
+markRunningPortableOperationsInterrupted:
+UPDATE portable_operation
+SET status = 'INTERRUPTED',
+    updated_at = :updated_at
+WHERE status IN ('RUNNING', 'COMMITTING');
+
+deletePortableOperation:
+DELETE FROM portable_operation WHERE id = :id;
+
+insertPortableStudyNote:
+INSERT OR REPLACE INTO study_note(
+    id, entry_id, timestamp_ms, end_ms, body,
+    media_revision_size, media_revision_mtime, media_revision_sha256,
+    created_at, updated_at
+) VALUES (
+    :id, :entry_id, :timestamp_ms, :end_ms, :body,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256,
+    :created_at, :updated_at
+);
+
+insertPortableStudyBookmark:
+INSERT OR REPLACE INTO study_bookmark(
+    id, entry_id, timestamp_ms, label,
+    media_revision_size, media_revision_mtime, media_revision_sha256,
+    created_at, updated_at
+) VALUES (
+    :id, :entry_id, :timestamp_ms, :label,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256,
+    :created_at, :updated_at
+);
+
+insertPortableStudyRange:
+INSERT OR REPLACE INTO study_range(
+    id, entry_id, start_ms, end_ms, label,
+    media_revision_size, media_revision_mtime, media_revision_sha256,
+    created_at, updated_at
+) VALUES (
+    :id, :entry_id, :start_ms, :end_ms, :label,
+    :media_revision_size, :media_revision_mtime, :media_revision_sha256,
+    :created_at, :updated_at
+);
+
+upsertPortableEntryStudyState:
+INSERT OR REPLACE INTO entry_study_state(
+    entry_id, is_studied, studied_at, updated_at
+) VALUES (
+    :entry_id, :is_studied, :studied_at, :updated_at
+);
+
 deleteSubtitleTrackIndexesForEntry:
 DELETE FROM subtitle_track_index WHERE entry_id = :entry_id;
 
@@ -976,5 +1089,51 @@ LEFT JOIN library_entry le ON le.id = ce.entry_id
 LEFT JOIN entry_study_state ess ON ess.entry_id = le.id
 GROUP BY c.id
 ORDER BY c.created_at ASC, c.id ASC;
+
+relinkUpdateLibraryEntryLocation:
+UPDATE library_entry
+SET file_path = :file_path,
+    size_bytes = :size_bytes,
+    media_revision_size = :media_revision_size,
+    media_revision_mtime = :media_revision_mtime,
+    media_revision_sha256 = :media_revision_sha256,
+    last_verified_at = :last_verified_at
+WHERE id = :id;
+
+relinkDeletePlaybackByPath:
+DELETE FROM playback_position WHERE path = :path;
+
+relinkStampNullStudyNoteRevisions:
+UPDATE study_note
+SET media_revision_size = :rev_size,
+    media_revision_mtime = :rev_mtime,
+    media_revision_sha256 = :rev_sha
+WHERE entry_id = :entry_id
+  AND media_revision_size IS NULL
+  AND media_revision_sha256 IS NULL;
+
+relinkStampNullStudyBookmarkRevisions:
+UPDATE study_bookmark
+SET media_revision_size = :rev_size,
+    media_revision_mtime = :rev_mtime,
+    media_revision_sha256 = :rev_sha
+WHERE entry_id = :entry_id
+  AND media_revision_size IS NULL
+  AND media_revision_sha256 IS NULL;
+
+relinkStampNullStudyRangeRevisions:
+UPDATE study_range
+SET media_revision_size = :rev_size,
+    media_revision_mtime = :rev_mtime,
+    media_revision_sha256 = :rev_sha
+WHERE entry_id = :entry_id
+  AND media_revision_size IS NULL
+  AND media_revision_sha256 IS NULL;
+
+relinkMarkOfflineAssetsStale:
+UPDATE offline_asset
+SET state = 'STALE'
+WHERE entry_id = :entry_id;
+
 
 

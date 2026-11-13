@@ -226,6 +226,42 @@ class AppContainer(context: Context) {
     val libraryArchiveService = LibraryArchiveService(repository)
     val folderImportService = FolderImportService(FileFolderScanner(), repository)
     val bulkFileService = BulkFileService(FileBulkFileOperator(), repository)
+    val portableBackup: com.openyt.data.PortableBackupRuntime? = database.getOrNull()?.let { db ->
+        com.openyt.data.createPortableBackupRuntime(
+            database = db,
+            stagingRoot = File(appContext.filesDir, "portable-staging"),
+            ownedAssetsRoot = offlineAssetsDirectory,
+            streamBridge = com.openyt.data.AndroidPortableStreamBridge(appContext),
+            defaultDestinationRoot = {
+                settingsController.settings.value.downloadsDirectory ?: downloadsDirectory
+            },
+            offlineAssetStore = offlineAssetStore,
+            subtitleIndexRepository = subtitleIndexRepository,
+            appVersion = appVersion,
+        )
+    }
+
+    fun createLibraryRecoveryController(
+        playbackSessionControl: com.openyt.core.application.PlaybackSessionControl? = null,
+    ): com.openyt.core.application.LibraryRecoveryUiController? {
+        val db = database.getOrNull() ?: return null
+        val repo = repository ?: return null
+        return com.openyt.data.createLibraryRecoveryRuntime(
+            database = db,
+            downloadRepository = repo,
+            offlineAssetRepository = offlineAssetRepository,
+            subtitleIndexRepository = subtitleIndexRepository,
+            studyRepository = studyRepository,
+            stagingRoot = File(appContext.filesDir, "portable-staging"),
+            ownedRecoveryRootProvider = {
+                settingsController.settings.value.downloadsDirectory ?: downloadsDirectory
+            },
+            streamBridge = com.openyt.data.AndroidPortableStreamBridge(appContext),
+            healthInspector = com.openyt.data.AndroidMediaHealthInspector(appContext),
+            candidateSourcePort = com.openyt.data.AndroidRecoveryCandidateScanner(appContext),
+            playbackSessionControl = playbackSessionControl,
+        ).controller
+    }
 
     init {
         cleanStaleTemporaryFiles(File(downloadsDirectory))
@@ -238,6 +274,7 @@ class AppContainer(context: Context) {
             cleanStaleTemporaryFiles(
                 File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory),
             )
+            portableBackup?.reconcileOnStartup()
         }
     }
 }
