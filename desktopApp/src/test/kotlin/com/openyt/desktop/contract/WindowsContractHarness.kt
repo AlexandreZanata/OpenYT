@@ -430,12 +430,12 @@ object WindowsContractHarness {
             }
 
             // Open media in bundled Windows VLC, verify playing, then stop so NTFS file handle is released
-            runBlocking {
-                check(launcher1.openAt(listOf(PlayableMedia(origFile.absolutePath, entry.title, MediaKind.VIDEO, entryId = entry.id)), 0, 1_000L))
+            val preRelinkCheckpoint = runBlocking {
+                check(launcher1.openAt(listOf(PlayableMedia(origFile.absolutePath, entry.title, MediaKind.VIDEO, entryId = entry.id)), 0, 3_000L))
                 var started = false
                 repeat(120) {
                     val snap = launcher1.captureSnapshot()
-                    if (snap?.state == PlaybackSessionState.PLAYING) {
+                    if (snap?.state == PlaybackSessionState.PLAYING && snap.positionMillis >= 1_000L) {
                         started = true
                         return@repeat
                     }
@@ -444,6 +444,11 @@ object WindowsContractHarness {
                 check(started) { "Windows VLC did not reach PLAYING before recovery stop" }
                 launcher1.stop()
                 delay(350)
+                playbackStore.position(origFile.absolutePath, entry.id)
+                    ?: error("Missing Windows playback checkpoint after stop")
+            }
+            check(preRelinkCheckpoint.positionMillis >= 1_000L) {
+                "Expected pre-relink Windows checkpoint >= 1000ms, got $preRelinkCheckpoint"
             }
 
             val movedFile = File(movedDir, "Moved-${origFile.name}")
@@ -484,7 +489,9 @@ object WindowsContractHarness {
                 "Unexpected reopened entry: $reopenedEntry"
             }
             val reopenedCheckpoint = runBlocking { SqlDelightPlaybackStore(reopenedDb).position(relinkedFinalPath, entry.id) }
-            check(reopenedCheckpoint?.positionMillis == 3_000L) { "Windows relink checkpoint lost: $reopenedCheckpoint" }
+            check(reopenedCheckpoint == preRelinkCheckpoint) {
+                "Windows relink checkpoint lost: expected=$preRelinkCheckpoint actual=$reopenedCheckpoint"
+            }
             val reopenedBundle = runBlocking { SqlDelightStudyRepository(reopenedDb).loadEntryStudyBundle(entry.id) }
             check(reopenedBundle.notes.single().body == "Preserved on Windows move" && !reopenedBundle.hasStaleAnchors)
             check(sha256Hex(movedFile) == initialHash)
