@@ -64,10 +64,11 @@ supplies native icon files to jpackage. Android supplies adaptive launcher layer
 The [brand guidelines](../branding/README.md) link to the SVG master and platform
 assets.
 
-Provider glyphs use shared XML vectors supported by Android and desktop. Storage
-messages are grouped inside `AppStrings` to keep the JVM constructor and generated
-copy methods below the platform parameter limit. Storage rows are rendered lazily
-and dialog actions remain outside the scrolling content.
+Provider glyphs use shared XML vectors supported by Android and desktop. Storage and
+error message groups (`StorageStrings`, `ErrorStrings`) are extracted inside `AppStrings`
+with forwarding getters to keep the JVM constructor and generated `copy$default`
+signatures below the platform 255-parameter limit. Storage rows are rendered lazily and
+dialog actions remain outside the scrolling content.
 
 ## Technical metadata
 
@@ -102,7 +103,9 @@ Final output confirmation uses tagged JSON paths and explicit UTF-8 on both host
 Schema 18 adds playback sessions, typed download options, subscriptions, and opt-in settings. Schema 14 also preserves the filename template and playlist item index so a restored
 task repeats its original request. Schema 19 adds custom download profiles, separate local destination directory bindings, and immutable profile provenance snapshots. Schema 20 adds durable offline companion assets (`offline_asset`), media revision tracking, and configurable asset storage budget/reserve settings. Schema 21 adds durable asset operation journals, Schema 22 adds subtitle cue indexing and FTS4 search tables, Schema 23 adds `entry_id` checkpoint bridges on playback positions, and Schema 24 adds entry-scoped study notes, bookmarks, saved A/B ranges, and manual study completion (`study_note`, `study_bookmark`, `study_range`, `entry_study_state`); `PlaybackSessionControl` (`captureSnapshot()`, active repeat bounds, and session listeners), `StudyCaptureAndNavigationService`, `StudyEditorCoordinator`, and `StudyAbRepeatController` provide atomic entry-bound timestamp capture, anchor-staleness/duration diagnostics, unsaved draft preservation, timestamp navigation, and serialized/coalesced active-session A/B repetition backed by VLCJ on desktop and Media3 (`PlaybackService`) on Android.
 
-Study sharing and focused UI build on top of Schema 24 without leaking private storage: `StudyMarkdownExporter` generates sanitized, human-readable Markdown bundles via platform `TextFileExporter` (`AndroidTextFileExporter`, `DesktopTextFileExporter`) and optional local `openyt://library/entry/<percent-encoded-id>?t=<millis>` links (`OpenYtEntryLink` / `OpenYtLink`), emitted as clickable Markdown links only when `StudyHostLinkCapability.supportsClickableEntryLinks` is explicitly confirmed by the host OS dispatch setup (and strictly scoped to the library that retains that `library_entry.id`). `StudySheetDialog` and `StudyRemovalDialog` integrate into `LibraryScreen` with responsive grids/flow controls, manual completion independent of playback-end resume resets (`resumeMillis == 0`), and confirmation-gated study data cleanup that preserves original physical media bytes. See [ADR-0020](../adr/0020-download-completion.md), the [Download Profiles guide](../DOWNLOAD_PROFILES.md), the [Offline Library guide](../OFFLINE_LIBRARY.md), the [Study Mode guide](../planning/NEXT_EXPANSION/04_STUDY_MODE.md), and the [video regression contracts](../testing/VIDEO_REGRESSION_CONTRACTS.md).
+Study sharing and focused UI build on top of Schema 24 without leaking private storage: `StudyMarkdownExporter` generates sanitized, human-readable Markdown bundles via platform `TextFileExporter` (`AndroidTextFileExporter`, `DesktopTextFileExporter`) and optional local `openyt://library/entry/<percent-encoded-id>?t=<millis>` links (`OpenYtEntryLink` / `OpenYtLink`), emitted as clickable Markdown links only when `StudyHostLinkCapability.supportsClickableEntryLinks` is explicitly confirmed by the host OS dispatch setup (and strictly scoped to the library that retains that `library_entry.id`). `StudySheetDialog` and `StudyRemovalDialog` integrate into `LibraryScreen` with responsive grids/flow controls, manual completion independent of playback-end resume resets (`resumeMillis == 0`), and confirmation-gated study data cleanup that preserves original physical media bytes.
+
+Schema 25 (`24.sqm`) adds persistent operation journaling (`portable_operation`) shared across Portable Media Backup/Restore (`NX5`) and Assisted Library Recovery (`NX6`). `PortableBackupExportService`, `PortableRestorePlanner`, and `PortableRestoreExecutor` stream `.openyt-backup.zip` (`formatVersion = 1`) bundles via ZIP64-capable `JvmPortableArchiveWriter` / `JvmPortableArchiveReader` and Android SAF `AndroidPortableStreamBridge`, enforcing hostile-archive limits, strict manifest SHA-256 verification, full entity ID remapping (`PortableIdRemapper`), non-overwriting atomic publication (`SqlDelightPortableRestorePublicationPort`), and post-commit local FTS index rebuild without storing secrets, host paths, or SQLite files. For library maintenance, `LibraryHealthAnalyzer` (`JvmMediaHealthInspector`, `AndroidMediaHealthInspector`), bounded `RecoveryCandidateScanner` (with `Mutex`-serialized SHA-256 verification), `RelinkPlanner`, and `RelinkExecutor` (`SqlDelightRelinkPublicationPort`) verify exact content vs. metadata heuristics, release active VLCJ/Media3 playback locks before moving or copying Android SAF picks into app-owned storage (`COPY_SAF_TO_OWNED`), selectively flag stale anchors/invalidate FTS only on changed content, and surface non-destructive advisory duplicate cleanup (`RecoveryDialog`, `PortableBackupDialog`). See [ADR-0020](../adr/0020-download-completion.md), [ADR-0025](../adr/0025-portable-backup-and-assisted-recovery.md), the [Portable Backup Format spec](../spec/PORTABLE_BACKUP_FORMAT.md), the [Download Profiles guide](../DOWNLOAD_PROFILES.md), the [Offline Library guide](../OFFLINE_LIBRARY.md), the [Study Mode guide](../planning/NEXT_EXPANSION/04_STUDY_MODE.md), and the [video regression contracts](../testing/VIDEO_REGRESSION_CONTRACTS.md).
 
 ## Platform notes
 
@@ -129,5 +132,7 @@ Study sharing and focused UI build on top of Schema 24 without leaking private s
 - Backend services, accounts, telemetry, or remote job processing.
 - Executing unverified binaries or silent remote updates.
 
-See [ADR-0021](../adr/0021-local-media-expansion.md) for playback/automation and
-[ADR-0022](../adr/0022-verified-release-manifests.md) for release verification.
+See [ADR-0021](../adr/0021-local-media-expansion.md) for playback/automation,
+[ADR-0022](../adr/0022-verified-release-manifests.md) for release verification, and
+[ADR-0025](../adr/0025-portable-backup-and-assisted-recovery.md) for portable backup and
+assisted library recovery.

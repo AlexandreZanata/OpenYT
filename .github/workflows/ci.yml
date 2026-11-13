@@ -131,7 +131,7 @@ jobs:
         run: |
           bash scripts/install-ci-packages.sh libvlc5 vlc-plugin-base vlc-plugin-video-output xvfb
           ./gradlew :media-ffmpeg:desktopTest --console=plain
-          env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE xvfb-run -a ./gradlew :desktopApp:test --tests '*DesktopMediaTaggerTest' --tests '*DesktopPlaybackLocalTest' --tests '*StudyPlaybackLocalTest' --console=plain
+          env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE xvfb-run -a ./gradlew :desktopApp:test --tests '*DesktopMediaTaggerTest' --tests '*DesktopPlaybackLocalTest' --tests '*StudyPlaybackLocalTest' --tests '*RelinkLocalTest' --console=plain
 
       - uses: actions/upload-artifact@v4
         if: always()

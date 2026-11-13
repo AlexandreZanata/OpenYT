@@ -325,27 +325,33 @@ Suggested groups: `StudyRepositoryTest`, `StudySessionTest`, `StudyLinkTest`,
 
 ### Backup — NX-B
 
-Suggested groups: `PortableManifestTest`, `PortableArchiveSecurityTest`,
-`PortableRestoreJournalTest`, `PortableBackupUiTest`, host `PortableRoundTripTest`.
+Implemented & verified suites: `PortableManifestTest`, `PortableSnapshotSourceTest`,
+`PortableZipStreamingTest`, `PortableExportTest`, `PortableExportLocalTest`,
+`PortableArchiveSecurityTest`, `PortableArchiveSecurityLocalTest`,
+`PortableRestoreJournalTest`, `PortableBackupUiTest` (`4/4` UI configurations),
+`PortableRoundTripTest` (`1/1`), `AndroidPortableBackupTest` (`2/2` on API 30 emulator).
 
-- **NX-B01:** independent manifest version, consistent metadata and safe fields.
-- **NX-B02:** measured streaming/ZIP64 support including >4 GiB native fixture.
-- **NX-B03:** complete export receipt, cancellation and source-change detection.
-- **NX-B04:** hostile archive bounds, traversal/collision/symlink/digest rejection.
-- **NX-B05:** journaled restore, complete ID remapping and no existing changes.
-- **NX-B06:** desktop–Android–desktop round-trip with media hashes and context.
+- **NX-B01:** independent manifest version, consistent metadata and safe fields — **VERIFIED** (`PortableManifestTest`, `PortableSnapshotSourceTest`, golden manifest v1 fixture; URLs/cookies/local paths/FTS tables strictly excluded).
+- **NX-B02:** measured streaming/ZIP64 support including >4 GiB native fixture — **VERIFIED** (`PortableZipStreamingTest`: opt-in `OPENYT_RUN_ZIP64_INCOMPRESSIBLE_TESTS=1` streamed `4,350,000,000`-byte incompressible payload into `4,351,322,924`-byte ZIP64 archive and extracted via `JvmPortableArchiveReader` with `7 MiB` peak heap delta; default suite tests >4 GiB sparse stream + cancellation + SAF non-seekable pipes `4/4`).
+- **NX-B03:** complete export receipt, cancellation and source-change detection — **VERIFIED** (`PortableExportTest`, `PortableExportLocalTest`, `DatabaseMigrationTest` Schema v25 `portable_operation` journal + startup reconciliation).
+- **NX-B04:** hostile archive bounds, traversal/collision/symlink/digest rejection — **VERIFIED** (`PortableArchiveSecurityTest`, `PortableArchiveSecurityLocalTest`, `AndroidPortableBackupTest`; rejects symlinks, `.` / `..`, drive/UNC, NUL, case-folded duplicates, >16 MiB manifest, undeclared entries, and digest mismatches).
+- **NX-B05:** journaled restore, complete ID remapping and no existing changes — **VERIFIED** (`PortableRestoreJournalTest`, fault-injected commit & restart reconciliation, full ID remapping across entries/assets/collections/smart collections/profiles/checkpoints/study, post-commit local FTS rebuild).
+- **NX-B06:** desktop–Android–desktop round-trip with media hashes and context — **VERIFIED** (`PortableRoundTripTest`, `AndroidPortableBackupTest` `FileProvider` `content://` round-trip + SQLite reopen + FTS4 search, `PortableBackupUiTest` `4/4`).
 
 ### Recovery — NX-R
 
-Suggested groups: `LibraryHealthTest`, `RelinkPlannerTest`, `RelinkJournalTest`,
-`RecoveryUiTest`, host `RelinkLocalTest`.
+Implemented suites: `LibraryHealthTest`, `JvmMediaHealthInspectorTest`,
+`RecoveryCandidateScannerTest`, `JvmRecoveryCandidateScannerTest`, `RelinkPlannerTest`,
+`RelinkJournalTest`, `RecoveryUiTest` (`4/4`), `AndroidLibraryRecoveryTest` (`1/1` on
+API 30 emulator), host `RelinkLocalTest` (`3/3` Linux VLCJ), and `WindowsContractHarness`
+(`"recovery"`).
 
-- **NX-R01:** read-only accurate health/permission/content states.
-- **NX-R02:** bounded root scan/hash, verified identity vs heuristics.
-- **NX-R03:** exact preview/confirmation, active playback and stale-plan rejection.
-- **NX-R04:** same entry/context/checkpoint after relink and interrupted retry.
-- **NX-R05:** advisory duplicates and record-only removal with authored context.
-- **NX-R06:** native moved-file recovery, reopen and Windows shell/player behavior.
+- **NX-R01:** read-only accurate health/permission/content states — **VERIFIED** (`LibraryHealthTest`, `JvmMediaHealthInspectorTest`, `AndroidLibraryRecoveryTest`; `AVAILABLE`, `MISSING`, `PERMISSION_LOST`, `CHANGED_CONTENT`, `UNKNOWN` without mutating DB/files).
+- **NX-R02:** bounded root scan/hash, verified identity vs heuristics — **VERIFIED** (`RecoveryCandidateScannerTest`, `JvmRecoveryCandidateScannerTest`; bounded depth/count, symlink loop guard, `Mutex` sequential SHA-256, `EXACT_CONTENT` vs `HEURISTIC_METADATA`).
+- **NX-R03:** exact preview/confirmation, active playback and stale-plan rejection — **VERIFIED** (`RelinkPlannerTest`, `RelinkJournalTest`, `RelinkLocalTest`, `RecoveryUiTest` `4/4`; stops active player before relink and checks stale plan state).
+- **NX-R04:** same entry/context/checkpoint after relink and interrupted retry — **VERIFIED** (`RelinkJournalTest`, `RelinkLocalTest`, `AndroidLibraryRecoveryTest`; preserves `LibraryEntry.id`, collections, study records, checkpoints; selectively stamps stale anchors & invalidates FTS on `CHANGED_CONTENT_REPLACEMENT`).
+- **NX-R05:** advisory duplicates and record-only removal with authored context — **VERIFIED** (`LibraryHealthTest`, `RecoveryUiTest` `4/4`; duplicate review unlinks record only without touching user media files).
+- **NX-R06:** native moved-file recovery, reopen and Windows shell/player behavior — **PARTIAL / AWAITING WINDOWS CI** (`RelinkLocalTest` `3/3` passed on Linux with `OPENYT_RUN_PLAYBACK_TESTS=1` real VLCJ stop-relink-reopen; `AndroidLibraryRecoveryTest` `1/1` passed on API 30 emulator; Windows `"recovery"` compiled in `windowsContractHarnessJar`, awaiting `windows-latest` CI verification).
 
 ### Subscription rules — NX-A
 

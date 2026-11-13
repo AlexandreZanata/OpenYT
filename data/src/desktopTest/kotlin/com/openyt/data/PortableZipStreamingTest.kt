@@ -12,6 +12,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import java.io.File
@@ -223,5 +224,137 @@ class PortableZipStreamingTest {
         assertEquals(over4GibBytes, verifiedBytes)
         val actualSha = readDigest.digest().joinToString("") { "%02x".format(it) }
         assertEquals(writtenInfo.sha256, actualSha)
+    }
+
+    @Test
+    fun zip64StreamsOverFourGibabytesIncompressiblePayloadWithBoundedMemory() = runBlocking {
+        Assume.assumeTrue(
+            "Set OPENYT_RUN_ZIP64_INCOMPRESSIBLE_TESTS=1 on a host with >=10 GiB free space",
+            System.getenv("OPENYT_RUN_ZIP64_INCOMPRESSIBLE_TESTS") == "1",
+        )
+        val stagingRoot = tempFolder.newFolder("zip64-incompressible-staging")
+        val extractDir = tempFolder.newFolder("zip64-incompressible-extract")
+        val usableBytes = stagingRoot.usableSpace
+        Assume.assumeTrue(
+            "Requires >=10 GiB free disk space, found ${usableBytes / (1024 * 1024)} MiB",
+            usableBytes >= 10L * 1024L * 1024L * 1024L,
+        )
+
+        val archiveFile = File(tempFolder.root, "zip64-incompressible.openyt-backup.zip")
+        val over4GibBytes = 4_350_000_000L // >4 GiB uncompressed AND >4 GiB compressed ZIP64 central directory
+        val runtime = Runtime.getRuntime()
+        System.gc()
+        val baselineUsedBytes = runtime.totalMemory() - runtime.freeMemory()
+        var peakHeapDeltaBytes = 0L
+        fun sampleHeap() {
+            val delta = (runtime.totalMemory() - runtime.freeMemory()) - baselineUsedBytes
+            if (delta > peakHeapDeltaBytes) peakHeapDeltaBytes = delta
+        }
+
+        val incompressibleBridge = object : PortableStreamBridge by FilePortableStreamBridge() {
+            override fun openInputStream(locator: String): InputStream {
+                if (locator != "virtual://incompressible-4gib") {
+                    return FilePortableStreamBridge().openInputStream(locator)
+                }
+                return object : InputStream() {
+                    private var state = 0x9E3779B97F4A7C15UL.toLong()
+                    private var remaining = over4GibBytes
+                    private val scratch = ByteArray(64 * 1024)
+                    private var scratchPos = scratch.size
+
+                    private fun refill() {
+                        var i = 0
+                        while (i + 8 <= scratch.size) {
+                            state += -0x61c8864680b583ebL
+                            var z = state
+                            z = (z xor (z ushr 30)) * -0x40a7b892e31b1a47L
+                            z = (z xor (z ushr 27)) * -0x6b2fb644ecceee15L
+                            z = z xor (z ushr 31)
+                            scratch[i] = z.toByte()
+                            scratch[i + 1] = (z ushr 8).toByte()
+                            scratch[i + 2] = (z ushr 16).toByte()
+                            scratch[i + 3] = (z ushr 24).toByte()
+                            scratch[i + 4] = (z ushr 32).toByte()
+                            scratch[i + 5] = (z ushr 40).toByte()
+                            scratch[i + 6] = (z ushr 48).toByte()
+                            scratch[i + 7] = (z ushr 56).toByte()
+                            i += 8
+                        }
+                        scratchPos = 0
+                    }
+
+                    override fun read(): Int {
+                        if (remaining <= 0L) return -1
+                        if (scratchPos >= scratch.size) refill()
+                        remaining--
+                        return scratch[scratchPos++].toInt() and 0xFF
+                    }
+
+                    override fun read(b: ByteArray, off: Int, len: Int): Int {
+                        if (remaining <= 0L) return -1
+                        if (scratchPos >= scratch.size) refill()
+                        val available = scratch.size - scratchPos
+                        val toRead = minOf(len.toLong(), available.toLong(), remaining).toInt()
+                        System.arraycopy(scratch, scratchPos, b, off, toRead)
+                        scratchPos += toRead
+                        remaining -= toRead
+                        sampleHeap()
+                        return toRead
+                    }
+                }
+            }
+        }
+
+        try {
+            val writer = JvmPortableArchiveWriter(stagingRoot, incompressibleBridge)
+            val session = writer.openOutputSession(archiveFile.absolutePath, "op-zip64-incompressible").getOrThrow()
+            val writtenInfo = session.writeFileEntry("media/big/4gib-random.bin", "virtual://incompressible-4gib").getOrThrow()
+            assertEquals(over4GibBytes, writtenInfo.byteCount)
+            session.writeJsonEntry(PortableBackupFormat.MANIFEST_ENTRY_NAME, """{"formatVersion":1}""").getOrThrow()
+            val archiveSha = session.commit().getOrThrow()
+            sampleHeap()
+            assertEquals(64, archiveSha.length)
+            assertTrue(archiveFile.length() > 4_294_967_296L, "Expected ZIP archive >4 GiB, was ${archiveFile.length()}")
+
+            val reader = JvmPortableArchiveReader(FilePortableStreamBridge())
+            val policy = object : PortableArchiveReadPolicy {
+                override val maxTotalExpandedBytes: Long = 5_000_000_000L
+                override fun inspectEntry(
+                    entryIndex: Int,
+                    rawName: String,
+                    isDirectory: Boolean,
+                    declaredSizeBytes: Long,
+                    isSymlink: Boolean,
+                ): Result<PortableReadEntryDisposition> {
+                    if (isSymlink) {
+                        return Result.failure(PortableBackupFailure.SecurityViolation("Symlink entry disallowed").toException())
+                    }
+                    if (isDirectory) return Result.success(PortableReadEntryDisposition.SKIP_DIRECTORY)
+                    return PortableArchivePathRules.validateEntryPath(rawName).map { normalized ->
+                        if (normalized == PortableBackupFormat.MANIFEST_ENTRY_NAME) {
+                            PortableReadEntryDisposition.BUFFER_MANIFEST
+                        } else {
+                            PortableReadEntryDisposition.STAGE_BLOB
+                        }
+                    }
+                }
+            }
+
+            val summary = reader.readAndStageStream(archiveFile.absolutePath, extractDir.absolutePath, policy).getOrThrow()
+            sampleHeap()
+            assertEquals(archiveSha, summary.archiveSha256)
+            assertEquals("""{"formatVersion":1}""", summary.manifestBytes?.decodeToString())
+            val stagedBlob = summary.stagedBlobsByPath["media/big/4gib-random.bin"]!!
+            assertEquals(over4GibBytes, stagedBlob.byteCount)
+            assertEquals(writtenInfo.sha256, stagedBlob.sha256)
+            assertTrue(
+                peakHeapDeltaBytes < 256L * 1024L * 1024L,
+                "Heap growth exceeded 256 MiB during 4.35 GB ZIP64 round-trip: ${peakHeapDeltaBytes / (1024 * 1024)} MiB",
+            )
+            println("NX-B02 incompressible >4 GiB ZIP64 verified: archiveBytes=${archiveFile.length()}, payloadBytes=$over4GibBytes, peakHeapDeltaMiB=${peakHeapDeltaBytes / (1024 * 1024)}")
+        } finally {
+            archiveFile.delete()
+            extractDir.deleteRecursively()
+        }
     }
 }
