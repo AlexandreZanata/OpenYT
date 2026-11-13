@@ -1,0 +1,145 @@
+{
+  "formatVersion": 1,
+  "minReaderVersion": 1,
+  "bundleId": "golden-bundle-v1",
+  "createdAtEpochMillis": 1730000000000,
+  "appVersion": "4.1.0",
+  "privacyNotice": "UNENCRYPTED_PORTABLE_BACKUP",
+  "entries": [
+    {
+      "exportId": "entry-lecture-1",
+      "title": "Lesson 01 — Phonetics & Intonation",
+      "kind": "VIDEO",
+      "author": "Prof. Ada",
+      "source": "youtube",
+      "thumbnailUrl": "https://cdn.example.org/thumb/lesson1.jpg",
+      "createdAtEpochMillis": 1729990000000,
+      "sizeBytes": 1024,
+      "tags": [
+        "linguistics",
+        "en-us"
+      ],
+      "primaryMedia": {
+        "archivePath": "media/entry-lecture-1/lesson-01.mp4",
+        "byteCount": 1024,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "originalFileName": "lesson-01.mp4",
+        "mediaKind": "VIDEO",
+        "lastModifiedEpochMillis": 1729990001000
+      },
+      "playbackCheckpoint": {
+        "positionMillis": 45200,
+        "durationMillis": 180000
+      },
+      "study": {
+        "notes": [
+          {
+            "exportId": "note-1",
+            "timestampMillis": 12000,
+            "endMillis": 18500,
+            "body": "Review stress pattern on compound nouns.",
+            "mediaRevision": {
+              "sizeBytes": 1024,
+              "lastModifiedEpochMillis": 1729990001000,
+              "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "createdAtEpochMillis": 1729990010000,
+            "updatedAtEpochMillis": 1729990020000
+          }
+        ],
+        "bookmarks": [
+          {
+            "exportId": "bm-1",
+            "timestampMillis": 45000,
+            "label": "Minimal pairs demo",
+            "mediaRevision": {
+              "sizeBytes": 1024,
+              "lastModifiedEpochMillis": 1729990001000,
+              "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "createdAtEpochMillis": 1729990030000,
+            "updatedAtEpochMillis": 1729990030000
+          }
+        ],
+        "ranges": [
+          {
+            "exportId": "range-1",
+            "startMillis": 60000,
+            "endMillis": 75000,
+            "label": "Drill loop",
+            "mediaRevision": {
+              "sizeBytes": 1024,
+              "lastModifiedEpochMillis": 1729990001000,
+              "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "createdAtEpochMillis": 1729990040000,
+            "updatedAtEpochMillis": 1729990040000
+          }
+        ],
+        "isStudied": true,
+        "studiedAtEpochMillis": 1729990050000,
+        "updatedAtEpochMillis": 1729990050000
+      },
+      "offlineAssets": [
+        {
+          "exportId": "asset-sub-pt",
+          "kind": "SUBTITLE",
+          "language": "pt",
+          "sourceType": "manual",
+          "isRequired": false,
+          "isPinned": true,
+          "mediaRevision": {
+            "sizeBytes": 1024,
+            "lastModifiedEpochMillis": 1729990001000,
+            "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "createdAtEpochMillis": 1729990005000,
+          "blob": {
+            "archivePath": "assets/entry-lecture-1/lesson-01.pt.srt",
+            "byteCount": 256,
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "originalFileName": "lesson-01.pt.srt",
+            "mediaKind": "SUBTITLE"
+          }
+        }
+      ]
+    }
+  ],
+  "collections": [
+    {
+      "exportId": "col-course-1",
+      "name": "Phonetics Course",
+      "entryExportIds": [
+        "entry-lecture-1"
+      ]
+    }
+  ],
+  "smartCollections": [
+    {
+      "exportId": "smart-en-us",
+      "name": "English Drills",
+      "query": "Phonetics",
+      "kind": "VIDEO",
+      "tag": "en-us"
+    }
+  ],
+  "downloadProfiles": [
+    {
+      "exportId": "profile-custom-1",
+      "profile": {
+        "id": "profile-custom-1",
+        "name": "Podcast Compact",
+        "isBuiltIn": false,
+        "kind": "AUDIO",
+        "preferMp4Avc": false,
+        "audioPreset": "MP3",
+        "subtitlePreference": {
+          "type": "com.openyt.core.domain.ProfileSubtitlePreference.None"
+        },
+        "tvCompatibilityStrict": false,
+        "estimatedSizeNotice": false
+      }
+    }
+  ],
+  "skippedItems": []
+}

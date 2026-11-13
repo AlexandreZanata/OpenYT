@@ -548,6 +548,27 @@ WHERE track_id = :track_id;
 deleteSubtitleTrackIndex:
 DELETE FROM subtitle_track_index WHERE track_id = :track_id;
 
+selectPortablePlaybackPositions:
+SELECT path, position_millis, duration_millis, entry_id FROM playback_position;
+
+selectPortableStudyNotes:
+SELECT id, entry_id, timestamp_ms, end_ms, body, media_revision_size, media_revision_mtime, media_revision_sha256, created_at, updated_at
+FROM study_note
+ORDER BY timestamp_ms ASC, end_ms ASC, created_at ASC, id ASC;
+
+selectPortableStudyBookmarks:
+SELECT id, entry_id, timestamp_ms, label, media_revision_size, media_revision_mtime, media_revision_sha256, created_at, updated_at
+FROM study_bookmark
+ORDER BY timestamp_ms ASC, created_at ASC, id ASC;
+
+selectPortableStudyRanges:
+SELECT id, entry_id, start_ms, end_ms, label, media_revision_size, media_revision_mtime, media_revision_sha256, created_at, updated_at
+FROM study_range
+ORDER BY start_ms ASC, end_ms ASC, created_at ASC, id ASC;
+
+selectPortableEntryStudyStates:
+SELECT entry_id, is_studied, studied_at, updated_at FROM entry_study_state;
+
 deleteSubtitleTrackIndexesForEntry:
 DELETE FROM subtitle_track_index WHERE entry_id = :entry_id;
 
