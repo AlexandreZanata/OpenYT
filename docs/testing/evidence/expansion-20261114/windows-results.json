@@ -1,0 +1,39 @@
+{
+  "environment": "Existing Windows11 Docker VM tbg-win11",
+  "nativeBuildExit": 0,
+  "installedContractsExit": 0,
+  "startupSeconds": {
+    "msi": 78.7016489,
+    "exe": 78.1019366
+  },
+  "installedFormats": [
+    "MSI",
+    "EXE"
+  ],
+  "scenarios": [
+    "desktop and Start-menu shortcuts",
+    "brand icon pixel comparison",
+    "actual application frame",
+    "exact Unicode associated handler",
+    "Explorer selection including MP4-only folder",
+    "three VLC decode/mini-player cycles",
+    "study/AB/deep links",
+    "recovery",
+    "offline quotas",
+    "three FFmpeg clips played through VLC, atomic receipts, cover, retry, original hash"
+  ],
+  "sharedUiSuites": [
+    {
+      "name": "com.openyt.desktop.ui.ExpansionM4UiTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "previousAttempt": {
+    "result": "Failed unchanged 90-second application-frame deadline",
+    "laterState": "Responding OpenYT frame; event thread waiting for events",
+    "resolution": "Same installed artifacts passed complete rerun; slow local VM startup remains an explicit limit"
+  }
+}

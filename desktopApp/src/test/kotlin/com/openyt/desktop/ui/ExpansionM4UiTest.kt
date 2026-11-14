@@ -84,6 +84,11 @@ class ExpansionM4UiTest {
         try {
             val repository = com.openyt.data.SqlDelightDownloadRepository(com.openyt.data.createOpenYtDatabase(root.resolve("library.db").path))
             val processor = Processor(repository)
+            // Old receipts survive record-only removal and must not inflate the
+            // result of a newly selected batch.
+            processor.jobs["old"] = ClipJobRecord("old", MediaProcessingRequest("/fixture/source.mp4", "Old", MediaKind.VIDEO,
+                MediaOperation.TRIM, com.openyt.core.domain.MediaSegment(0, 1000), sourceEntryId = "entry", sourceDurationMillis = 10_000, jobId = "old"),
+                "sha", ClipJobStatus.SUCCEEDED)
             val coordinator = DownloadCoordinator(SuspendedDownloadEngine(), scope, repository = repository)
             setContent { CompositionLocalProvider(LocalStrings provides EnStrings) { OpenYtTheme { Surface {
                 BatchClipsDialog(LibraryEntry("entry", "Fixture", MediaKind.VIDEO, "/fixture/source.mp4", sizeBytes = 1_000_000), processor, coordinator,
@@ -102,10 +107,11 @@ class ExpansionM4UiTest {
             assertEquals(1, coordinator.library.value.size)
             onNodeWithText(EnStrings.features[FeatureText.START_SECONDS]).performScrollTo()
             ImageIO.write(onAllNodes(isRoot()).onLast().captureToImage().toAwtImage(), "png", File("build/ui-regressions/batch-clips-desktop-en.png").apply { parentFile.mkdirs() })
-            val successId = processor.jobs.values.single { it.status == ClipJobStatus.SUCCEEDED }.id
+            val successId = processor.jobs.values.single { it.id != "old" && it.status == ClipJobStatus.SUCCEEDED }.id
             onNodeWithText(EnStrings.features[ClipText.EXPORT]).performClick()
             waitUntil { coordinator.library.value.size == 2 }
             assertTrue(coordinator.library.value.all { it.author == "Source author" })
+            onNodeWithText("2 / 2 · ${EnStrings.features[ClipText.SUCCESS]}").performScrollTo().assertIsDisplayed()
             assertEquals(1, processor.calls.count { it == successId })
         } finally { scope.cancel(); root.deleteRecursively() }
     }

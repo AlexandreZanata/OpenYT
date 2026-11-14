@@ -22,6 +22,7 @@ fun BatchClipsDialog(entry: LibraryEntry, processor: MediaProcessor, coordinator
     val strings = LocalStrings.current
     val scope = rememberCoroutineScope()
     var capabilities by remember { mutableStateOf(MediaProcessingCapabilities()) }
+    var loading by remember { mutableStateOf(true) }
     var duration by remember { mutableStateOf<Long?>(null) }
     var destination by remember { mutableStateOf<String?>(null) }
     var start by remember { mutableStateOf("0") }
@@ -63,6 +64,7 @@ fun BatchClipsDialog(entry: LibraryEntry, processor: MediaProcessor, coordinator
             history = processor.clipJobs(entry.id)
             ranges.addAll(history.filter { it.status != ClipJobStatus.SUCCEEDED }.map { it.request })
         } catch (e: CancellationException) { throw e } catch (_: Exception) { message = strings.features[FeatureText.OPERATION_FAILED] }
+        finally { loading = false }
     }
     DisposableEffect(processor) {
         onDispose {
@@ -102,7 +104,8 @@ fun BatchClipsDialog(entry: LibraryEntry, processor: MediaProcessor, coordinator
             Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(entry.title)
                 Text(strings.features[FeatureText.PRESERVE_ORIGINAL])
-                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (busy || loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (loading) Text(strings.features[ClipText.LOADING])
                 destination?.let { Text("${strings.features[ClipText.DESTINATION]}: $it") }
                 val estimate = estimateClipBytes(entry.sizeBytes, duration, ranges.filter { request ->
                     history.none { it.id == request.jobId && it.status == ClipJobStatus.SUCCEEDED }
@@ -111,8 +114,8 @@ fun BatchClipsDialog(entry: LibraryEntry, processor: MediaProcessor, coordinator
                     Text("${strings.features[ClipText.ESTIMATE]}: ${com.openyt.ui.util.formatBytes(estimate)}")
                     Text(strings.features[ClipText.ESTIMATE_HINT])
                 } else Text(strings.features[ClipText.ESTIMATE_UNKNOWN])
-                if (duration == null) Text(strings.features[ClipText.NO_DURATION])
-                if (!capabilities.preciseClips || !capabilities.burnCaptions) Text(strings.features[ClipText.UNSUPPORTED])
+                if (!loading && duration == null) Text(strings.features[ClipText.NO_DURATION])
+                if (!loading && (!capabilities.preciseClips || !capabilities.burnCaptions)) Text(strings.features[ClipText.UNSUPPORTED])
                 OutlinedTextField(start, { start = it }, label = { Text(strings.features[FeatureText.START_SECONDS]) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(end, { end = it }, label = { Text(strings.features[FeatureText.END_SECONDS]) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -196,7 +199,8 @@ fun BatchClipsDialog(entry: LibraryEntry, processor: MediaProcessor, coordinator
                         }
                         history = processor.clipJobs(entry.id)
                     }
-                    message = "${history.count { it.status == ClipJobStatus.SUCCEEDED }} / ${selected.size} · ${strings.features[ClipText.SUCCESS]}"
+                    val selectedIds = selected.mapNotNull { it.jobId }.toSet()
+                    message = "${history.count { it.id in selectedIds && it.status == ClipJobStatus.SUCCEEDED }} / ${selected.size} · ${strings.features[ClipText.SUCCESS]}"
                 }
             }) { Text(strings.features[ClipText.EXPORT]) }
         },

@@ -2,6 +2,7 @@ package com.openyt.ui.i18n
 
 enum class ClipText(val portuguese: String, val english: String) {
     TITLE("Criar vários clipes", "Create multiple clips"),
+    LOADING("Preparando as opções de exportação…", "Preparing export options…"),
     DESTINATION("Pasta dos novos clipes", "New clips folder"),
     ESTIMATE("Espaço estimado pela taxa do original", "Estimated space at the original bitrate"),
     ESTIMATE_HINT("O tamanho final pode variar com recodificação, quadros-chave e capas.", "Final size can vary with reencoding, keyframes and covers."),

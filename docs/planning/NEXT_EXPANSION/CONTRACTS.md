@@ -357,7 +357,8 @@ API 30 emulator), host `RelinkLocalTest` (`3/3` Linux VLCJ), and `WindowsContrac
 
 Executable groups: `SubscriptionRulesContractTest`,
 `DownloadExecutionConstraintsTest`, `SubscriptionRulesPersistenceTest`,
-`SubscriptionHostContractTest`, `RssFeedReaderTest`, `ExpansionM4UiTest`,
+`SubscriptionHostContractTest`, `RssFeedReaderTest`, `FeedCancellationTest`,
+`InspectionCancellationTest`, `AndroidInspectionCancellationTest`, `ExpansionM4UiTest`,
 `AndroidBackgroundSubscriptionTest`.
 
 - **NX-A01:** versioned JSON defaults, duration/profile/cap validation, distinct
@@ -374,7 +375,8 @@ Executable groups: `SubscriptionRulesContractTest`,
   single queue — JVM host contract (Linux and native CI); Android WorkManager test
   also reads actual destination/power/connection capability. Injected state
   transitions are separate deterministic execution-gate evidence, not physical
-  Wi-Fi or battery manipulation.
+  Wi-Fi or battery manipulation. Slow real HTTP/process contracts prove bounded
+  cancellation and cleanup while preserving another active download.
 - **NX-A07 / NX-A08 (optional):** real opted-in WorkManager job without an activity,
   bounded queue-only discovery, opt-out cancellation; emulator evidence is in the
   ledger. Inexact scheduling and physical battery/thermal limits stay explicit.
@@ -385,7 +387,7 @@ Executable groups: `SubscriptionRulesContractTest`,
 ### Batch clips — NX-CL
 
 Executable groups: `ClipRenderingContractTest`, `ClipJobStoreTest`,
-`ClipCoverPublicationTest`, `ExpansionM4UiTest`, installed Windows `clips` harness,
+`ClipCoverPublicationTest`, `ClipStorageEstimateTest`, `ExpansionM4UiTest`, installed Windows `clips` harness,
 `AndroidClipContractsTest`. `NX-CL` is distinct from common invariants `NX-C01`–`NX-C08`.
 
 - **NX-CL01:** actual FFmpeg encoder/filter enumeration; unavailable controls stay
@@ -396,12 +398,16 @@ Executable groups: `ClipRenderingContractTest`, `ClipJobStoreTest`,
   real encoding cancellation/reaping and failure after cover commit with a
   single-cover budget — journal, rendering and cover publication contracts.
 - **NX-CL04:** real portrait dimensions/codecs/timebase, caption pixels, cover and
-  anamorphic DAR preservation before fit/crop — FFmpeg/FFprobe/image assertions.
+  anamorphic DAR preservation and display rotation before fit/crop, selected-time
+  cover pixels — FFmpeg/FFprobe/image assertions.
 - **NX-CL05:** same preview recipe, private preview cleanup, partial results,
-  retry only failed clips and preserve inherited author — rendering/UI contracts.
+  retry only failed clips, preserve inherited author, selected-batch counts
+  despite old receipts and bounded source-bitrate space estimates — rendering/UI
+  and estimate contracts.
 - **NX-CL06:** three native Windows exports with actual VLC playback, durable cover
   and reopened receipts; Linux real rendering/decode; Android packaged FFmpeg,
-  probes, assets and actual Media3 playback. Native macOS rendering runs in CI.
+  probes, assets and actual Media3 playback of all three exports. Native macOS
+  rendering runs in CI.
   Refer to the ledger for executed results and limits.
 
 ### Transcription — NX-TX (optional)

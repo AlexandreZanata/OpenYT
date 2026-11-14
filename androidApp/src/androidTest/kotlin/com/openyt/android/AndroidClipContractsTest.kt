@@ -52,12 +52,11 @@ class AndroidClipContractsTest {
                 if (caps.covers) assertEquals(1, assets.getAssetsForEntry(outputs.last().id).size)
             }
             assertEquals(outputs.map { it.id }.toSet(), SqlDelightDownloadRepository(database).loadLibrary().map { it.id }.toSet())
-            val rendered = outputs.last()
             val activity = instrumentation.startActivitySync(android.content.Intent(context, com.openyt.android.player.PlayerActivity::class.java)
                 .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                .putStringArrayListExtra(com.openyt.android.player.PlayerActivity.EXTRA_PATHS, arrayListOf(rendered.path))
-                .putStringArrayListExtra(com.openyt.android.player.PlayerActivity.EXTRA_TITLES, arrayListOf("Rendered clip"))
-                .putStringArrayListExtra(com.openyt.android.player.PlayerActivity.EXTRA_KINDS, arrayListOf("VIDEO"))) as com.openyt.android.player.PlayerActivity
+                .putStringArrayListExtra(com.openyt.android.player.PlayerActivity.EXTRA_PATHS, ArrayList(outputs.map { it.path }))
+                .putStringArrayListExtra(com.openyt.android.player.PlayerActivity.EXTRA_TITLES, ArrayList(outputs.indices.map { "Exported clip ${it + 1}" }))
+                .putStringArrayListExtra(com.openyt.android.player.PlayerActivity.EXTRA_KINDS, ArrayList(outputs.map { "VIDEO" }))) as com.openyt.android.player.PlayerActivity
             var controller: androidx.media3.session.MediaController? = null
             try {
                 var future: com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.MediaController>? = null
@@ -66,13 +65,23 @@ class AndroidClipContractsTest {
                         android.content.ComponentName(context, com.openyt.android.player.PlaybackService::class.java))).buildAsync()
                 }
                 controller = future!!.get(20, TimeUnit.SECONDS)
-                var playing = false
-                val clock = System.nanoTime()
-                while (!playing && System.nanoTime() - clock < TimeUnit.SECONDS.toNanos(10)) {
-                    instrumentation.runOnMainSync { playing = controller!!.isPlaying }
-                    if (!playing) Thread.sleep(50)
+                var queued = false
+                val queueClock = System.nanoTime()
+                while (!queued && System.nanoTime() - queueClock < TimeUnit.SECONDS.toNanos(10)) {
+                    instrumentation.runOnMainSync { queued = controller!!.mediaItemCount == outputs.size }
+                    if (!queued) Thread.sleep(50)
                 }
-                assertTrue("The actual Media3 player must play a newly exported clip", playing)
+                assertTrue("The exported clip queue must load", queued)
+                for (index in outputs.indices) {
+                    instrumentation.runOnMainSync { controller!!.seekTo(index, 0); controller!!.prepare(); controller!!.play() }
+                    var playing = false
+                    val clock = System.nanoTime()
+                    while (!playing && System.nanoTime() - clock < TimeUnit.SECONDS.toNanos(10)) {
+                        instrumentation.runOnMainSync { playing = controller!!.currentMediaItemIndex == index && controller!!.isPlaying && controller!!.currentPosition >= 100 }
+                        if (!playing) Thread.sleep(50)
+                    }
+                    assertTrue("The actual Media3 player must play exported clip ${index + 1}", playing)
+                }
                 saveValidationScreenshot("android-batch-clip-playing.png")
             } finally {
                 instrumentation.runOnMainSync { controller?.stop(); controller?.clearMediaItems(); controller?.release(); activity.finish() }

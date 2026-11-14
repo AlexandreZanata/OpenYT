@@ -14,9 +14,9 @@ Cold restart retains the existing explicit-retry policy.
 
 The official WorkManager 2.12.0 artifact/license/SDK checks passed. A real API 36
 WorkManager integration test passed without an activity, with loopback feed
-discovery, a persisted queue and opt-out cancellation. Final full API26 and API36 suites passed (25 functional cases each, five separate
-network cases skipped in each full run); the five API36 internet tests also
-passed separately. See the validation ledger for commands and per-case evidence. Physical battery/thermal behavior
+discovery, a persisted queue and opt-out cancellation. The final API26 full suite passed26 functional cases with five explicit
+internet skips. The API36 full suite passed31 cases, including all five internet
+cases, with no skips. See the validation ledger for commands and per-case evidence. Physical battery/thermal behavior
 and exact background timing are not certified. Android may defer work, and
 force-stop is not bypassed.
 
