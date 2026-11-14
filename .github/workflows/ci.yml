@@ -213,7 +213,7 @@ jobs:
         if: matrix.os != 'ubuntu-latest'
         run: >
           ./gradlew :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest
-          :desktopApp:test --tests '*DesktopYtDlpEngineTest'
+          :desktopApp:test --tests '*DesktopYtDlpEngineTest' --tests '*InspectionCancellationTest'
           --console=plain --stacktrace
 
       - name: Build Windows installers and contract harness

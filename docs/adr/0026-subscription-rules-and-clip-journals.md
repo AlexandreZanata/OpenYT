@@ -42,7 +42,7 @@ destination bindings stay separate from portable profile definitions.
 
 ## Android background discovery
 
-WorkManager **2.12.0** is the only added product dependency. The official Maven
+WorkManager **2.12.0** is the newly introduced runtime dependency. The official Maven
 POM identifies AndroidX and Apache-2.0; its AAR metadata requires compile SDK 35
 and AGP 8.6.0, compatible with this project's SDK 36/AGP 8.13.2. It supplies the
 existing Android process with OS scheduling, not a backend or a new downloader.
@@ -50,6 +50,26 @@ The application accepts no externally supplied worker class, process argument,
 credential or remote job payload. Default scheduling is off; the platform's
 normal app-data sandbox protects consent and WorkManager state. This dependency
 review does not claim the absence of all future vulnerabilities.
+
+The data adapter also declares an explicit **OkHttp 4.12.0** dependency, reusing
+the same Apache-2.0 runtime already shipped through Coil (ADR-0009). A concrete
+need is request cancellation plus a whole-call deadline: the former blocking
+`HttpURLConnection` reader could exceed the worker quota with trickling bodies.
+The published 4.12.0 source/license and `Call.cancel`/whole-call timeout contract
+were reviewed; the GitHub global Maven advisory query for this exact coordinate
+returned zero entries on 2026-11-14. This is a dated query result, not a claim of
+universal vulnerability absence. The client retains standard TLS validation,
+has no cookie jar, credential/logging interceptor or server component, and keeps
+the existing 4 MiB response/DOCTYPE rejection. Connect/read timeouts are 15s and a
+whole HTTP call is limited to 30s. Coroutine cancellation calls `Call.cancel` and
+releases the actual connection rather than leaving blocking reads behind.
+
+Desktop metadata capture drains bounded outputs in parallel, waits interruptibly,
+limits a process to 90s, and kills/reaps only that capture on cancellation. Android
+inspection assigns a unique internal process ID and uses `runInterruptible`;
+the pinned wrapper's interrupted-join path destroys its process. Cleanup addresses
+that inspection ID, preserving concurrent downloads. Neither worker nor CLI uses
+`engine.close()` to implement individual request cancellation.
 
 `SubscriptionDiscoveryWorker` shares the `OpenYtApplication` container with UI
 activities. It waits for initialization, processes at most 20 due rules under a
@@ -120,3 +140,9 @@ metadata without local operation paths, credentials or OS scheduling state.
 - [FFmpeg filters](https://ffmpeg.org/ffmpeg-filters.html)
 - [Expansion contracts](../planning/NEXT_EXPANSION/CONTRACTS.md)
 - [Executed validation ledger](../testing/NEXT_EXPANSION_VALIDATION.md)
+
+Cancellation references:
+
+- [Pinned OkHttp Call contract](https://raw.githubusercontent.com/square/okhttp/parent-4.12.0/okhttp/src/main/kotlin/okhttp3/Call.kt)
+- [Pinned Apache-2.0 license](https://raw.githubusercontent.com/square/okhttp/parent-4.12.0/LICENSE.txt)
+- The actual youtubedl-android 0.18.1 AAR bytecode was inspected for its interrupted-join process destruction path; upstream source is [YoutubeDL.kt](https://github.com/junkfood02/youtubedl-android/blob/master/library/src/main/java/com/yausername/youtubedl_android/YoutubeDL.kt).

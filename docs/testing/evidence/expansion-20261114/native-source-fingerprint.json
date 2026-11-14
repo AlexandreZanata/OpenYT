@@ -1,7 +1,7 @@
 {
-  "windowsSourceArchiveSha256": "097eb0e84471957bbb9ecd756b51ba452ade5706be2958ba9158280202103d98",
-  "productKotlinFiles": 255,
-  "productManifestSha256": "005375f81fd78f99a84d93753ea951b0606a3e5518f627098e3409352c90640b",
-  "workingTreeMatchesNativeProductSources": true,
-  "note": "Android test and documentation refinements after the archive do not alter Windows product sources."
+  "windowsSourceArchiveSha256": "23fa86069a28ff6cde3b97d9227e830fd0a8e5c25ad3cbbd5ecc53735ad9d9cd",
+  "windowsKotlinAndBuildInputs": 243,
+  "windowsInputsManifestSha256": "938f33045aea3ea5320d3e2c93e148d4519f0ee2e9ab96071b250eeee979ac30",
+  "windowsInputsMatchWorkingTree": true,
+  "note": "Windows-target Kotlin and build inputs only. Android sources are validated separately. This fingerprint is not an execution report; native results are in the validation ledger."
 }

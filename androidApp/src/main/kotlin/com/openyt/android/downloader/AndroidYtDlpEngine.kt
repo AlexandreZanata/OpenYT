@@ -23,6 +23,9 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.CancellationException
+import java.util.UUID
 
 /**
  * Android implementation backed by youtubedl-android.
@@ -51,8 +54,9 @@ class AndroidYtDlpEngine(
         val initFailure = initialize()
         if (initFailure != null) return EngineResult.Failure(initFailure)
 
-        return withContext(Dispatchers.IO) {
-            try {
+        val inspectionId = "inspect-${UUID.randomUUID()}"
+        return try {
+            runInterruptible(Dispatchers.IO) {
                 val request = YoutubeDLRequest(url).apply {
                     addOption("--ignore-config")
                     addOption("--encoding", "utf-8")
@@ -60,14 +64,15 @@ class AndroidYtDlpEngine(
                     addOption("--flat-playlist")
                     addOption("--skip-download")
                 }
-                val response = YoutubeDL.getInstance().execute(request)
+                val response = YoutubeDL.getInstance().execute(request, inspectionId)
                 YtDlpJsonParser.parseInspection(response.out)
-            } catch (e: YoutubeDL.CanceledException) {
-                EngineResult.Failure(DownloadFailure.Unexpected("inspection canceled"))
-            } catch (e: Exception) {
-                EngineResult.Failure(YtDlpErrorMapper.fromToolOutput(e.message.orEmpty()))
             }
-        }
+        } catch (e: CancellationException) { throw e }
+        catch (e: YoutubeDL.CanceledException) {
+                EngineResult.Failure(DownloadFailure.Unexpected("inspection canceled"))
+        } catch (e: Exception) {
+                EngineResult.Failure(YtDlpErrorMapper.fromToolOutput(e.message.orEmpty()))
+        } finally { YoutubeDL.getInstance().destroyProcessById(inspectionId) }
     }
 
     override fun download(request: DownloadRequest, downloadId: String): Flow<DownloadEvent> =

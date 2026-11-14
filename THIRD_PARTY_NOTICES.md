@@ -15,7 +15,8 @@ in `gradle/libs.versions.toml` and documented in the relevant ADRs.
 | Kotlin / kotlinx | see version catalog | Apache-2.0 | Language and libraries |
 | SQLDelight | 2.4.1 | Apache-2.0 | Local SQLite schema, queries, and drivers |
 | Coil | 3.4.0 | Apache-2.0 | Compose image loading for thumbnails |
-| OkHttp | via Coil | Apache-2.0 | Desktop/Android HTTP image loading |
+| OkHttp | 4.12.0 (also via Coil) | Apache-2.0 | Image loading and cancellable bounded RSS requests |
+| AndroidX WorkManager | 2.12.0 | Apache-2.0 | Opt-in bounded Android subscription discovery |
 | VLCJ / JNA | 4.12.1 / transitive | GPL-3.0 / LGPL-2.1+ or Apache-2.0 | Desktop playback bridge and native Windows shell integration |
 | VLC / libVLC (Windows x64) | 3.0.24 | GPL-2.0-or-later / LGPL-2.1-or-later | Bundled native playback DLLs/plugins, excluding disc access |
 | Simple Icons | pinned cd796c98565fc466923fc1128b962e133fa3c612 | CC0-1.0 | Provider logos converted to shared XML vectors |

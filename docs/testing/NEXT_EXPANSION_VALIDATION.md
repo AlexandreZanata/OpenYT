@@ -164,12 +164,12 @@ file through actual packaged VLC, retried idempotently and preserved the source.
 
 ![Actual installed Windows EXE mini-player decoding the synthetic fixture](evidence/expansion-20261114/windows-exe-native-playback.png)
 
-All **255 product Kotlin files** in the first native source archive match the
-implementation at `897b0cf`; [aggregate fingerprints](evidence/expansion-20261114/native-source-fingerprint.json)
-record that comparison. The final plan audit additionally adds the shared batch space estimate and
-stronger rotation/cover/native-cancellation assertions; its focused checks and
-final native snapshot are recorded with the delivery CI. Evidence copy initially hit PowerShell5 long-path limits;
-robocopy preserved the deep assets successfully without changing test assertions.
+The current [source/build fingerprints](evidence/expansion-20261114/native-source-fingerprint.json)
+compare Windows-target Kotlin and build inputs with the source archive used by
+the final native job. Android-specific sources/tests are validated separately.
+Evidence copy initially hit PowerShell5 long-path limits; robocopy preserves deep
+assets without changing test assertions. Native results remain execution evidence;
+a matching fingerprint alone is not a passed test.
 
 The loaded local VM took **85.87s (MSI) / 86.62s (EXE)** to expose the application
 frame via shortcut. Functional success does not certify fast startup; this cold
@@ -199,6 +199,28 @@ Rendering now also proves display-matrix rotation before framing, a green cover
 at the chosen 3.5s source interval, and cancellation of an observed live FFmpeg
 PID with its handle confirmed dead afterward. No staging-directory observation
 alone is used as proof that encoding was running.
+
+## Bounded discovery cancellation audit
+
+Bugbot confirmed that cooperative timeouts alone did not bound the old blocking
+RSS/inspection calls. The correction makes RSS use cancelable whole-call deadlines,
+desktop capture wait interruptibly with bounded drains and process-tree cleanup,
+and Android inspect use a unique process ID with the pinned wrapper's interrupt
+cleanup. Tests cover a trickling HTTP response, an observed real JVM child with
+another download preserved, actual Android Python/socket cancellation with a
+concurrent transfer, and real WorkManager behavior. Focused tests passed; final
+combined/native reruns below supersede earlier source snapshots.
+
+The Linux combined rerun exited 0: 297 core, 29 engine, 130 data, 8 media and 129 desktop
+cases, with 7 explicit skips (6 opt-in internet cases and 1 incompressible ZIP64
+budget case), no failures/errors. [JUnit summary](evidence/expansion-20261114/linux-results.json).
+The API26 full suite then passed 26 functional cases plus 5 explicit network skips.
+Desktop online extraction was repeated after the adapter fix and passed 6/6.
+The first combined API36+internet attempt failed the old StudyFlow seek poll.
+The focused reproduction passed with the first native prepared position and
+explicit pause for measurement, retaining the one-second accuracy assertion.
+This also avoids falsely accepting natural playback that later crosses a target.
+The full API36/internet run is being repeated with that stronger observation.
 
 ## GitHub gate
 
