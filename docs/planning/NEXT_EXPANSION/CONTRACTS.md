@@ -1,8 +1,8 @@
 # Verification contracts for the next expansion
 
-Status: **specification, not an executed test report**. IDs below name behavior
-that future tests must establish. The phase documents supply exact edge cases.
-Do not mark a contract passed until an executable assertion and evidence exist.
+This register maps requirements to executable assertions. Per-platform execution
+and remaining gates are recorded in [the validation ledger](../../testing/NEXT_EXPANSION_VALIDATION.md).
+The phase documents supply edge cases; a suggested name alone is not evidence.
 
 ## Test layers
 
@@ -355,31 +355,54 @@ API 30 emulator), host `RelinkLocalTest` (`3/3` Linux VLCJ), and `WindowsContrac
 
 ### Subscription rules — NX-A
 
-Suggested groups: `SubscriptionRuleTest`, `SubscriptionCandidateStoreTest`,
-`SubscriptionConstraintTest`, `SubscriptionRulesUiTest`, host scheduling tests.
+Executable groups: `SubscriptionRulesContractTest`,
+`DownloadExecutionConstraintsTest`, `SubscriptionRulesPersistenceTest`,
+`SubscriptionHostContractTest`, `RssFeedReaderTest`, `ExpansionM4UiTest`,
+`AndroidBackgroundSubscriptionTest`.
 
-- **NX-A01:** versioned filters/profiles/caps and explicit unknown decisions.
-- **NX-A02:** persisted candidate backlog and no surprise legacy catch-up.
-- **NX-A03:** real network/power/space capability semantics; no disallowed request.
-- **NX-A04:** enqueue-before-seen and exactly one task per stable originKey.
-- **NX-A05:** preview/explanations and foreground scheduling scope are clear.
-- **NX-A06:** real app-alive constraints/restart/backlog behavior on native hosts.
-- **NX-A07 (optional):** background feasibility/ownership/quota prototype evidence.
-- **NX-A08 (optional):** opted-in bounded Android work and actual device behavior.
-- **NX-A09 (optional):** opted-in OS scheduling and single-owner CLI per desktop OS.
+- **NX-A01:** versioned JSON defaults, duration/profile/cap validation, distinct
+  Wi-Fi/unmetered/charging/unknown decisions — core rule contracts.
+- **NX-A02:** persisted deferred candidates, baseline-first, filtered archive and
+  fair inspection rotation — core contracts plus SQLite reopen tests.
+- **NX-A03:** real adapter network/space capability reads, queued/active constraints
+  rechecked, manual tasks not starved — host and execution-gate contracts.
+- **NX-A04:** persistence before seen-set, stable origin keys and exactly one task
+  across restart — core and real loopback RSS/SQLite host contract.
+- **NX-A05:** read-only preview, refreshed profiles, explicit replay confirmation,
+  localized narrow/large-text controls — shared Compose contracts.
+- **NX-A06:** local feed duration/size, actual network/space, reserve, restart and
+  single queue — JVM host contract (Linux and native CI); Android WorkManager test
+  also reads actual destination/power/connection capability. Injected state
+  transitions are separate deterministic execution-gate evidence, not physical
+  Wi-Fi or battery manipulation.
+- **NX-A07 / NX-A08 (optional):** real opted-in WorkManager job without an activity,
+  bounded queue-only discovery, opt-out cancellation; emulator evidence is in the
+  ledger. Inexact scheduling and physical battery/thermal limits stay explicit.
+- **NX-A09 (optional):** **NO_GO** for automatic OS registration. Bounded manual
+  CLI discovery is available; no system timer/task/LaunchAgent is installed.
+  See [optional decisions](OPTIONAL_GATES.md).
 
 ### Batch clips — NX-CL
 
-Suggested groups: `ClipRecipeTest`, `ClipBatchJournalTest`, `ClipEditorUiTest`,
-host `ClipRenderingLocalTest`. `NX-CL` is distinct from the common invariants
-`NX-C01`–`NX-C08`.
+Executable groups: `ClipRenderingContractTest`, `ClipJobStoreTest`,
+`ClipCoverPublicationTest`, `ExpansionM4UiTest`, installed Windows `clips` harness,
+`AndroidClipContractsTest`. `NX-CL` is distinct from common invariants `NX-C01`–`NX-C08`.
 
-- **NX-CL01:** actual packaged encoder/filter/renderer capability proof.
-- **NX-CL02:** validated typed recipes, safe args, modes and unique output paths.
-- **NX-CL03:** per-clip receipts, partial success, cancel/crash and original hashes.
-- **NX-CL04:** actual dimensions/codecs/rotation/captions/cover/timebase rendering.
-- **NX-CL05:** matching preview/export recipe and understandable batch results.
-- **NX-CL06:** real three-range output playback/probes and partial failure evidence.
+- **NX-CL01:** actual FFmpeg encoder/filter enumeration; unavailable controls stay
+  disabled. Native ledger records the platform/package, not assumed parity.
+- **NX-CL02:** typed recipes, safe fixed filter grammar, Unicode paths, bounded
+  ranges/captions and unique job IDs — real rendering and pure recipe assertions.
+- **NX-CL03:** atomic library/receipt publication, SQLite reopen, source hashes,
+  real encoding cancellation/reaping and failure after cover commit with a
+  single-cover budget — journal, rendering and cover publication contracts.
+- **NX-CL04:** real portrait dimensions/codecs/timebase, caption pixels, cover and
+  anamorphic DAR preservation before fit/crop — FFmpeg/FFprobe/image assertions.
+- **NX-CL05:** same preview recipe, private preview cleanup, partial results,
+  retry only failed clips and preserve inherited author — rendering/UI contracts.
+- **NX-CL06:** three native Windows exports with actual VLC playback, durable cover
+  and reopened receipts; Linux real rendering/decode; Android packaged FFmpeg,
+  probes, assets and actual Media3 playback. Native macOS rendering runs in CI.
+  Refer to the ledger for executed results and limits.
 
 ### Transcription — NX-TX (optional)
 

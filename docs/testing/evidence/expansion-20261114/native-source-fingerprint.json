@@ -1,0 +1,7 @@
+{
+  "windowsSourceArchiveSha256": "097eb0e84471957bbb9ecd756b51ba452ade5706be2958ba9158280202103d98",
+  "productKotlinFiles": 255,
+  "productManifestSha256": "005375f81fd78f99a84d93753ea951b0606a3e5518f627098e3409352c90640b",
+  "workingTreeMatchesNativeProductSources": true,
+  "note": "Android test and documentation refinements after the archive do not alter Windows product sources."
+}

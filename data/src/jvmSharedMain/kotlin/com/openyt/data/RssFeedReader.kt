@@ -58,14 +58,22 @@ class RssFeedReader : FeedReader {
                 val element = nodes.item(index) as? Element ?: return@mapNotNull null
                 val enclosures = element.getElementsByTagName("enclosure")
                 val links = element.getElementsByTagNameNS("*", "link")
-                val enclosure = (0 until enclosures.length).mapNotNull { enclosures.item(it) as? Element }
-                    .firstOrNull()?.getAttribute("url")
+                val enclosureElement = (0 until enclosures.length).mapNotNull { enclosures.item(it) as? Element }.firstOrNull()
+                val enclosure = enclosureElement?.getAttribute("url")
                     ?: (0 until links.length).mapNotNull { links.item(it) as? Element }
                         .firstOrNull { it.getAttribute("rel") == "enclosure" }?.getAttribute("href")
                     ?: return@mapNotNull null
                 val valid = UrlValidator().validate(enclosure) as? UrlValidation.Valid ?: return@mapNotNull null
                 fun text(name: String): String? = element.getElementsByTagNameNS("*", name).item(0)?.textContent?.trim()?.takeIf { it.isNotBlank() }
-                FeedEpisode(text("guid") ?: text("id") ?: valid.url, text("title") ?: "Podcast", valid.url)
+                val duration = text("duration")?.let { value ->
+                    val pieces = value.split(':')
+                    val numbers = pieces.map { it.toLongOrNull()?.takeIf { number -> number >= 0 } }
+                    if (pieces.size in 1..3 && numbers.all { it != null } && numbers.drop(1).all { it!! < 60 }) {
+                        numbers.fold(0L as Long?) { total, part -> total?.takeIf { it <= (Long.MAX_VALUE - part!!) / 60 }?.let { it * 60 + part!! } }
+                    } else null
+                }
+                val length = enclosureElement?.getAttribute("length")?.toLongOrNull()?.takeIf { it > 0 }
+                FeedEpisode(text("guid") ?: text("id") ?: valid.url, text("title") ?: "Podcast", valid.url, duration, length)
             }.distinctBy { it.id }
         }
     }

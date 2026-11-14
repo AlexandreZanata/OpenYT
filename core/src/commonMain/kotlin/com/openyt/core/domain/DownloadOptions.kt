@@ -28,7 +28,18 @@ data class SubtitleSelection(
 data class SubtitleTrack(val language: String, val name: String? = null, val automatic: Boolean = false)
 
 @Serializable
+data class DownloadExecutionConstraints(
+    val wifiOnly: Boolean = false,
+    val unmeteredOnly: Boolean = false,
+    val chargingOnly: Boolean = false,
+    val minimumFreeBytes: Long? = null,
+    val requireAppOpen: Boolean = false,
+)
+
+@Serializable
 data class DownloadOptions(
+    val subscriptionReservedBytes: Long = 0,
+    val executionConstraints: DownloadExecutionConstraints? = null,
     val originKey: String? = null,
     val audioPreset: AudioPreset = AudioPreset.M4A,
     val normalizeAudio: Boolean = false,

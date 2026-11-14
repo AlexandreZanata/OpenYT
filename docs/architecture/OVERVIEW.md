@@ -109,6 +109,16 @@ Schema 25 (`24.sqm`) adds persistent operation journaling (`portable_operation`)
 
 ## Platform notes
 
+Schema 26 adds `clip_job` for typed batch recipes and recoverable receipts.
+Successful clip publication and its derived library row commit together.
+Subscription JSON adds version-compatible rule decisions and fair continuation;
+queued constraints are immutable and rechecked by `DownloadExecutionGate`.
+Android uses opt-in bounded WorkManager discovery with the same application
+container and no second coordinator. See
+[ADR-0026](../adr/0026-subscription-rules-and-clip-journals.md),
+[usage](../AUTOMATION_AND_CLIPS.md) and
+[optional gates](../planning/NEXT_EXPANSION/OPTIONAL_GATES.md).
+
 - **Android**: yt-dlp is provided by `io.github.junkfood02.youtubedl-android`,
   which bundles Python 3.12, yt-dlp, FFmpeg, and QuickJS. The wrapper is GPL-3.0,
   so the app is GPL-3.0. See ADR-0002.

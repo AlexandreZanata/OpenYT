@@ -8,6 +8,7 @@ import java.io.File
  * platform-specific install locations.
  */
 class ExecutableLocator(
+    private val environment: (String) -> String? = { System.getenv(it) },
     private val bundledDirectory: () -> File? = { BundledTools.directory() },
 ) {
     fun findYtDlp(): String? = find("OPENYT_YTDLP", listOf("yt-dlp"))
@@ -26,7 +27,7 @@ class ExecutableLocator(
     }
 
     private fun find(envVar: String, names: List<String>): String? {
-        System.getenv(envVar)?.let { candidate ->
+        environment(envVar)?.let { candidate ->
             if (isExecutable(candidate)) return candidate
         }
 
@@ -34,7 +35,7 @@ class ExecutableLocator(
 
         names.firstNotNullOfOrNull(::findBundled)?.let { return it }
 
-        val path = System.getenv("PATH").orEmpty()
+        val path = environment("PATH").orEmpty()
         for (directory in path.split(File.pathSeparatorChar)) {
             if (directory.isBlank()) continue
             for (name in names) {
@@ -62,7 +63,7 @@ class ExecutableLocator(
     }
 
     private fun bundledToolsDirectory(): File? =
-        System.getenv("OPENYT_BUNDLED_TOOLS_DIR")
+        environment("OPENYT_BUNDLED_TOOLS_DIR")
             ?.let(::File)
             ?.takeIf { it.isDirectory }
             ?: bundledDirectory()

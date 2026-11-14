@@ -20,7 +20,7 @@ class ExecutableLocatorTest {
             setExecutable(true)
         }
         try {
-            val locator = ExecutableLocator { directory }
+            val locator = ExecutableLocator(environment = { null }, bundledDirectory = { directory })
             assertEquals(binary.absolutePath, locator.findYtDlp())
         } finally {
             directory.deleteRecursively()
@@ -42,7 +42,7 @@ class ExecutableLocatorTest {
             setExecutable(true)
         }
         try {
-            val locator = ExecutableLocator { directory }
+            val locator = ExecutableLocator(environment = { null }, bundledDirectory = { directory })
             assertEquals("deno:${binary.absolutePath}", locator.findJsRuntimeArgument())
         } finally {
             directory.deleteRecursively()

@@ -92,6 +92,10 @@ fun main(args: Array<String>) {
     val root = File(defaultDatabasePath()).parentFile
     val instance = runCatching { DesktopInstance.acquire(root, gui = !cli) }.getOrNull()
     if (instance == null) {
+        if (cli && args.getOrNull(1) == "watch" && "--discover-only" in args) {
+            println("Subscription checks are owned by the running application; no second coordinator started")
+            return
+        }
         if (!cli && DesktopInstance.forwardRoute(root, initialRoute)) return
         val text = if (java.util.Locale.getDefault().language == "pt")
             "Não foi possível acessar os dados do OpenYT. Feche outra instância ou verifique o armazenamento."
@@ -211,6 +215,7 @@ private fun launchApp(
             repository = repository,
             cookieRepository = cookieRepository,
             assetStore = offlineAssetStore,
+            executionGate = com.openyt.core.automation.SubscriptionDownloadGate(com.openyt.data.JvmSubscriptionEnvironment()),
             timeOfDayMinutes = {
                 val now = LocalTime.now()
                 now.hour * 60 + now.minute
@@ -261,7 +266,9 @@ private fun launchApp(
     val subscriptions = remember(database) {
         database?.let { SubscriptionController(SqlDelightSubscriptions(it), RssFeedReader(), engine, coordinator,
             { settingsController.settings.value.downloadsDirectory ?: downloadsDirectory },
-            { System.currentTimeMillis() }, { java.util.UUID.randomUUID().toString() }, scope) }
+            { System.currentTimeMillis() }, { java.util.UUID.randomUUID().toString() }, scope,
+            profileRepository = com.openyt.data.SqlDelightDownloadProfileRepository(it),
+            environment = com.openyt.data.JvmSubscriptionEnvironment()) }
     }
     val diagnosticsProvider = remember {
         DesktopDiagnosticsProvider(engine, downloadsDirectory)
@@ -488,7 +495,11 @@ private fun launchApp(
             folderImportService = folderImportService,
             bulkFileService = bulkFileService,
             playbackLauncher = playbackLauncher,
-            mediaProcessor = remember { FfmpegMediaProcessor({ ExecutableLocator().findFfmpeg() }) },
+            mediaProcessor = remember(database, offlineAssetStore) {
+                val covers = com.openyt.core.application.ClipCoverPublisher(offlineAssetStore, JvmMediaFileInspector())
+                FfmpegMediaProcessor({ ExecutableLocator().findFfmpeg() }, clipStore = database?.let { com.openyt.data.SqlDelightClipJobStore(it) }, previewRoot = File(defaultDatabasePath()).parentFile.resolve("clip-previews"),
+                    outputDirectory = { File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory) }, onClipReady = covers::publish)
+            },
             mediaPreview = remember { EngineMediaPreview(engine, playbackLauncher, previewsDirectory.absolutePath, { java.util.UUID.randomUUID().toString() }) },
             profileRepository = profileRepository,
             offlineAssetStore = offlineAssetStore,

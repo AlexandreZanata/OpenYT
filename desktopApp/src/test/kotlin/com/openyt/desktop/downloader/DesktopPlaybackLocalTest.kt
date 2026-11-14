@@ -142,7 +142,7 @@ class DesktopPlaybackLocalTest {
 
             val positions = CopyOnWriteArrayList<Pair<Int, Long>>()
             val unregister = launcher.registerSessionListener(PlaybackSessionListener { snap ->
-                if (snap != null && snap.state == PlaybackSessionState.PLAYING) {
+                if (snap != null && snap.state == PlaybackSessionState.PLAYING && controller.state.value.status == AbRepeatStatus.ACTIVE) {
                     positions += controller.state.value.loopCount to snap.positionMillis
                 }
             })

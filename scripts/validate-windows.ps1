@@ -5,6 +5,19 @@
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class OpenYTContractWindow {
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)]
+    private static extern int GetClassName(IntPtr hwnd, StringBuilder value, int capacity);
+    public static bool IsApplicationFrame(IntPtr hwnd) {
+        var value = new StringBuilder(128);
+        return hwnd != IntPtr.Zero && GetClassName(hwnd, value, value.Capacity) > 0 && value.ToString() == "SunAwtFrame";
+    }
+}
+'@
 $work = Join-Path $PWD 'build/windows-validation'
 New-Item -ItemType Directory -Force $work | Out-Null
 $shell = New-Object -ComObject WScript.Shell
@@ -136,12 +149,20 @@ function Validate-Installed([string]$Format) {
     $desktopLink = $links | Where-Object { $_.DirectoryName -in $desktopFolders } | Select-Object -First 1
     if (!$desktopLink) { throw 'Desktop shortcut missing' }
     Start-Process -FilePath $desktopLink.FullName
-    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    # A VM clock may be resynchronized after boot. Use monotonic elapsed time and
+    # fresh native handles; a Java error dialog is not an application frame.
+    $launchClock = [Diagnostics.Stopwatch]::StartNew()
     do {
         Start-Sleep -Milliseconds 250
-        $gui = @(Get-Process OpenYT -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 })
-    } until ($gui.Count -or [DateTime]::UtcNow -gt $deadline)
-    if (!$gui.Count) { throw 'Installed shortcut did not open the application window' }
+        $launched = @(Get-Process OpenYT -ErrorAction SilentlyContinue)
+        $launched | ForEach-Object { $_.Refresh() }
+        $gui = @($launched | Where-Object { $_.MainWindowTitle -eq 'OpenYT' -and [OpenYTContractWindow]::IsApplicationFrame($_.MainWindowHandle) })
+    } until ($gui.Count -or $launchClock.Elapsed.TotalSeconds -gt 90)
+    if (!$gui.Count) {
+        $launched | Select-Object Id, MainWindowTitle, MainWindowHandle, Responding | ConvertTo-Json | Set-Content (Join-Path $work "$Format-launch-failure.json")
+        throw 'Installed shortcut did not open an actual application frame'
+    }
+    Write-Output "PASS $Format real application frame via desktop shortcut in $($launchClock.Elapsed.TotalSeconds) seconds"
     $gui | Stop-Process
     Start-Sleep -Seconds 1
 
@@ -183,6 +204,7 @@ function Validate-Installed([string]$Format) {
         Run-Launcher $testExe @('study', ('"' + (Join-Path $work "$Format-vídeo & ação.mp4") + '"')) "$Format-study"
         Run-Launcher $testExe @('recovery', ('"' + $video + '"')) "$Format-recovery"
         Run-Launcher $testExe @('offline', ('"' + $video + '"')) "$Format-offline"
+        Run-Launcher $testExe @('clips', ('"' + $video + '"')) "$Format-clips"
     } finally {
         Remove-Item $testExe, $testCfg, $testJar -ErrorAction SilentlyContinue
     }

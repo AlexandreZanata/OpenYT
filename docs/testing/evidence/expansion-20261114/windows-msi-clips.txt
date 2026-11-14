@@ -1,0 +1,2 @@
+PASS installed FFmpeg/VLC: three clips decoded and played, portrait/captions/cover, durable assets, reopened atomic receipts, idempotent retry and source preservation
+PASS clips with the installed application runtime

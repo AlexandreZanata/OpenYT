@@ -224,6 +224,21 @@ jobs:
           ./gradlew :desktopApp:packageMsi :desktopApp:packageExe :desktopApp:windowsContractHarnessJar --console=plain --stacktrace
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Native macOS clip rendering contracts
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          ./gradlew :desktopApp:prepareBundledTools --console=plain
+          tool_dir="$(find desktopApp/build/bundled-tools -mindepth 1 -maxdepth 1 -type d -name 'macos-*' -print -quit)"
+          test -n "$tool_dir"
+          OPENYT_RUN_MEDIA_TESTS=1 OPENYT_FFMPEG="$PWD/$tool_dir/ffmpeg" OPENYT_FFPROBE="$PWD/$tool_dir/ffprobe" ./gradlew :media-ffmpeg:desktopTest --console=plain --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        if: always() && runner.os == 'macOS'
+        with:
+          name: macos-media-contracts
+          path: media-ffmpeg/build/test-results/desktopTest/
+
       - name: Windows installed media and shortcut contracts
         if: runner.os == 'Windows'
         shell: pwsh

@@ -1461,7 +1461,7 @@ fun LibraryScreen(
 
     processingEntry?.let { entry ->
         mediaProcessor?.let { processor ->
-            MediaToolsDialog(entry, processor, coordinator) { processingEntry = null }
+            MediaToolsDialog(entry, processor, coordinator, mediaProbe, subtitleIndexRepository, offlineAssetStore, playbackLauncher) { processingEntry = null }
         }
     }
 

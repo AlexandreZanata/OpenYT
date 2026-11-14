@@ -6,6 +6,12 @@ The installed engine determines availability; authenticated or restricted source
 can require your authorized local cookies file. An unavailable source is reported
 as an error with a recovery action, not as a successful download.
 
+For profile previews, durable offline assets, subtitle search, study, portable
+backup and recovery, use the feature guides linked from the
+[expansion tracker](planning/NEXT_EXPANSION/PROGRESS.md). The
+[automation and batch clips guide](AUTOMATION_AND_CLIPS.md) explains subscription
+decisions, background limits, precise exports and partial retry.
+
 ## Language and appearance
 
 New installations follow the OS language. Portuguese OS locales use Brazilian
@@ -43,8 +49,11 @@ audio and system PiP for video. Finished items restart from the beginning.
 
 Settings → Local automation adds a playlist or RSS/Atom feed. By default the first
 check records existing entries without downloading them; enable Include existing
-only if you want that backlog. Checks run while OpenYT is open. A failed episode
-remains in Downloads for an explicit retry.
+only if you want that backlog. Add duration/profile/cap/space rules, then inspect
+the preview and history. Deferred candidates remain reviewable. Android can opt
+into bounded WorkManager discovery with network/power conditions. Background
+discovery queues work; downloading requires the app to be open. Failed downloads
+and cold-restart interrupted tasks retain the explicit retry flow.
 
 `openyt://download?url=<percent-encoded-https-url>` opens a reviewed URL in the app.
 The optional browser extension only forwards the active tab. Load its unpacked
@@ -60,7 +69,8 @@ official stable yt-dlp and checks its SHA-256 before selecting it. FFmpeg and ot
 tools update with application releases.
 
 There is no account, telemetry or remote download server. Media requests go to the
-chosen source; thumbnails use their source URLs. Update checks use GitHub, and
+chosen source; uncached thumbnails use their source URLs, while verified offline
+artwork is read locally. Update checks use GitHub, and
 SponsorBlock is a separately labeled opt-in request. Imported cookies are local
 and encrypted at rest. Diagnostics redact URL secrets and private path roots.
 
@@ -72,8 +82,9 @@ explicitly, and OS app-data controls to reset settings. Do not delete data while
 downloads or media processing are running.
 
 Flatpak limits file access to Downloads by default; grant additional folders
-explicitly through your Flatpak permissions if needed. Local schedules do not
-continue after the app process exits.
+explicitly through your Flatpak permissions if needed. Desktop local schedules
+stop with the app; Android background discovery is opt-in and inexact. No desktop
+OS timer/task/LaunchAgent is installed automatically.
 
 Desktop opens incoming links in the existing window. Close the GUI before running
 CLI operations that use the engine or stored state; an exclusive lock prevents
