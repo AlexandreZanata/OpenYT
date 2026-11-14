@@ -40,4 +40,5 @@ data class DownloadTask(
     val failure: DownloadFailure? = null,
     val priority: DownloadPriority = DownloadPriority.NORMAL,
     val attempt: Int = 0,
+    val waitingForConstraints: Boolean = false,
 )

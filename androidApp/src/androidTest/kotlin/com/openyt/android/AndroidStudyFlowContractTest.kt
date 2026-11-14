@@ -51,6 +51,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -143,15 +145,12 @@ class AndroidStudyFlowContractTest {
             }
             mediaController = future!!.get(30, TimeUnit.SECONDS)
 
-            repeat(150) {
-                val snap = launcher1.captureSnapshot()
-                if (snap != null &&
-                    snap.state == PlaybackSessionState.PLAYING &&
-                    (snap.knownDurationMillis ?: 0L) >= 5_000L
-                ) {
-                    return@repeat
+            withTimeout(15_000) {
+                while (true) {
+                    val snap = launcher1.captureSnapshot()
+                    if (snap?.state == PlaybackSessionState.PLAYING && (snap.knownDurationMillis ?: 0L) >= 5_000L) break
+                    delay(100)
                 }
-                delay(100)
             }
 
             // Capture live note
@@ -209,25 +208,28 @@ class AndroidStudyFlowContractTest {
             assertEquals(1, studyService2.collectionProgress("col-android-study")?.studiedCount)
 
             // Reopen note -> seeks Media3 to exact timestamp
-            assertTrue(nav2.openNoteTimestamp(note.id) is StudyNavigationResult.Opened)
-            var matched = false
-            var lastSnap: com.openyt.core.application.PlaybackPositionSnapshot? = null
-            repeat(150) {
-                val snap = launcher2.captureSnapshot()
-                lastSnap = snap
-                if (snap != null &&
-                    (snap.state == PlaybackSessionState.PLAYING || snap.state == PlaybackSessionState.PAUSED) &&
-                    abs(snap.positionMillis - note.timestampMillis) <= 1_000L
-                ) {
-                    matched = true
-                    return@repeat
+            val prepared = java.util.concurrent.CountDownLatch(1)
+            val readyPosition = java.util.concurrent.atomic.AtomicLong(Long.MIN_VALUE)
+            val nativeListener = object : androidx.media3.common.Player.Listener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    if (state == androidx.media3.common.Player.STATE_READY &&
+                        mediaController!!.currentMediaItem?.mediaMetadata?.extras?.getString("openyt.entryId") == entry.id &&
+                        readyPosition.compareAndSet(Long.MIN_VALUE, mediaController!!.currentPosition)) {
+                        // Inspect the first prepared position before normal playback
+                        // advances beyond the one-second seek observation window.
+                        mediaController!!.pause()
+                        prepared.countDown()
+                    }
                 }
-                delay(100)
             }
-            assertTrue(
-                "Android note seek did not match saved timestamp (${note.timestampMillis}ms); lastSnap=${lastSnap?.state}@${lastSnap?.positionMillis}ms",
-                matched,
-            )
+            instrumentation.runOnMainSync { mediaController!!.addListener(nativeListener) }
+            try {
+                assertTrue(nav2.openNoteTimestamp(note.id) is StudyNavigationResult.Opened)
+                assertTrue("Native Media3 must prepare the reopened note", withContext(Dispatchers.IO) { prepared.await(15, TimeUnit.SECONDS) })
+                assertTrue("First prepared position ${readyPosition.get()}ms must match note ${note.timestampMillis}ms",
+                    abs(readyPosition.get() - note.timestampMillis) <= 1_000L)
+                android.util.Log.i("OpenYTContracts", "Study native first-ready=${readyPosition.get()}ms target=${note.timestampMillis}ms")
+            } finally { instrumentation.runOnMainSync { mediaController!!.removeListener(nativeListener) } }
 
             // Safe Markdown export & Android IntentFilter verification for openyt://library/entry/...
             val markdown = StudyMarkdownExporter.exportEntryBundle(

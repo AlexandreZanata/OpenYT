@@ -1,0 +1,47 @@
+package com.openyt.ui.i18n
+
+import com.openyt.core.automation.SubscriptionReason
+
+enum class AutomationText(val portuguese: String, val english: String) {
+    MIN_DURATION("Duração mínima (segundos, opcional)", "Minimum duration (seconds, optional)"),
+    MAX_DURATION("Duração máxima (segundos, opcional)", "Maximum duration (seconds, optional)"),
+    MAX_NEW("Novos downloads por verificação", "New downloads per check"),
+    MAX_PENDING("Downloads pendentes por assinatura", "Pending downloads per subscription"),
+    FREE_SPACE("Manter espaço livre (MiB, opcional)", "Keep free space (MiB, optional)"),
+    WIFI("Somente Wi-Fi", "Wi-Fi only"),
+    UNMETERED("Somente conexão sem limite de dados", "Unmetered connection only"),
+    CHARGING("Somente enquanto estiver carregando", "Only while charging"),
+    DEVICE_HINT("Restrições sem suporte neste dispositivo ficam em espera. Wi-Fi e conexão sem limite são critérios diferentes.", "Unsupported device constraints wait for confirmation. Wi-Fi and unmetered are separate requirements."),
+    PREVIEW("Ver prévia das decisões", "Preview decisions"),
+    HISTORY("Ver prévia dos episódios filtrados", "Preview filtered history"),
+    BACKGROUND("Verificar assinaturas em segundo plano", "Check subscriptions in the background"),
+    BACKGROUND_HINT("Opcional. O Android pode adiar as verificações (mínimo de 15 minutos). Reveja e inicie a fila no app; após reinício, nada é retomado sozinho. Forçar parada suspende as verificações até abrir o app.", "Optional. Android may delay checks (minimum 15 minutes). Review and start the queue in the app; restart never resumes work automatically. Force-stop suspends checks until the app opens."),
+    APPROVE_REPLAY("Autorizar download deste episódio com as regras atuais?", "Approve downloading this episode under the current rules?"),
+    DOWNLOAD_EPISODE("Autorizar e verificar download", "Approve and check download"),
+    RETRY("Reavaliar este episódio", "Reevaluate this episode"),
+    EDIT("Editar regras", "Edit rules"),
+    DEFAULT_PROFILE("Seleção padrão da fonte", "Source default selection"),
+    LIMIT_HINT("Há episódios aguardando descoberta. A fila avança por lotes; ao atingir 50 mil IDs históricos, revise a assinatura. Os itens pendentes continuam salvos.", "Episodes await discovery. Batches continue as the queue advances; at 50,000 historical IDs, review the subscription. Pending items remain saved."),
+    REASON_READY("Pronto para baixar", "Ready to download"),
+    REASON_BASELINE("Registrado como conteúdo anterior à assinatura", "Recorded as subscription baseline"),
+    REASON_DURATION_FILTER("Fora do intervalo de duração", "Outside the duration range"),
+    REASON_UNKNOWN_DURATION("Aguardando informação de duração", "Waiting for duration metadata"),
+    REASON_UNKNOWN_SIZE("Aguardando estimativa de tamanho para proteger o espaço livre", "Waiting for a size estimate to protect free space"),
+    REASON_OFFLINE("Aguardando conexão", "Waiting for a connection"),
+    REASON_WIFI_REQUIRED("Aguardando Wi-Fi", "Waiting for Wi-Fi"),
+    REASON_UNMETERED_REQUIRED("Aguardando conexão sem limite de dados", "Waiting for an unmetered connection"),
+    REASON_CHARGING_REQUIRED("Aguardando carregamento", "Waiting for charging"),
+    REASON_CAPABILITY_UNKNOWN("O dispositivo não confirmou esta condição", "The device could not confirm this condition"),
+    REASON_LOW_SPACE("Libere espaço na pasta de destino", "Free space in the destination folder"),
+    REASON_CHECK_LIMIT("Aguardando a próxima verificação: limite por rodada", "Waiting for the next check: per-check limit"),
+    REASON_PENDING_LIMIT("Aguardando downloads pendentes terminarem", "Waiting for pending downloads to finish"),
+    REASON_INSPECTION_LIMIT("Aguardando a próxima verificação de metadados", "Waiting for the next metadata check"),
+    REASON_INSPECTION_FAILED("Não foi possível consultar este episódio; tente novamente", "Could not inspect this episode; try again"),
+    REASON_PROFILE_UNAVAILABLE("Escolha outro perfil; o perfil salvo não está disponível", "Choose another profile; the saved profile is unavailable"),
+    REASON_PROFILE_INCOMPATIBLE("O perfil não é compatível com este episódio", "The profile is incompatible with this episode"),
+    REASON_INVALID_URL("O episódio não tem um endereço de download válido", "The episode has no valid download URL"),
+    REASON_QUEUED("Adicionado à fila", "Added to the queue"),
+    REASON_DISCOVERY_LIMIT("Limite de descoberta atingido; os episódios foram preservados", "Discovery limit reached; episodes were preserved"),
+}
+
+fun FeatureStrings.subscriptionReason(reason: SubscriptionReason): String = this[AutomationText.valueOf("REASON_${reason.name}")]

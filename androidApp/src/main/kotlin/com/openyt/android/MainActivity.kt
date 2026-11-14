@@ -102,7 +102,7 @@ class MainActivity : ComponentActivity() {
                 folderImportService = container.folderImportService,
                 bulkFileService = container.bulkFileService,
                 playbackLauncher = playback,
-                mediaProcessor = remember { androidMediaProcessor(applicationContext) },
+                mediaProcessor = container.mediaProcessor,
                 mediaPreview = remember { EngineMediaPreview(container.engine, playback, java.io.File(cacheDir, "previews").apply { mkdirs() }.absolutePath, { java.util.UUID.randomUUID().toString() }) },
                 initialSharedUrl = pendingSharedUrl,
                 onSharedUrlConsumed = { sharedUrl.value = null },

@@ -12,6 +12,7 @@ kotlin {
     sourceSets {
         val jvmSharedMain = maybeCreate("jvmSharedMain")
         jvmSharedMain.dependsOn(commonMain.get())
+        jvmSharedMain.dependencies { implementation(libs.okhttp) }
         getByName("androidMain").dependsOn(jvmSharedMain)
         getByName("desktopMain").dependsOn(jvmSharedMain)
 

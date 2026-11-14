@@ -10,8 +10,8 @@
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-0F766E)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Android%20%C2%B7%20Windows%20%C2%B7%20Linux%20%C2%B7%20macOS-0F766E)](#download-and-install)
 
-**Download videos, audio and playlists, organize your files, and keep watching
-with Android picture-in-picture or a floating desktop mini-player.**
+**Download videos, audio and playlists. Keep an offline library, search subtitle
+moments, study with timestamped notes, and export reusable clips.**
 
 OpenYT is a local-first application built with **Kotlin Multiplatform**, **Compose
 Multiplatform**, **yt-dlp** and **FFmpeg**. Downloads, library records and settings
@@ -19,11 +19,25 @@ stay on your device. There is no OpenYT account or remote download server.
 
 [Download](https://github.com/AlexandreZanata/OpenYT/releases/latest) ·
 [All supported sources](docs/SUPPORTED_SOURCES.md) ·
-[Usage guide](docs/USAGE.md) · [What's new in 4.0.1](docs/releases/v4.0.1.md) ·
+[Usage guide](docs/USAGE.md) · [Library expansion](docs/planning/NEXT_EXPANSION/PROGRESS.md) ·
 [Brand guidelines](docs/branding/README.md)
 
 ## Features
 
+- **Download profiles:** Study offline, Audio only, Save space and Watch on TV,
+  plus editable custom profiles. Review compatibility, destination and fallback
+  before downloading; queued requests retain their approved settings.
+- **Durable offline media:** local artwork/subtitle assets, explicit readiness,
+  pinning, cache budgets and cleanup previews. Changed or missing media is shown
+  with recovery actions rather than an incorrect offline-ready badge.
+- **Find and study moments:** search indexed SRT/VTT subtitles and play a result
+  at its timestamp. Add notes, bookmarks, saved ranges, A/B repetition and study
+  progress; export Markdown notes with local-entry links. This searches available
+  subtitles; speech transcription is not included.
+- **Portable backup and recovery:** preview and restore selected media, companion
+  assets, collections, tags, study records and playback positions without an
+  account. Find moved files with content hashes and reconnect them with explicit
+  approval. Portable backups are unencrypted and exclude credentials/local grants.
 - **Video, audio and playlists:** inspect a link, review metadata and thumbnails,
   choose the available format, select playlist/channel/album entries, and choose
   formats per item. Files can be numbered and grouped into playlist folders.
@@ -46,11 +60,15 @@ stay on your device. There is no OpenYT account or remote download server.
 - **Video tools:** reported manual/automatic subtitle tracks as sidecars or
   embedded captions, chapter preservation, optional SponsorBlock chapter marks,
   segment selection/preview and bounded live-stream capture.
-- **Local editing:** create a clip or audio conversion from Library without
-  replacing the original file. Lossless cuts can align to nearby keyframes.
-- **Local automation:** subscribe to RSS/Atom feeds or watch playlists, record an
-  initial baseline, choose whether to include existing entries, and avoid repeated
-  downloads. Scheduled checks run while OpenYT is open.
+- **Batch clips:** build several ranges, choose a fast keyframe cut or precise
+  export, fit/crop portrait video, burn indexed captions and select a cover when
+  supported by the packaged tools. Preview the recipe, retain per-clip results
+  and retry failures without duplicating completed clips. Originals are preserved.
+- **Subscription rules:** follow RSS/Atom or playlists with duration filters,
+  profiles, backlog/check limits and storage reserves. Inspect decision history
+  and approve replay explicitly. Android adds optional Wi-Fi/unmetered/charging
+  conditions and bounded background discovery; downloads still require the app
+  to be open. Desktop does not install an OS background scheduler.
 - **Link intake and sharing:** paste, Android share intake, desktop dropped links,
   validated `openyt://` links, an optional active-tab browser extension and a
   desktop CLI. Share completed Android media through the OS chooser; open or
@@ -65,7 +83,7 @@ stay on your device. There is no OpenYT account or remote download server.
   requested checksum-verified yt-dlp updates, redacted diagnostics and application
   installer verification against a pinned signed release manifest.
 
-Windows 4.0.1 bundles **VLC/libvlc** for embedded playback, resume and the
+Windows bundles **VLC/libvlc** for embedded playback, resume and the
 mini-player. Linux/macOS require a separately installed VLC/libvlc; otherwise
 files open in the OS player. Live capture defaults to 60 seconds and
 can be bounded from 1 second to 24 hours. Generic photo/image gallery downloading
@@ -104,7 +122,18 @@ authorized access. Source logos identify providers and do not imply affiliation.
 
 ## Screenshots and feature walkthrough
 
-These are real captures of OpenYT 4.0.0. The desktop library uses labeled demo
+The expansion adds profile previews and explicit offline readiness:
+
+![Download profile preview with the resolved destination and explicit download action](docs/assets/profiles/profile-preview-desktop-light-en.png)
+
+![Offline library readiness and local asset controls](docs/assets/offline/offline-desktop-en.png)
+
+These expansion captures use the real shared Compose UI with deterministic test
+ports. See the [expansion validation ledger](docs/testing/NEXT_EXPANSION_VALIDATION.md)
+for native tests, emulator evidence and capability limits, and the
+[automation and clips guide](docs/AUTOMATION_AND_CLIPS.md) for the new workflows.
+
+The following older captures show OpenYT 4.0.0. The desktop library uses labeled demo
 media; the Android PiP capture uses an emulator and a generated test clip.
 [Capture provenance](docs/assets/v4/README.md) records the source of each image.
 
@@ -159,8 +188,10 @@ language choices are preserved.
 Open **Settings → Local automation → Add subscription**. Enter a title, URL and
 check interval, then select a playlist or RSS/podcast feed. Leave **Also download
 existing items** off to establish a baseline and fetch only new entries.
-Checks run while the application is open; failed downloads remain available for
-an explicit retry in Downloads.
+Choose duration limits, a download profile, pending/check caps and a minimum free
+space reserve. **Preview/history** explains filtered or deferred episodes before
+any download. On Android, optional bounded background checks discover and queue
+episodes; open the app to start them. See the [rules guide](docs/AUTOMATION_AND_CLIPS.md).
 
 ![OpenYT local automation form with interval, playlist/feed selection and include-existing control](docs/assets/v4/desktop-subscription-form.png)
 

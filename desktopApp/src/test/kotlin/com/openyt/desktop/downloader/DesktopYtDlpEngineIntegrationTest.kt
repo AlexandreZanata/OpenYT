@@ -80,6 +80,9 @@ class DesktopYtDlpEngineIntegrationTest {
             kind = MediaKind.VIDEO,
             formatId = format.id,
             destinationDirectory = directory.absolutePath,
+            // Keep a real partial transfer alive while requesting pause. A fast
+            // CDN can otherwise finish this fixture during the 1.5s observation.
+            limitBytesPerSecond = 1_000_000,
         )
 
         val firstEvents = Collections.synchronizedList(mutableListOf<DownloadEvent>())

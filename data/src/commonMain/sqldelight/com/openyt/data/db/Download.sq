@@ -269,6 +269,16 @@ SELECT queue_json FROM playback_session WHERE id = 1;
 savePlaybackQueue:
 INSERT OR REPLACE INTO playback_session VALUES (1, ?);
 
+CREATE TABLE clip_job (id TEXT NOT NULL PRIMARY KEY, entry_id TEXT NOT NULL, definition_json TEXT NOT NULL);
+selectClipJob:
+SELECT * FROM clip_job WHERE id = ?;
+selectEntryClipJobs:
+SELECT * FROM clip_job WHERE entry_id = ? ORDER BY id;
+selectAllClipJobs:
+SELECT * FROM clip_job;
+upsertClipJob:
+INSERT OR REPLACE INTO clip_job VALUES (?, ?, ?);
+
 CREATE TABLE subscription_rule (id TEXT NOT NULL PRIMARY KEY, definition_json TEXT NOT NULL);
 selectSubscriptions:
 SELECT * FROM subscription_rule ORDER BY id;

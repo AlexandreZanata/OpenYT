@@ -92,6 +92,7 @@ object WindowsContractHarness {
                 "study" -> study(file)
                 "recovery" -> recovery(file)
                 "offline" -> offline(file)
+                "clips" -> verifyInstalledClipWorkflows(file)
                 else -> error("Unknown contract")
             }
             println("PASS ${args[0]} with the installed application runtime")

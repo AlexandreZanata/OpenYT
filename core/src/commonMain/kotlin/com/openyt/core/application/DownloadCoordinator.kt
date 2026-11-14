@@ -45,6 +45,7 @@ class DownloadCoordinator(
     private val timeOfDayMinutes: () -> Int = { 0 },
     private val cookieRepository: CookieRepository? = null,
     private val assetStore: OfflineAssetStore? = null,
+    private val executionGate: DownloadExecutionGate = FailClosedDownloadGate,
 ) {
     init {
         require(initialMaxConcurrentDownloads > 0) { "initialMaxConcurrentDownloads must be positive" }
@@ -68,6 +69,7 @@ class DownloadCoordinator(
     private val speedLimitBytesPerSecond = MutableStateFlow<Long?>(null)
     private val downloadWindow = MutableStateFlow<DownloadWindow?>(null)
     private var windowWakeupJob: Job? = null
+    private var constraintWakeupJob: Job? = null
 
     private val nextId = MutableStateFlow(0)
     private val persistenceFailed = MutableStateFlow(false)
@@ -357,16 +359,30 @@ class DownloadCoordinator(
         scheduleSignal.trySend(Unit)
     }
 
-    private fun dispatch() {
+    fun refreshExecutionConstraints() = requestSchedule()
+
+    private suspend fun dispatch() {
+        val blocked = mutableSetOf<String>()
         while (activeDownloads.value < concurrencyLimit.value) {
-            val next = nextEligibleQueuedTask() ?: return
+            val next = nextEligibleQueuedTask(blocked) ?: return
             val window = downloadWindow.value
             if (window != null && !window.allows(timeOfDayMinutes())) {
                 scheduleWindowWakeup(window)
                 return
             }
-            val started = next.copy(status = DownloadStatus.DOWNLOADING)
-            _tasks.update { tasks -> tasks.map { if (it.id == started.id) started else it } }
+            val reserved = _tasks.value.filter { it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.PROCESSING }
+                .fold(0L) { total, task -> total + task.request.options.subscriptionReservedBytes.coerceIn(0, Long.MAX_VALUE - total) }
+            val allowed = try { executionGate.canStart(next.request, reserved) } catch (e: CancellationException) { throw e } catch (_: Exception) { false }
+            if (!allowed) {
+                blocked += next.id
+                _tasks.update { items -> items.map { if (it.id == next.id && it.status == DownloadStatus.QUEUED) it.copy(waitingForConstraints = true) else it } }
+                if (constraintWakeupJob?.isActive != true) constraintWakeupJob = scope.launch { delay(5_000); constraintWakeupJob = null; requestSchedule() }
+                continue
+            }
+            val snapshot = _tasks.value
+            if (snapshot.none { it.id == next.id && it.status == DownloadStatus.QUEUED }) continue
+            val started = next.copy(status = DownloadStatus.DOWNLOADING, waitingForConstraints = false)
+            if (!_tasks.compareAndSet(snapshot, snapshot.map { if (it.id == started.id) started else it })) continue
             persist { repository?.updateTask(started) }
             activeDownloads.update { it + 1 }
             startTask(started)
@@ -387,9 +403,9 @@ class DownloadCoordinator(
         }
     }
 
-    private fun nextEligibleQueuedTask(): DownloadTask? =
+    private fun nextEligibleQueuedTask(blocked: Set<String> = emptySet()): DownloadTask? =
         _tasks.value.withIndex()
-            .filter { it.value.status == DownloadStatus.QUEUED && it.value.id !in backoffTasks.value && it.value.id !in pendingInsertions.value }
+            .filter { it.value.status == DownloadStatus.QUEUED && it.value.id !in blocked && it.value.id !in backoffTasks.value && it.value.id !in pendingInsertions.value }
             .minWithOrNull(
                 compareByDescending<IndexedValue<DownloadTask>> { it.value.priority.weight }
                     .thenBy { it.index },
@@ -399,7 +415,19 @@ class DownloadCoordinator(
     private fun startTask(task: DownloadTask) {
         scope.launch {
             var cookiesPath: String? = null
+            var constraintMonitor: Job? = null
             try {
+                if (task.request.options.executionConstraints != null) constraintMonitor = scope.launch {
+                    while (true) {
+                        delay(5_000)
+                        val allowed = try { executionGate.canContinue(task.request) } catch (e: CancellationException) { throw e } catch (_: Exception) { false }
+                        if (!allowed) {
+                            _tasks.update { items -> items.map { if (it.id == task.id) it.copy(waitingForConstraints = true) else it } }
+                            pause(task.id)
+                            break
+                        }
+                    }
+                }
                 if (task.request.cookiesFilePath == null) {
                     cookiesPath = runCatching { cookieRepository?.createTemporaryFile() }.getOrNull()
                 }
@@ -415,6 +443,7 @@ class DownloadCoordinator(
             } catch (e: Exception) {
                 applyEvent(task.id, DownloadEvent.Failed(DownloadFailure.Unexpected(null)))
             } finally {
+                constraintMonitor?.cancel()
                 cookiesPath?.let { path ->
                     runCatching { cookieRepository?.deleteTemporaryFile(path) }
                 }

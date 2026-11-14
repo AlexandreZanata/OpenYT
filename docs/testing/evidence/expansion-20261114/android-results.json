@@ -1,0 +1,341 @@
+{
+  "api26": {
+    "cases": 31,
+    "passed": 26,
+    "skipped": 5,
+    "failed": 0,
+    "tests": [
+      {
+        "class": "com.openyt.android.AndroidAbRepeatContractTest",
+        "name": "repeatsAbRangeFiveTimesOnMedia3AndClearsCleanlyOnStopAndRestart",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidBackgroundSubscriptionTest",
+        "name": "optedInRealWorkManagerChecksWithoutAnActivityAndQueuesOnlyUntilAppOpens",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidClipContractsTest",
+        "name": "actualBundledFfmpegExportsClipsAndPublishesReceiptsWithoutChangingOriginal",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidDatabasePersistenceTest",
+        "name": "persistsStudyNotesBookmarksRangesAndCompletionAcrossReopen",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidDatabasePersistenceTest",
+        "name": "persistsQueueAndLibraryAndMarksActiveInterrupted",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidEngineNetworkTest",
+        "name": "downloadsAndMergesYouTubeVideo",
+        "status": "skipped"
+      },
+      {
+        "class": "com.openyt.android.AndroidEngineNetworkTest",
+        "name": "reportsProgressAndCancelsActiveDownload",
+        "status": "skipped"
+      },
+      {
+        "class": "com.openyt.android.AndroidEngineNetworkTest",
+        "name": "inspectsPublicMetadata",
+        "status": "skipped"
+      },
+      {
+        "class": "com.openyt.android.AndroidEngineNetworkTest",
+        "name": "inspectsYouTubeMetadata",
+        "status": "skipped"
+      },
+      {
+        "class": "com.openyt.android.AndroidEngineNetworkTest",
+        "name": "extractsAudioFromYouTube",
+        "status": "skipped"
+      },
+      {
+        "class": "com.openyt.android.AndroidFileProviderTest",
+        "name": "exposesDownloadedFilesThroughContentUri",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidFtsCapabilityTest",
+        "name": "androidFunctionalVerificationSuite",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidFtsCapabilityTest",
+        "name": "androidAccentFoldingAndPortugueseTokenization",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidFtsCapabilityTest",
+        "name": "androidIncrementalUpdatesAndCrud",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidFtsCapabilityTest",
+        "name": "androidCorpusBenchmarkBudget",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidFtsCapabilityTest",
+        "name": "androidSqliteVersionAndFts4Creation",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidInspectionCancellationTest",
+        "name": "cancellingActualPythonInspectionClosesItsSocketAndPreservesAnotherTransfer",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidLibraryRecoveryTest",
+        "name": "healthReportAndSafCopyRelinkPreserveIdentityContextAndOriginals",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidMediaImporterTest",
+        "name": "importsASelectedContentUriIntoAppStorage",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidMediaToolsTest",
+        "name": "bundledFfmpegTrimsConvertsNormalizesAndTagsWithoutChangingTheSource",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidMediaToolsTest",
+        "name": "platformXmlParserReadsFeedsAndRejectsExternalEntities",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidOfflineProofTest",
+        "name": "offlineReadinessQuotaPinningCacheClearAndUiRenderSurviveReopenOnAndroid",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidPortableBackupTest",
+        "name": "safContentUriExportAndRestorePreservesMediaContextAndFtsSearch",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidPortableBackupTest",
+        "name": "rejectsHostilePathTraversalArchiveWithoutMutatingAndroidDb",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidStudyFlowContractTest",
+        "name": "fullOfflineStudyWorkflowExportsResolvesDeepLinkAndPreservesOriginalMedia",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidStudySessionContractTest",
+        "name": "capturesLivePositionAndNavigatesToSavedNoteOnAndroidMedia3",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidVisualRegressionTest",
+        "name": "largeScreenLibraryRemainsReachableWithDpadNavigation",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidVisualRegressionTest",
+        "name": "allProviderVectorsRenderOnAndroid",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidVisualRegressionTest",
+        "name": "storageRecoveryButtonsRemainVisibleWithLargeText",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.PlaybackRegressionTest",
+        "name": "actualMedia3PlaybackEntersPictureInPicture",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.TimedSearchPlaybackEndToEndTest",
+        "name": "androidOfflineSearchPhraseToRealPlayerTime",
+        "status": "passed"
+      }
+    ]
+  },
+  "api36WithInternet": {
+    "cases": 31,
+    "passed": 31,
+    "skipped": 0,
+    "failed": 0,
+    "tests": [
+      {
+        "class": "com.openyt.android.AndroidAbRepeatContractTest",
+        "name": "repeatsAbRangeFiveTimesOnMedia3AndClearsCleanlyOnStopAndRestart",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidBackgroundSubscriptionTest",
+        "name": "optedInRealWorkManagerChecksWithoutAnActivityAndQueuesOnlyUntilAppOpens",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidClipContractsTest",
+        "name": "actualBundledFfmpegExportsClipsAndPublishesReceiptsWithoutChangingOriginal",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidDatabasePersistenceTest",
+        "name": "persistsStudyNotesBookmarksRangesAndCompletionAcrossReopen",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidDatabasePersistenceTest",
+        "name": "persistsQueueAndLibraryAndMarksActiveInterrupted",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidEngineNetworkTest",
+        "name": "downloadsAndMergesYouTubeVideo",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidEngineNetworkTest",
+        "name": "reportsProgressAndCancelsActiveDownload",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidEngineNetworkTest",
+        "name": "inspectsPublicMetadata",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidEngineNetworkTest",
+        "name": "inspectsYouTubeMetadata",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidEngineNetworkTest",
+        "name": "extractsAudioFromYouTube",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidFileProviderTest",
+        "name": "exposesDownloadedFilesThroughContentUri",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidFtsCapabilityTest",
+        "name": "androidFunctionalVerificationSuite",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidFtsCapabilityTest",
+        "name": "androidAccentFoldingAndPortugueseTokenization",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidFtsCapabilityTest",
+        "name": "androidIncrementalUpdatesAndCrud",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidFtsCapabilityTest",
+        "name": "androidCorpusBenchmarkBudget",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidFtsCapabilityTest",
+        "name": "androidSqliteVersionAndFts4Creation",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidInspectionCancellationTest",
+        "name": "cancellingActualPythonInspectionClosesItsSocketAndPreservesAnotherTransfer",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidLibraryRecoveryTest",
+        "name": "healthReportAndSafCopyRelinkPreserveIdentityContextAndOriginals",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidMediaImporterTest",
+        "name": "importsASelectedContentUriIntoAppStorage",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidMediaToolsTest",
+        "name": "bundledFfmpegTrimsConvertsNormalizesAndTagsWithoutChangingTheSource",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidMediaToolsTest",
+        "name": "platformXmlParserReadsFeedsAndRejectsExternalEntities",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidOfflineProofTest",
+        "name": "offlineReadinessQuotaPinningCacheClearAndUiRenderSurviveReopenOnAndroid",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidPortableBackupTest",
+        "name": "safContentUriExportAndRestorePreservesMediaContextAndFtsSearch",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidPortableBackupTest",
+        "name": "rejectsHostilePathTraversalArchiveWithoutMutatingAndroidDb",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidStudyFlowContractTest",
+        "name": "fullOfflineStudyWorkflowExportsResolvesDeepLinkAndPreservesOriginalMedia",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidStudySessionContractTest",
+        "name": "capturesLivePositionAndNavigatesToSavedNoteOnAndroidMedia3",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidVisualRegressionTest",
+        "name": "largeScreenLibraryRemainsReachableWithDpadNavigation",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidVisualRegressionTest",
+        "name": "allProviderVectorsRenderOnAndroid",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.AndroidVisualRegressionTest",
+        "name": "storageRecoveryButtonsRemainVisibleWithLargeText",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.PlaybackRegressionTest",
+        "name": "actualMedia3PlaybackEntersPictureInPicture",
+        "status": "passed"
+      },
+      {
+        "class": "com.openyt.android.TimedSearchPlaybackEndToEndTest",
+        "name": "androidOfflineSearchPhraseToRealPlayerTime",
+        "status": "passed"
+      }
+    ]
+  },
+  "api36FinalAllClipsPlayback": {
+    "cases": 1,
+    "passed": 1,
+    "skipped": 0,
+    "failed": 0,
+    "tests": [
+      {
+        "class": "com.openyt.android.AndroidClipContractsTest",
+        "name": "actualBundledFfmpegExportsClipsAndPublishesReceiptsWithoutChangingOriginal",
+        "status": "passed"
+      }
+    ]
+  }
+}

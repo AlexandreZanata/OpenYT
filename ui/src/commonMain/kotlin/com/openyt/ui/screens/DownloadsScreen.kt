@@ -252,6 +252,7 @@ private fun DownloadTaskCard(
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
 
+                    if (task.waitingForConstraints && task.status in listOf(DownloadStatus.QUEUED, DownloadStatus.PAUSED)) Text(strings.features[com.openyt.ui.i18n.FeatureText.WAITING_CONSTRAINTS])
                     if (task.status == DownloadStatus.DOWNLOADING) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,

@@ -67,11 +67,34 @@ import kotlinx.coroutines.SupervisorJob
 
 class OpenYtApplication : Application() {
     val container: AppContainer by lazy { AppContainer(this) }
+    override fun onCreate() {
+        super.onCreate()
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            private var started = 0
+            override fun onActivityStarted(activity: android.app.Activity) { started++; container.onAppVisibilityChanged(true) }
+            override fun onActivityStopped(activity: android.app.Activity) { started = (started - 1).coerceAtLeast(0); container.onAppVisibilityChanged(started > 0) }
+            override fun onActivityCreated(activity: android.app.Activity, state: android.os.Bundle?) = Unit
+            override fun onActivityResumed(activity: android.app.Activity) = Unit
+            override fun onActivityPaused(activity: android.app.Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: android.app.Activity, state: android.os.Bundle) = Unit
+            override fun onActivityDestroyed(activity: android.app.Activity) = Unit
+        })
+    }
 }
 
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val foreground = kotlinx.coroutines.flow.MutableStateFlow(false)
+    private val initialized = kotlinx.coroutines.CompletableDeferred<Boolean>()
+    val isAppVisible: Boolean get() = foreground.value
+    val backgroundScheduler = AndroidSubscriptionScheduler(appContext)
+    suspend fun awaitInitialization(): Boolean = initialized.await()
+    fun onAppVisibilityChanged(visible: Boolean) {
+        foreground.value = visible
+        if (visible) appScope.launch { if (initialized.await()) { subscriptions?.start(); coordinator.refreshExecutionConstraints() } }
+        else { subscriptions?.stop(); coordinator.refreshExecutionConstraints() }
+    }
 
     val engine: DownloadEngine = AndroidYtDlpEngine(appContext)
 
@@ -102,6 +125,7 @@ class AppContainer(context: Context) {
 
     private val database = runCatching { createOpenYtDatabase(appContext) }
         .onFailure { android.util.Log.e("OpenYT", "database initialization failed: ${'$'}{it.message}") }
+    val clipJobStore: com.openyt.core.application.ClipJobStore? = database.getOrNull()?.let { com.openyt.data.SqlDelightClipJobStore(it) }
 
     val repository: DownloadRepository? = database.getOrNull()?.let(::SqlDelightDownloadRepository)
     val profileRepository: DownloadProfileRepository? =
@@ -205,12 +229,17 @@ class AppContainer(context: Context) {
         },
     )
 
+    val mediaProcessor: com.openyt.core.application.MediaProcessor = com.openyt.android.player.androidMediaProcessor(appContext, clipJobStore, offlineAssetStore) {
+        settingsController.settings.value.downloadsDirectory ?: downloadsDirectory
+    }
+
     val coordinator: DownloadCoordinator = DownloadCoordinator(
         engine = engine,
         scope = appScope,
         repository = repository,
         cookieRepository = cookieRepository,
         assetStore = offlineAssetStore,
+        executionGate = com.openyt.core.automation.SubscriptionDownloadGate(AndroidSubscriptionEnvironment(appContext)) { foreground.value },
         timeOfDayMinutes = {
             val now = Calendar.getInstance()
             now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
@@ -221,7 +250,10 @@ class AppContainer(context: Context) {
     val subscriptions = database.getOrNull()?.let { database ->
         SubscriptionController(SqlDelightSubscriptions(database), RssFeedReader(), engine, coordinator,
             { settingsController.settings.value.downloadsDirectory ?: downloadsDirectory },
-            { System.currentTimeMillis() }, { java.util.UUID.randomUUID().toString() }, appScope)
+            { System.currentTimeMillis() }, { java.util.UUID.randomUUID().toString() }, appScope,
+            profileRepository = com.openyt.data.SqlDelightDownloadProfileRepository(database),
+            environment = AndroidSubscriptionEnvironment(appContext),
+            exportTargetUri = { settingsController.settings.value.storageTreeUri }, backgroundScheduler = backgroundScheduler)
     }
 
     val libraryController: LibraryController = LibraryController(repository, appScope)
@@ -268,15 +300,20 @@ class AppContainer(context: Context) {
     init {
         cleanStaleTemporaryFiles(File(downloadsDirectory))
         appScope.launch {
+            try {
             coordinator.restore()
             settingsController.restore()
             libraryController.restore()
             subscriptions?.restore()
-            subscriptions?.start()
+            if (foreground.value) subscriptions?.start()
             cleanStaleTemporaryFiles(
                 File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory),
             )
             portableBackup?.reconcileOnStartup()
+            if (backgroundScheduler.enabled.value) backgroundScheduler.setEnabled(true)
+            initialized.complete(true)
+            } catch (e: kotlinx.coroutines.CancellationException) { initialized.complete(false); throw e }
+            catch (_: Exception) { initialized.complete(false); android.util.Log.w("OpenYT", "Application initialization could not complete") }
         }
     }
 }

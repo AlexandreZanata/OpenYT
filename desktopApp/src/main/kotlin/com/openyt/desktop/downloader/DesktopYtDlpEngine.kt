@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.runInterruptible
+import java.util.concurrent.TimeUnit
 
 /**
  * Desktop implementation that drives an external yt-dlp executable.
@@ -38,6 +40,7 @@ class DesktopYtDlpEngine(
     private val processes = ConcurrentHashMap<String, Process>()
     private val canceled = ConcurrentHashMap.newKeySet<String>()
     private val paused = ConcurrentHashMap.newKeySet<String>()
+    private val captures = ConcurrentHashMap.newKeySet<Process>()
 
     override suspend fun inspect(url: String): EngineResult<Inspection> = withContext(Dispatchers.IO) {
         val binary = locator.findYtDlp()
@@ -318,18 +321,39 @@ class DesktopYtDlpEngine(
     override fun close() {
         processes.values.forEach(::killTree)
         processes.clear()
+        captures.forEach(::killTree)
+        captures.clear()
     }
 
-    private fun runCapture(arguments: List<String>): ProcessOutput {
+    private suspend fun runCapture(arguments: List<String>): ProcessOutput {
         val process = startProcess(arguments)
-        val errorBuffer = ByteArrayOutputStream()
-        val errorThread = thread(isDaemon = true) {
-            runCatching { process.errorStream.copyTo(errorBuffer) }
+        captures += process
+        val stdout = ByteArrayOutputStream()
+        val stderr = ByteArrayOutputStream()
+        fun drain(input: java.io.InputStream, output: ByteArrayOutputStream, limit: Int) = thread(isDaemon = true) {
+            runCatching { input.use { stream ->
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val read = stream.read(buffer)
+                    if (read < 0) break
+                    val remaining = limit - output.size()
+                    if (remaining > 0) output.write(buffer, 0, minOf(read, remaining))
+                }
+            } }
         }
-        val stdout = process.inputStream.bufferedReader(Charsets.UTF_8).readText()
-        val exitCode = process.waitFor()
-        errorThread.join()
-        return ProcessOutput(exitCode, stdout, errorBuffer.toString(Charsets.UTF_8))
+        val outputThread = drain(process.inputStream, stdout, 32 * 1024 * 1024)
+        val errorThread = drain(process.errorStream, stderr, 262_144)
+        try {
+            if (!runInterruptible { process.waitFor(90, TimeUnit.SECONDS) }) return ProcessOutput(-1, "", "inspection timed out")
+            runInterruptible { outputThread.join(2_000); errorThread.join(2_000) }
+            return ProcessOutput(process.exitValue(), stdout.toString(Charsets.UTF_8), stderr.toString(Charsets.UTF_8))
+        } finally {
+            captures -= process
+            killTree(process)
+            process.waitFor(3, TimeUnit.SECONDS)
+            process.inputStream.close()
+            process.errorStream.close()
+        }
     }
 
     private fun killTree(process: Process) {
