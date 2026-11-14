@@ -80,6 +80,26 @@ class SettingsControllerTest {
         assertEquals(AppLanguage.EN, repository.stored.language)
     }
 
+    @Test
+    fun persistsAndClampsOfflineAssetBudgetAndStorageReserve() = runTest {
+        val repository = FakeSettingsRepository()
+        val controller = SettingsController(repository, coordinatorScope())
+
+        controller.setAssetBudgetBytes(1024L * 1024L * 1024L)
+        controller.setStorageReserveBytes(256L * 1024L * 1024L)
+        advanceUntilIdle()
+
+        assertEquals(1024L * 1024L * 1024L, repository.stored.assetBudgetBytes)
+        assertEquals(256L * 1024L * 1024L, repository.stored.storageReserveBytes)
+
+        controller.setAssetBudgetBytes(128L)
+        controller.setStorageReserveBytes(128L)
+        advanceUntilIdle()
+
+        assertEquals(16L * 1024L * 1024L, repository.stored.assetBudgetBytes)
+        assertEquals(16L * 1024L * 1024L, repository.stored.storageReserveBytes)
+    }
+
     private fun TestScope.coordinatorScope(): CoroutineScope =
         CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
 

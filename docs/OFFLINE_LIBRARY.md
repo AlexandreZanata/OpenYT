@@ -35,9 +35,10 @@ readiness, quota and copy behavior for the durable offline library.
 - Defaults are a 512 MiB owned-asset budget and a 128 MiB free-space reserve.
   The reserve is checked before staging; new bytes that would exceed the asset
   budget are rejected with a structured budget failure.
-- The budget and reserve values are persisted in app settings. Host stores
-  currently construct the operator with the defaults; editing those values in the
-  Settings UI is not wired yet.
+- The budget and reserve values are persisted in app settings and wired live into
+  host `JvmOfflineAssetStore` operators via dynamic providers, editable directly
+  in the Settings screen via preset chips (`256 MiB`–`2 GiB` budget and
+  `64 MiB`–`512 MiB` reserve, clamped to at least `16 MiB`).
 - Cleanup is explicit: the UI previews unpinned assets, asks for confirmation and
   removes only owned files plus their records. Pinned assets are excluded even
   when requested by ID.

@@ -324,6 +324,8 @@ data class OfflineStrings(
     val actionReverify: String,
     val actionRetry: String,
     val actionCleanup: String,
+    val assetBudgetLabel: String,
+    val storageReserveLabel: String,
 )
 
 data class TimedSearchStrings(
@@ -706,6 +708,8 @@ val PtBrStrings = AppStrings(
         actionReverify = "Verificar",
         actionRetry = "Tentar novamente",
         actionCleanup = "Limpar",
+        assetBudgetLabel = "Orçamento para ativos offline",
+        storageReserveLabel = "Reserva livre mínima no disco",
     ),
     timedSearch = PtBrTimedSearchStrings,
     study = PtBrStudyStrings,
@@ -1004,6 +1008,8 @@ val EnStrings = AppStrings(
         actionReverify = "Verify",
         actionRetry = "Retry",
         actionCleanup = "Clean",
+        assetBudgetLabel = "Offline asset budget",
+        storageReserveLabel = "Minimum free disk reserve",
     ),
     timedSearch = EnTimedSearchStrings,
     study = EnStudyStrings,

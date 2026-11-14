@@ -648,6 +648,49 @@ fun SettingsScreen(
 
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(strings.offline.assetBudgetLabel, style = MaterialTheme.typography.labelLarge)
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(
+                        256L * 1024L * 1024L to "256 MiB",
+                        512L * 1024L * 1024L to "512 MiB",
+                        1024L * 1024L * 1024L to "1 GiB",
+                        2048L * 1024L * 1024L to "2 GiB",
+                    ).forEach { (bytes, label) ->
+                        FilterChip(
+                            selected = settings.assetBudgetBytes == bytes,
+                            onClick = { settingsController.setAssetBudgetBytes(bytes) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+                Text(strings.offline.storageReserveLabel, style = MaterialTheme.typography.labelLarge)
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(
+                        64L * 1024L * 1024L to "64 MiB",
+                        128L * 1024L * 1024L to "128 MiB",
+                        256L * 1024L * 1024L to "256 MiB",
+                        512L * 1024L * 1024L to "512 MiB",
+                    ).forEach { (bytes, label) ->
+                        FilterChip(
+                            selected = settings.storageReserveBytes == bytes,
+                            onClick = { settingsController.setStorageReserveBytes(bytes) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+            }
+        }
+
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(strings.updatesTitle, style = MaterialTheme.typography.labelLarge)
                 SettingRow(strings.diagnosticsAppVersion, diagnostics?.appVersion ?: "—")
                 TextButton(
