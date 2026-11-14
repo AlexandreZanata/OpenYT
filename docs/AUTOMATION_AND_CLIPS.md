@@ -51,6 +51,9 @@ In the library, open an item's media tools and choose Create multiple clips.
 Add start/end ranges, reorder them, choose output options and explicitly export.
 The destination is the downloads folder shown in the editor; the queued recipe
 keeps that choice even if global settings change later. Originals remain intact.
+The editor estimates space from the original file bitrate and selected ranges;
+reencoding, keyframe alignment and cover images can change the final size. Unknown
+source size/duration is displayed as unavailable rather than an invented number.
 
 - **Fast cut:** preserves source codecs and may align to a nearby keyframe.
 - **Precise cut:** reencodes using available H.264/AAC encoders.

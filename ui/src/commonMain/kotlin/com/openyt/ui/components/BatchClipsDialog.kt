@@ -104,6 +104,13 @@ fun BatchClipsDialog(entry: LibraryEntry, processor: MediaProcessor, coordinator
                 Text(strings.features[FeatureText.PRESERVE_ORIGINAL])
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 destination?.let { Text("${strings.features[ClipText.DESTINATION]}: $it") }
+                val estimate = estimateClipBytes(entry.sizeBytes, duration, ranges.filter { request ->
+                    history.none { it.id == request.jobId && it.status == ClipJobStatus.SUCCEEDED }
+                }.mapNotNull { it.segment })
+                if (estimate != null) {
+                    Text("${strings.features[ClipText.ESTIMATE]}: ${com.openyt.ui.util.formatBytes(estimate)}")
+                    Text(strings.features[ClipText.ESTIMATE_HINT])
+                } else Text(strings.features[ClipText.ESTIMATE_UNKNOWN])
                 if (duration == null) Text(strings.features[ClipText.NO_DURATION])
                 if (!capabilities.preciseClips || !capabilities.burnCaptions) Text(strings.features[ClipText.UNSUPPORTED])
                 OutlinedTextField(start, { start = it }, label = { Text(strings.features[FeatureText.START_SECONDS]) }, enabled = !busy, modifier = Modifier.fillMaxWidth())

@@ -88,3 +88,11 @@ fun parseMediaSegment(startSeconds: String, endSeconds: String): MediaSegment? {
     val end = millis(endSeconds) ?: return null
     return if (end > start) MediaSegment(start, end) else null
 }
+
+/** Source-bitrate estimate only; keyframes/reencoding/cover bytes can differ. */
+fun estimateClipBytes(sourceBytes: Long?, durationMillis: Long?, ranges: List<MediaSegment>): Long? {
+    if (sourceBytes == null || sourceBytes <= 0 || durationMillis == null || durationMillis <= 0 || ranges.isEmpty()) return null
+    if (ranges.any { it.startMillis < 0 || it.endMillis <= it.startMillis || it.endMillis > durationMillis }) return null
+    val totalMillis = ranges.sumOf { (it.endMillis - it.startMillis).toDouble() }
+    return (sourceBytes.toDouble() * (totalMillis / durationMillis)).coerceAtMost(Long.MAX_VALUE.toDouble()).toLong()
+}

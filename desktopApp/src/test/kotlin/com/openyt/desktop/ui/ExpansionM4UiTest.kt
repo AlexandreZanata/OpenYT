@@ -86,12 +86,13 @@ class ExpansionM4UiTest {
             val processor = Processor(repository)
             val coordinator = DownloadCoordinator(SuspendedDownloadEngine(), scope, repository = repository)
             setContent { CompositionLocalProvider(LocalStrings provides EnStrings) { OpenYtTheme { Surface {
-                BatchClipsDialog(LibraryEntry("entry", "Fixture", MediaKind.VIDEO, "/fixture/source.mp4"), processor, coordinator,
+                BatchClipsDialog(LibraryEntry("entry", "Fixture", MediaKind.VIDEO, "/fixture/source.mp4", sizeBytes = 1_000_000), processor, coordinator,
                     MediaProbe { MediaTechnicalInfo(durationMillis = 10_000) }, null, null, null) {}
             } } } }
             waitForIdle()
             onNodeWithText(EnStrings.features[FeatureText.END_SECONDS]).performTextReplacement("2")
             onNodeWithText(EnStrings.features[ClipText.ADD]).performScrollTo().performClick()
+            onNodeWithText(EnStrings.features[ClipText.ESTIMATE], substring = true).performScrollTo().assertIsDisplayed()
             waitForIdle()
             onNodeWithText(EnStrings.features[FeatureText.START_SECONDS]).performScrollTo().performTextReplacement("2")
             onNodeWithText(EnStrings.features[FeatureText.END_SECONDS]).performTextReplacement("4")

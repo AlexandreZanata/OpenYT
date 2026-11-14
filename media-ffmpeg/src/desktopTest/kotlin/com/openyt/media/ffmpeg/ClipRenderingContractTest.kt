@@ -122,12 +122,19 @@ class ClipRenderingContractTest {
             val request = request(source.path, "cancel").copy(segment = MediaSegment(0, 60_000), sourceDurationMillis = 70_000)
             assertTrue(processor.queueClips(listOf(request)))
             val job = launch(Dispatchers.Default) { processor.process(request) }
+            var encoding: ProcessHandle? = null
             withTimeout(5_000) {
-                while (root.listFiles().orEmpty().none { it.name.startsWith(".openyt-process-") }) delay(10)
+                while (encoding == null) {
+                    encoding = ProcessHandle.current().children().use { children -> children.filter { child ->
+                        child.info().arguments().orElse(emptyArray()).any { it.endsWith("output.mp4") }
+                    }.findFirst().orElse(null) }
+                    if (encoding == null) delay(10)
+                }
             }
             val clock = System.nanoTime()
             job.cancelAndJoin()
             assertTrue((System.nanoTime() - clock) / 1_000_000 < 5_000, "Cancel must reap the native process promptly")
+            assertFalse(encoding!!.isAlive, "The actual encoding process must be reaped")
             assertEquals(ClipJobStatus.CANCELED, store.get("cancel")!!.status)
             assertTrue(root.listFiles().orEmpty().none { it.name.startsWith(".openyt-process-") })
             assertEquals(original, source.readBytes().toList())
@@ -164,6 +171,34 @@ class ClipRenderingContractTest {
                     assertTrue(contentRows in 538..542, "4:3 content must occupy 720x540 square pixels: $contentRows")
                 }
             }
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun rotatedInputIsOrientedBeforeFramingAndCoverUsesTheChosenSourceTime() = runBlocking {
+        org.junit.Assume.assumeTrue(System.getenv("OPENYT_RUN_MEDIA_TESTS") == "1")
+        val binary = System.getenv("OPENYT_FFMPEG") ?: "/usr/bin/ffmpeg"
+        val probe = System.getenv("OPENYT_FFPROBE") ?: File(File(binary).parentFile, "ffprobe").absolutePath
+        val root = Files.createTempDirectory("openyt-rotated-").toFile()
+        fun command(vararg args: String): String {
+            val process = ProcessBuilder(*args).redirectErrorStream(true).start()
+            val text = process.inputStream.bufferedReader().readText()
+            assertEquals(0, process.waitFor(), text)
+            return text.trim()
+        }
+        try {
+            val raw = root.resolve("timeline.mp4")
+            command(binary, "-v", "error", "-f", "lavfi", "-i", "color=c=red:size=320x180:rate=10:duration=2", "-f", "lavfi", "-i", "color=c=lime:size=320x180:rate=10:duration=2", "-f", "lavfi", "-i", "color=c=blue:size=320x180:rate=10:duration=2", "-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1:a=0", "-c:v", "libx264", raw.path)
+            val source = root.resolve("rotated.mp4")
+            command(binary, "-v", "error", "-display_rotation", "90", "-i", raw.path, "-c", "copy", source.path)
+            assertTrue(command(probe, "-v", "error", "-select_streams", "v:0", "-show_entries", "stream_side_data=rotation", "-of", "csv=p=0", source.path).contains("90"))
+            val processor = FfmpegMediaProcessor({ binary }, clipStore = Store())
+            val recipe = request(source.path, "rotate").copy(framing = ClipFraming.ORIGINAL, segment = MediaSegment(1_000, 5_000), sourceDurationMillis = 6_000, coverAtMillis = 3_500)
+            assertTrue(processor.queueClips(listOf(recipe)))
+            val output = assertIs<EngineResult.Success<ProcessedMedia>>(processor.process(recipe)).value
+            assertEquals("180,320", command(probe, "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", output.path))
+            val cover = ImageIO.read(File(output.coverPath!!))
+            val rgb = cover.getRGB(cover.width / 2, cover.height / 2)
+            assertTrue((rgb shr 8 and 255) > 220 && (rgb shr 16 and 255) < 30 && (rgb and 255) < 30, "Cover at source 3.5s must show the green interval")
         } finally { root.deleteRecursively() }
     }
 }

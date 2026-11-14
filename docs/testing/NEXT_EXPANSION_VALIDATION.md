@@ -164,10 +164,11 @@ file through actual packaged VLC, retried idempotently and preserved the source.
 
 ![Actual installed Windows EXE mini-player decoding the synthetic fixture](evidence/expansion-20261114/windows-exe-native-playback.png)
 
-All **255 product Kotlin files** in the native source archive match the working
-product sources; [aggregate fingerprints](evidence/expansion-20261114/native-source-fingerprint.json)
-record that comparison. Later Android test/documentation refinements do not change
-Windows product code. Evidence copy initially hit PowerShell5 long-path limits;
+All **255 product Kotlin files** in the first native source archive match the
+implementation at `897b0cf`; [aggregate fingerprints](evidence/expansion-20261114/native-source-fingerprint.json)
+record that comparison. The final plan audit additionally adds the shared batch space estimate and
+stronger rotation/cover/native-cancellation assertions; its focused checks and
+final native snapshot are recorded with the delivery CI. Evidence copy initially hit PowerShell5 long-path limits;
 robocopy preserved the deep assets successfully without changing test assertions.
 
 The loaded local VM took **85.87s (MSI) / 86.62s (EXE)** to expose the application
@@ -187,6 +188,17 @@ reproduction also showed the fast CDN could finish the 15MB fixture before its
 an active partial pause, retained staging and successful resume. The focused
 check and then all six tests passed with the original bundled binary. Product
 engine behavior and test success criteria were not relaxed.
+
+## Final plan audit
+
+The plan audit added the missing source-bitrate space estimate to the batch
+editor, including unknown inputs, overlapping selections and overflow bounds.
+`ClipStorageEstimateTest`, all three `ExpansionM4UiTest` cases, all five actual
+`ClipRenderingContractTest` cases and Android application/test APK assembly passed.
+Rendering now also proves display-matrix rotation before framing, a green cover
+at the chosen 3.5s source interval, and cancellation of an observed live FFmpeg
+PID with its handle confirmed dead afterward. No staging-directory observation
+alone is used as proof that encoding was running.
 
 ## GitHub gate
 
