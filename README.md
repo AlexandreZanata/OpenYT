@@ -128,6 +128,8 @@ The expansion adds profile previews and explicit offline readiness:
 
 ![Offline library readiness and local asset controls](docs/assets/offline/offline-desktop-en.png)
 
+[Offline capture details and mobile variants](docs/assets/offline/README.md).
+
 These expansion captures use the real shared Compose UI with deterministic test
 ports. See the [expansion validation ledger](docs/testing/NEXT_EXPANSION_VALIDATION.md)
 for native tests, emulator evidence and capability limits, and the
