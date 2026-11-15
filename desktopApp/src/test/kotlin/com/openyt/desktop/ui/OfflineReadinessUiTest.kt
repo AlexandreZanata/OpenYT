@@ -1,6 +1,10 @@
 package com.openyt.desktop.ui
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -12,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runSkikoComposeUiTest
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.openyt.core.application.OfflineAssetView
 import com.openyt.core.application.OfflineLibraryState
 import com.openyt.core.application.OfflineStorageBreakdown
@@ -49,13 +54,16 @@ class OfflineReadinessUiTest(private val scenario: Scenario) {
         setContent {
             OpenYtTheme(darkTheme = scenario.dark) {
                 CompositionLocalProvider(LocalStrings provides scenario.strings) {
-                    OfflineReadinessCard(
-                        state = readyState(),
-                        onTogglePin = { asset, pinned -> toggled = asset.id to pinned },
-                        onCleanup = { cleaned = it },
-                        onAction = {},
-                        onRetry = {},
-                    )
+                    Surface(Modifier.fillMaxSize()) {
+                        OfflineReadinessCard(
+                            state = readyState(),
+                            onTogglePin = { asset, pinned -> toggled = asset.id to pinned },
+                            onCleanup = { cleaned = it },
+                            onAction = {},
+                            onRetry = {},
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
                 }
             }
         }
@@ -76,7 +84,12 @@ class OfflineReadinessUiTest(private val scenario: Scenario) {
 
         val screenshot = File("build/ui-regressions/offline-${scenario.name}.png")
         screenshot.parentFile.mkdirs()
-        ImageIO.write(captureToImage().toAwtImage(), "png", screenshot)
+        val image = captureToImage().toAwtImage()
+        assertTrue(
+            image.getRGB(0, 0, image.width, image.height, null, 0, image.width).all { it ushr 24 == 255 },
+            "Documentation captures must be opaque so text stays readable on GitHub's light and dark backgrounds",
+        )
+        ImageIO.write(image, "png", screenshot)
     }
 
     @Test
@@ -88,13 +101,16 @@ class OfflineReadinessUiTest(private val scenario: Scenario) {
         setContent {
             OpenYtTheme(darkTheme = scenario.dark) {
                 CompositionLocalProvider(LocalStrings provides scenario.strings) {
-                    OfflineReadinessCard(
-                        state = incompleteState(),
-                        onTogglePin = { _, _ -> },
-                        onCleanup = {},
-                        onAction = { action = it },
-                        onRetry = {},
-                    )
+                    Surface(Modifier.fillMaxSize()) {
+                        OfflineReadinessCard(
+                            state = incompleteState(),
+                            onTogglePin = { _, _ -> },
+                            onCleanup = {},
+                            onAction = { action = it },
+                            onRetry = {},
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
                 }
             }
         }
@@ -174,7 +190,7 @@ class OfflineReadinessUiTest(private val scenario: Scenario) {
         fun scenarios() = listOf(
             arrayOf(Scenario("phone-320-pt", Size(320f, 640f), 1.2f, false, PtBrStrings)),
             arrayOf(Scenario("phone-large-dark-pt", Size(360f, 640f), 1.6f, true, PtBrStrings)),
-            arrayOf(Scenario("desktop-en", Size(1024f, 700f), 1f, false, EnStrings)),
+            arrayOf(Scenario("desktop-en", Size(960f, 420f), 1f, false, EnStrings)),
         )
     }
 }
