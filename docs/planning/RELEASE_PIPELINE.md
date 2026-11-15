@@ -8,7 +8,7 @@ Workflow: `.github/workflows/release.yml`.
   A branch dispatch validates candidates without publishing. The `contracts_only`
   input runs native media checks and inventories without packaging.
 - `gradle.properties` is the single source of truth:
-  - `openyt.version` (SemVer, currently `4.0.1`)
+  - `openyt.version` (SemVer, currently `4.2.0`)
   - `openyt.versionCode` (Android integer)
 - Every main push rebuilds and **updates** the release for `v<version>`. Bump the
   version before merging to publish a new release; otherwise assets of the current

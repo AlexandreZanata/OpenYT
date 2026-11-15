@@ -33,6 +33,7 @@ import com.openyt.core.application.parseMediaSegment
 import com.openyt.core.domain.AudioPreset
 import com.openyt.core.domain.EngineResult
 import com.openyt.core.domain.LibraryEntry
+import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.MediaSegment
 import com.openyt.ui.i18n.FeatureText
 import com.openyt.ui.i18n.LocalStrings
@@ -43,8 +44,18 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MediaToolsDialog(entry: LibraryEntry, processor: MediaProcessor, coordinator: DownloadCoordinator, onDismiss: () -> Unit) {
+fun MediaToolsDialog(entry: LibraryEntry, processor: MediaProcessor, coordinator: DownloadCoordinator,
+    mediaProbe: com.openyt.core.application.MediaProbe? = null,
+    subtitles: com.openyt.core.application.SubtitleIndexRepository? = null,
+    assets: com.openyt.core.application.OfflineAssetStore? = null,
+    playback: com.openyt.core.application.PlaybackLauncher? = null,
+    onDismiss: () -> Unit) {
     val strings = LocalStrings.current
+    var batch by remember { mutableStateOf(false) }
+    if (batch) {
+        BatchClipsDialog(entry, processor, coordinator, mediaProbe, subtitles, assets, playback, onDismiss)
+        return
+    }
     var operation by remember { mutableStateOf(MediaOperation.TRIM) }
     var start by remember { mutableStateOf("0") }
     var end by remember { mutableStateOf("") }
@@ -61,6 +72,7 @@ fun MediaToolsDialog(entry: LibraryEntry, processor: MediaProcessor, coordinator
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(entry.title, maxLines = 2)
                 Text(strings.features[FeatureText.PRESERVE_ORIGINAL])
+                if (entry.kind == MediaKind.VIDEO) TextButton(onClick = { batch = true }) { Text(strings.features[com.openyt.ui.i18n.ClipText.TITLE]) }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(operation == MediaOperation.TRIM, { operation = MediaOperation.TRIM }, label = { Text(strings.features[FeatureText.TRIM]) })
                     FilterChip(operation == MediaOperation.CONVERT_AUDIO, { operation = MediaOperation.CONVERT_AUDIO }, label = { Text(strings.features[FeatureText.CONVERT]) })

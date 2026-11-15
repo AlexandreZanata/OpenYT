@@ -304,16 +304,26 @@ object DesktopCli {
     }
 
     private suspend fun watch(args: CliArgs): Int {
+        val discoverOnly = args.flag("discover-only")
         val database = createOpenYtDatabase(defaultDatabasePath())
         val repository = SqlDelightDownloadRepository(database)
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val engine = DesktopYtDlpEngine()
         try {
-            val coordinator = DownloadCoordinator(engine, scope, repository)
+            val coordinator = DownloadCoordinator(engine, scope, repository, executionGate = com.openyt.core.automation.SubscriptionDownloadGate(com.openyt.data.JvmSubscriptionEnvironment()) { !discoverOnly })
             coordinator.restore()
             val controller = SubscriptionController(SqlDelightSubscriptions(database), RssFeedReader(), engine, coordinator,
-                { args.value("dir") ?: defaultDownloadsDirectory() }, { System.currentTimeMillis() }, { java.util.UUID.randomUUID().toString() }, scope)
+                { args.value("dir") ?: defaultDownloadsDirectory() }, { System.currentTimeMillis() }, { java.util.UUID.randomUUID().toString() }, scope,
+                profileRepository = com.openyt.data.SqlDelightDownloadProfileRepository(database), environment = com.openyt.data.JvmSubscriptionEnvironment())
             controller.restore()
+            if (discoverOnly) {
+                return withTimeout(115_000) {
+                    controller.checkDue(queueOnly = true, maximumRules = 20)
+                    if (!coordinator.awaitPersistence()) return@withTimeout 1
+                    println("Subscription discovery persisted; review interrupted or waiting items in the application")
+                    if (controller.failedIds.value.isEmpty()) 0 else 1
+                }
+            }
             if (args.flag("add")) {
                 val kind = if (args.value("kind") == "feed") SubscriptionKind.FEED else SubscriptionKind.PLAYLIST
                 if (!controller.add(args.required("name"), args.required("url"), kind, args.value("minutes")?.toIntOrNull() ?: 60, args.flag("include-existing"))) throw CliException("invalid or duplicate subscription")
@@ -1008,6 +1018,7 @@ object DesktopCli {
                                [--audio-preset m4a|mp3|opus|flac|wav] [--normalize]
               main --cli watch --add --name <name> --url <url> --kind feed|playlist [--minutes 60] [--include-existing]
               main --cli watch --check [--id <id>]
+              main --cli watch --discover-only
               main --cli watch --remove <id>
               main --cli tool-update
               Download options: --audio-preset <preset> --normalize --subtitle <language> --auto-subtitles

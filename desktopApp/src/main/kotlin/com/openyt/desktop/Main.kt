@@ -92,6 +92,10 @@ fun main(args: Array<String>) {
     val root = File(defaultDatabasePath()).parentFile
     val instance = runCatching { DesktopInstance.acquire(root, gui = !cli) }.getOrNull()
     if (instance == null) {
+        if (cli && args.getOrNull(1) == "watch" && "--discover-only" in args) {
+            println("Subscription checks are owned by the running application; no second coordinator started")
+            return
+        }
         if (!cli && DesktopInstance.forwardRoute(root, initialRoute)) return
         val text = if (java.util.Locale.getDefault().language == "pt")
             "Não foi possível acessar os dados do OpenYT. Feche outra instância ou verifique o armazenamento."
@@ -135,19 +139,24 @@ private fun launchApp(
             .getOrNull()
     }
     val repository = remember(database) { database?.let(::SqlDelightDownloadRepository) }
+    val settingsController = remember(database) {
+        SettingsController(database?.let(::SqlDelightSettingsRepository), scope)
+    }
     val offlineAssetsDirectory = remember {
         File(defaultDatabasePath()).parentFile.resolve("offline-assets").apply { mkdirs() }
     }
     val offlineAssetRepository = remember(database) {
         database?.let(::SqlDelightOfflineAssetRepository)
     }
-    val offlineAssetStore = remember(database, offlineAssetRepository) {
+    val offlineAssetStore = remember(database, offlineAssetRepository, settingsController) {
         val offlineRepository = offlineAssetRepository
         if (database != null && offlineRepository != null) {
             JvmOfflineAssetStore(
                 assetsDirectory = offlineAssetsDirectory,
                 repository = offlineRepository,
                 operationRepository = SqlDelightAssetOperationRepository(database),
+                storageReserveBytesProvider = { settingsController.settings.value.storageReserveBytes },
+                assetBudgetBytesProvider = { settingsController.settings.value.assetBudgetBytes },
             )
         } else {
             null
@@ -196,9 +205,6 @@ private fun launchApp(
     val profileRepository = remember(database) {
         database?.let(::SqlDelightDownloadProfileRepository) ?: MemoryDownloadProfileRepository()
     }
-    val settingsController = remember(database) {
-        SettingsController(database?.let(::SqlDelightSettingsRepository), scope)
-    }
     val cookieRepository = remember {
         EncryptedCookieRepository(File(defaultDatabasePath()).parentFile.resolve("cookies"))
     }
@@ -209,6 +215,7 @@ private fun launchApp(
             repository = repository,
             cookieRepository = cookieRepository,
             assetStore = offlineAssetStore,
+            executionGate = com.openyt.core.automation.SubscriptionDownloadGate(com.openyt.data.JvmSubscriptionEnvironment()),
             timeOfDayMinutes = {
                 val now = LocalTime.now()
                 now.hour * 60 + now.minute
@@ -233,10 +240,35 @@ private fun launchApp(
     }
     val mediaActions = remember { DesktopMediaActions() }
     val downloadsDirectory = remember { defaultDownloadsDirectory() }
+    val portableBackup = remember(
+        database,
+        offlineAssetStore,
+        subtitleIndexRepository,
+        settingsController,
+        downloadsDirectory,
+    ) {
+        database?.let { db ->
+            com.openyt.data.createPortableBackupRuntime(
+                database = db,
+                stagingRoot = File(defaultDatabasePath()).parentFile.resolve("portable-staging"),
+                ownedAssetsRoot = offlineAssetsDirectory,
+                streamBridge = com.openyt.data.FilePortableStreamBridge(),
+                defaultDestinationRoot = {
+                    settingsController.settings.value.downloadsDirectory ?: downloadsDirectory
+                },
+                offlineAssetStore = offlineAssetStore,
+                subtitleIndexRepository = subtitleIndexRepository,
+                appVersion = BuildInfo.version,
+            )
+        }
+    }
+    val portableArchivePicker = remember { DesktopPortableArchivePicker() }
     val subscriptions = remember(database) {
         database?.let { SubscriptionController(SqlDelightSubscriptions(it), RssFeedReader(), engine, coordinator,
             { settingsController.settings.value.downloadsDirectory ?: downloadsDirectory },
-            { System.currentTimeMillis() }, { java.util.UUID.randomUUID().toString() }, scope) }
+            { System.currentTimeMillis() }, { java.util.UUID.randomUUID().toString() }, scope,
+            profileRepository = com.openyt.data.SqlDelightDownloadProfileRepository(it),
+            environment = com.openyt.data.JvmSubscriptionEnvironment()) }
     }
     val diagnosticsProvider = remember {
         DesktopDiagnosticsProvider(engine, downloadsDirectory)
@@ -262,6 +294,35 @@ private fun launchApp(
     val urlOpener = remember { DesktopUrlOpener() }
     val folderPicker = remember { FolderPicker { current -> DesktopFolderPicker.pick(current) } }
     val studyRepository = remember(database) { database?.let(::SqlDelightStudyRepository) }
+    val recoveryRuntime = remember(
+        database,
+        offlineAssetRepository,
+        subtitleIndexRepository,
+        studyRepository,
+        settingsController,
+        downloadsDirectory,
+        playbackLauncher,
+    ) {
+        val db = database
+        val repo = repository
+        if (db != null && repo != null) {
+            com.openyt.data.createLibraryRecoveryRuntime(
+                database = db,
+                downloadRepository = repo,
+                offlineAssetRepository = offlineAssetRepository,
+                subtitleIndexRepository = subtitleIndexRepository,
+                studyRepository = studyRepository,
+                stagingRoot = File(defaultDatabasePath()).parentFile.resolve("portable-staging"),
+                ownedRecoveryRootProvider = {
+                    settingsController.settings.value.downloadsDirectory ?: downloadsDirectory
+                },
+                playbackSessionControl = playbackLauncher,
+            )
+        } else {
+            null
+        }
+    }
+    val recoveryLocationPicker = remember { DesktopRecoveryLocationPicker() }
     val studyService = remember(studyRepository) {
         studyRepository?.let { repo ->
             StudyService(
@@ -303,6 +364,8 @@ private fun launchApp(
         cleanStaleTemporaryFiles(
             File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory),
         )
+        portableBackup?.reconcileOnStartup()
+        recoveryRuntime?.relinkExecutor?.reconcileAfterRestart()
     }
 
     LaunchedEffect(instance) {
@@ -432,7 +495,11 @@ private fun launchApp(
             folderImportService = folderImportService,
             bulkFileService = bulkFileService,
             playbackLauncher = playbackLauncher,
-            mediaProcessor = remember { FfmpegMediaProcessor({ ExecutableLocator().findFfmpeg() }) },
+            mediaProcessor = remember(database, offlineAssetStore) {
+                val covers = com.openyt.core.application.ClipCoverPublisher(offlineAssetStore, JvmMediaFileInspector())
+                FfmpegMediaProcessor({ ExecutableLocator().findFfmpeg() }, clipStore = database?.let { com.openyt.data.SqlDelightClipJobStore(it) }, previewRoot = File(defaultDatabasePath()).parentFile.resolve("clip-previews"),
+                    outputDirectory = { File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory) }, onClipReady = covers::publish)
+            },
             mediaPreview = remember { EngineMediaPreview(engine, playbackLauncher, previewsDirectory.absolutePath, { java.util.UUID.randomUUID().toString() }) },
             profileRepository = profileRepository,
             offlineAssetStore = offlineAssetStore,
@@ -462,6 +529,10 @@ private fun launchApp(
             ),
             initialEntryRoute = pendingEntryRoute,
             onEntryRouteConsumed = { pendingEntryRoute = null },
+            portableBackupController = portableBackup?.controller,
+            portableArchivePicker = portableArchivePicker,
+            libraryRecoveryController = recoveryRuntime?.controller,
+            recoveryLocationPicker = recoveryLocationPicker,
         )
     }
 }

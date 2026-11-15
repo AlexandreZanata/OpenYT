@@ -1,8 +1,10 @@
 # Personal media library: execution plan
 
-Status: **planning only; every implementation task is pending**. Prepared on
-2026-11-12 against the 4.0.1 codebase. This package is the execution specification
-for a new program, not a claim that its features already exist.
+Prepared on 2026-11-12 against the 4.0.1 codebase; execution updated 2026-11-14.
+This package defines the requirements. The [execution tracker](PROGRESS.md) and
+[validation ledger](../../testing/NEXT_EXPANSION_VALIDATION.md) record actual
+implementation/evidence; the phase specifications alone are not completion claims.
+Optional rejected or blocked capabilities are recorded in [optional gates](OPTIONAL_GATES.md).
 
 The goal is to help people find, study, preserve and reuse their saved media,
 without an account or a remote service. Start with daily download/offline use,

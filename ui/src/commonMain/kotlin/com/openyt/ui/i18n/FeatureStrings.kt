@@ -4,9 +4,12 @@ import com.openyt.core.domain.AppLanguage
 
 class FeatureStrings(private val language: AppLanguage) {
     operator fun get(text: FeatureText): String = if (language == AppLanguage.PT_BR) text.portuguese else text.english
+    operator fun get(text: AutomationText): String = if (language == AppLanguage.PT_BR) text.portuguese else text.english
+    operator fun get(text: ClipText): String = if (language == AppLanguage.PT_BR) text.portuguese else text.english
 }
 
 enum class FeatureText(val portuguese: String, val english: String) {
+    WAITING_CONSTRAINTS("Aguardando as condições de rede, energia ou espaço definidas pela assinatura.", "Waiting for the subscription's network, power or storage conditions."),
     OPEN_FILE_FAILED("Não foi possível abrir o arquivo. Verifique se ele ainda existe e se há um aplicativo compatível instalado.", "Could not open the file. Check that it still exists and a compatible application is installed."),
     REVEAL_FILE_FAILED("Não foi possível mostrar o arquivo na pasta. Verifique se ele foi movido e se a pasta está acessível.", "Could not show the file in its folder. Check whether it was moved and that the folder is accessible."),
     ITEM_SINGULAR("item", "item"),

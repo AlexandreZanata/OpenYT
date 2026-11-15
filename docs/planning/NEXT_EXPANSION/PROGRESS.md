@@ -1,11 +1,19 @@
 # Execution tracker
 
-Updated: 2026-11-13. **NX4.4, NX4.5, and NX4.6 VERIFIED — Milestone 2 (`M2 = NX3.7 + NX4.6`) CLOSED** (`StudyPlaybackLocalTest` on Linux VLCJ `maxOvershootMs=400`, Windows CI MSI & EXE `WindowsContractHarness` `msi-study`/`exe-study` `maxOvershootMs=402` + `maxReturnDeltaMs=0`, macOS CI `desktop-compile`, and Android Emulator CI `android-emulator` all passed).
+Updated: 2026-11-14. **M1–M4 verified: all 52 mandatory tasks completed.**
+Optional Android bounded discovery (NX7.7/NX7.8) is also verified. Automatic
+desktop scheduler registration and production ASR have explicit NO_GO decisions;
+ASR dependent tasks remain unimplemented. The current executed evidence and
+required final delivery checks are in [the ledger](../../testing/NEXT_EXPANSION_VALIDATION.md).
 
 Baseline: OpenYT 4.0.1; checkout `codex/nx2-3-owned-storage`.
-Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, SQLDelight schema 21 migration verified, FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms, pure Kotlin bounded SRT/VTT parser with safe markup stripping, speaker extraction, and timebase offset shifting verified, subtitle cue persistence with atomic revision rebuild, FTS4 virtual table synchronization, and crash recovery verified, bounded text search with scoped pagination, literal FTS token escaping, accent matching, and 100k-cue performance budget verified, entry-aware timed playback, session control port, legacy queue/checkpoint bridge, out-of-range clamping, and stale callback rejection verified, timed search navigation, scope/status indicators, plain-text excerpt highlights, accessible timestamp playback actions, empty/error state distinction, keyboard navigation, and responsive 320dp/desktop UI verified, search-to-playback end-to-end flow proven offline with <= 1000 ms seek accuracy, checkpoint persistence, close/reopen cycle, tokenizer limits documented, and non-ASR distinction verified, study mode persistence (notes, bookmarks, saved ranges, studied completion, collection progress, and non-cascading removal cleanup) verified on SQLDelight schema v24, timestamp capture, anchor health inspection, unsaved editor draft guard, and timestamp navigation (`NX-T02`) verified across core, Desktop VLCJ, and Android Media3, explicit A/B repetition (`NX-T03`) verified with 5-loop real-playback tolerance, pause/mini-player/EOF/stop/switch safety, and cross-platform CI fixes, safe Markdown export and `openyt://library/entry/<id>?t=<ms>` local links (`NX-T04`) verified, focused Study UI (`NX-T05`) verified across responsive mobile/desktop Compose layouts, and full Linux VLCJ+FFmpeg+SQLDelight NX4.6 lifecycle (`NX-T06`) verified.
+Actual baseline inspected, validated, profile resolution models implemented, profile persistence with schema migration verified, immutable profile request snapshots implemented, host/engine adapters connected with real output container/stream probing, profile selection/preview/editing UI verified, combined native flow & manual format coexistence verified with milestone documentation and real Compose UI evidence, offline asset domain models, media revision drift detection, readiness calculator, SQLDelight schema 20 migration verified, engine-produced companion artifact receipts verified, owned storage, journaled durable local operations, SQLDelight schema 21 migration verified, FTS4/unicode61 SQLite indexing capability probe verified on shipped SQLite 3.53.4 with 100k-cue p95 budget passed at 0.899 ms, pure Kotlin bounded SRT/VTT parser with safe markup stripping, speaker extraction, and timebase offset shifting verified, subtitle cue persistence with atomic revision rebuild, FTS4 virtual table synchronization, and crash recovery verified, bounded text search with scoped pagination, literal FTS token escaping, accent matching, and 100k-cue performance budget verified, entry-aware timed playback, session control port, legacy queue/checkpoint bridge, out-of-range clamping, and stale callback rejection verified, timed search navigation, scope/status indicators, plain-text excerpt highlights, accessible timestamp playback actions, empty/error state distinction, keyboard navigation, and responsive 320dp/desktop UI verified, search-to-playback end-to-end flow proven offline with <= 1000 ms seek accuracy, checkpoint persistence, close/reopen cycle, tokenizer limits documented, and non-ASR distinction verified, study mode persistence (notes, bookmarks, saved ranges, studied completion, collection progress, and non-cascading removal cleanup) verified on SQLDelight schema v24, timestamp capture, anchor health inspection, unsaved editor draft guard, and timestamp navigation (`NX-T02`) verified across core, Desktop VLCJ, and Android Media3, explicit A/B repetition (`NX-T03`) verified with 5-loop real-playback tolerance, pause/mini-player/EOF/stop/switch safety, and cross-platform CI fixes, safe Markdown export and `openyt://library/entry/<id>?t=<ms>` local links (`NX-T04`) verified, focused Study UI (`NX-T05`) verified across responsive mobile/desktop Compose layouts, full Linux VLCJ+FFmpeg+SQLDelight NX4.6 lifecycle (`NX-T06`) verified, and full NX5/NX6 portable backup & assisted recovery (`M3`: `NX5.6` + `NX6.6`) verified across Linux, Windows MSI/EXE, macOS, and Android Emulator CI (`43470881057`).
 
-Current task: Milestone 2 (`M2 = NX3.7 + NX4.6`) VERIFIED and consolidated for release `v4.1.0`; next open mandatory phase is `NX5` (Portable media backup and restore).
+Delivery: `codex/complete-library-expansion`, [PR #64](https://github.com/AlexandreZanata/OpenYT/pull/64).
+PR #62 and PR #63 are merged. Final delivery checks must pass before PR #64 merges.
+See the [validation ledger](../../testing/NEXT_EXPANSION_VALIDATION.md) and
+[optional gates](OPTIONAL_GATES.md). Historical handoffs below retain their original
+observations; current status here and in the ledger supersedes their old blockers.
 Statuses and handoff rules: [EXECUTOR_PROMPT.md](EXECUTOR_PROMPT.md).
 Check a box only after VERIFIED evidence; keep IMPLEMENTED/BLOCKED work unchecked.
 
@@ -38,7 +46,7 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 - [x] [NX2.3 — implement owned storage and durable local operations](02_OFFLINE_LIBRARY.md#nx2-3) — VERIFIED (Pure KMP operation models, SQLDelight schema 20->21 migration, durable asset operator, journaled staging, atomic promotion, bounds & failure injection checks; 20 contract tests passing).
 - [x] [NX2.4 — fetch artwork and import subtitle assets safely](02_OFFLINE_LIBRARY.md#nx2-4) — VERIFIED (Bounded HTTP(S) artwork fetch, credential stripping, subtitle validation/import into owned storage, and local-artwork preference; 39 contract tests passing).
 - [x] [NX2.5 — show offline readiness and storage actions](02_OFFLINE_LIBRARY.md#nx2-5) — VERIFIED (Verified local artwork preference, per-item readiness and recovery actions, explicit pin/unpin, cleanup preview with confirmation, separated storage totals, and host wiring; 18 contract tests passing).
-- [ ] [NX2.6 — prove offline behavior and close milestone 1](02_OFFLINE_LIBRARY.md#nx2-6) — BLOCKED (Linux offline evidence, budget enforcement, docs and screenshots complete; Windows/Android-device/macOS native gate unavailable, so milestone 1 remains open).
+- [x] [NX2.6 — prove offline behavior and close milestone 1](02_OFFLINE_LIBRARY.md#nx2-6) — VERIFIED (PR #63 merged; CI `43492611769` attempt 2 passed Linux, Windows MSI/EXE, macOS and Android emulator, including the installed offline contract).
 
 ## NX3 — search within saved media
 
@@ -61,53 +69,56 @@ M3 = NX5.6 + NX6.6; M4 = NX7.6 + NX8.6. Each gate includes its prerequisites.
 
 ## NX5 — portable media backup and restore
 
-- [ ] [NX5.1 — specify and validate manifest v1](05_PORTABLE_BACKUP.md#nx5-1) — PENDING.
-- [ ] [NX5.2 — prove streaming archive support on each host](05_PORTABLE_BACKUP.md#nx5-2) — PENDING.
-- [ ] [NX5.3 — implement consistent cancellable export](05_PORTABLE_BACKUP.md#nx5-3) — PENDING.
-- [ ] [NX5.4 — validate hostile bundles and build restore preview](05_PORTABLE_BACKUP.md#nx5-4) — PENDING.
-- [ ] [NX5.5 — publish restore with crash recovery and reference remapping](05_PORTABLE_BACKUP.md#nx5-5) — PENDING.
-- [ ] [NX5.6 — restore UI and real cross-device round trip](05_PORTABLE_BACKUP.md#nx5-6) — PENDING.
+- [x] [NX5.1 — specify and validate manifest v1](05_PORTABLE_BACKUP.md#nx5-1) — VERIFIED (`docs/spec/PORTABLE_BACKUP_FORMAT.md`, `PortableManifestTest`, `PortableSnapshotSourceTest`; golden manifest v1, strict secret/cookie/local-path/FTS exclusion).
+- [x] [NX5.2 — prove streaming archive support on each host](05_PORTABLE_BACKUP.md#nx5-2) — VERIFIED (`PortableZipStreamingTest`: `4/4` with `OPENYT_RUN_ZIP64_INCOMPRESSIBLE_TESTS=1` writing & reading `4,350,000,000`-byte incompressible payload into `4,351,322,924`-byte ZIP64 archive with `7 MiB` peak heap delta + SAF sequential pipe streaming; CI default uses fast sparse ZIP64 & small fixtures).
+- [x] [NX5.3 — implement consistent cancellable export](05_PORTABLE_BACKUP.md#nx5-3) — VERIFIED (`24.sqm` Schema v25 `portable_operation`, `PortableExportTest`, `PortableExportLocalTest`, `DatabaseMigrationTest`).
+- [x] [NX5.4 — validate hostile bundles and build restore preview](05_PORTABLE_BACKUP.md#nx5-4) — VERIFIED (`PortableArchiveSecurityTest`, `PortableArchiveSecurityLocalTest`, `AndroidPortableBackupTest`).
+- [x] [NX5.5 — publish restore with crash recovery and reference remapping](05_PORTABLE_BACKUP.md#nx5-5) — VERIFIED (`PortableRestoreJournalTest`, `SqlDelightPortableRestorePublicationPort`, fault-injected commit & post-commit FTS rebuild).
+- [x] [NX5.6 — restore UI and real cross-device round trip](05_PORTABLE_BACKUP.md#nx5-6) — VERIFIED (`PortableBackupDialog`, `PortableBackupUiTest` `4/4`, `PortableRoundTripTest` `1/1`, `AndroidPortableBackupTest` `2/2` on API 30 emulator).
 
 ## NX6 — assisted library recovery
 
-- [ ] [NX6.1 — build a read-only health report](06_LIBRARY_RECOVERY.md#nx6-1) — PENDING.
-- [ ] [NX6.2 — find bounded candidates and verify content hashes](06_LIBRARY_RECOVERY.md#nx6-2) — PENDING.
-- [ ] [NX6.3 — prepare a confirmed relink plan](06_LIBRARY_RECOVERY.md#nx6-3) — PENDING.
-- [ ] [NX6.4 — apply relinking atomically and preserve context](06_LIBRARY_RECOVERY.md#nx6-4) — PENDING.
-- [ ] [NX6.5 — deliver advisory duplicate review and recovery UI](06_LIBRARY_RECOVERY.md#nx6-5) — PENDING.
-- [ ] [NX6.6 — prove recovery and close milestone 3](06_LIBRARY_RECOVERY.md#nx6-6) — PENDING.
+- [x] [NX6.1 — build a read-only health report](06_LIBRARY_RECOVERY.md#nx6-1) — VERIFIED (`LibraryHealthAnalyzer`, `JvmMediaHealthInspector`, `AndroidMediaHealthInspector`, `LibraryHealthTest`, `JvmMediaHealthInspectorTest`, `AndroidLibraryRecoveryTest`).
+- [x] [NX6.2 — find bounded candidates and verify content hashes](06_LIBRARY_RECOVERY.md#nx6-2) — VERIFIED (`RecoveryCandidateScanner`, `JvmRecoveryCandidateScanner`, `AndroidRecoveryCandidateScanner`, `RecoveryCandidateScannerTest`, `JvmRecoveryCandidateScannerTest`).
+- [x] [NX6.3 — prepare a confirmed relink plan](06_LIBRARY_RECOVERY.md#nx6-3) — VERIFIED (`RelinkPlanner`, `RelinkPlannerTest`, stale-plan & active-playback validation).
+- [x] [NX6.4 — apply relinking atomically and preserve context](06_LIBRARY_RECOVERY.md#nx6-4) — VERIFIED (`RelinkExecutor`, `SqlDelightRelinkPublicationPort`, `JvmRelinkTransferPort`, `RelinkJournalTest`, `AndroidLibraryRecoveryTest` `COPY_SAF_TO_OWNED` + SQLite reopen).
+- [x] [NX6.5 — deliver advisory duplicate review and recovery UI](06_LIBRARY_RECOVERY.md#nx6-5) — VERIFIED (`RecoveryDialog`, `AppStrings` `ErrorStrings` bytecode-limit refactor, `launchTracked` eager-job fix, `RecoveryUiTest` `4/4`, full `13` `*UiTest` suites `65/65` passed).
+- [x] [NX6.6 — prove recovery and close milestone 3](06_LIBRARY_RECOVERY.md#nx6-6) — VERIFIED (`RelinkLocalTest` `3/3` passed on Linux with `OPENYT_RUN_PLAYBACK_TESTS=1` real VLCJ; `AndroidLibraryRecoveryTest` & `AndroidPortableBackupTest` passed locally and in CI `android-emulator` `43470881057` (`27` executed, `5` network skipped); `WindowsContractHarness` `"recovery"` MSI & EXE contracts passed in CI `desktop-compile (windows-latest)` `43470881057`; `desktop-compile (macos-latest)` & `build` (`ubuntu-latest`) passed in `43470881057`).
 
 ## NX7 — subscription rules and gated scheduling
 
-- [ ] [NX7.1 — model versioned subscription rules and decisions](07_SUBSCRIPTION_RULES.md#nx7-1) — PENDING.
-- [ ] [NX7.2 — persist candidates without dropping deferred work](07_SUBSCRIPTION_RULES.md#nx7-2) — PENDING.
-- [ ] [NX7.3 — implement host constraints and storage reservations](07_SUBSCRIPTION_RULES.md#nx7-3) — PENDING.
-- [ ] [NX7.4 — apply rules through the existing foreground coordinator](07_SUBSCRIPTION_RULES.md#nx7-4) — PENDING.
-- [ ] [NX7.5 — deliver rule editor and decision history](07_SUBSCRIPTION_RULES.md#nx7-5) — PENDING.
-- [ ] [NX7.6 — prove rule behavior on real hosts](07_SUBSCRIPTION_RULES.md#nx7-6) — PENDING.
-- [ ] [NX7.7 — optional Android background feasibility gate](07_SUBSCRIPTION_RULES.md#nx7-7) — PENDING (optional).
-- [ ] [NX7.8 — optional bounded Android background checks](07_SUBSCRIPTION_RULES.md#nx7-8) — PENDING (optional).
-- [ ] [NX7.9 — optional desktop closed-app checks](07_SUBSCRIPTION_RULES.md#nx7-9) — PENDING (optional).
+- [x] [NX7.1 — model versioned subscription rules and decisions](07_SUBSCRIPTION_RULES.md#nx7-1) — VERIFIED (versioned rules/defaults, pure policy, duration/profile/cap/unknown decisions; `SubscriptionRulesContractTest`).
+- [x] [NX7.2 — persist candidates without dropping deferred work](07_SUBSCRIPTION_RULES.md#nx7-2) — VERIFIED (SQLite JSON reopen, deferred/filtered backlog and fair bounded inspection; rule/persistence contracts).
+- [x] [NX7.3 — implement host constraints and storage reservations](07_SUBSCRIPTION_RULES.md#nx7-3) — VERIFIED (actual JVM/Android adapters and queued/active execution gate; `SubscriptionHostContractTest` and `DownloadExecutionConstraintsTest`).
+- [x] [NX7.4 — apply rules through the existing foreground coordinator](07_SUBSCRIPTION_RULES.md#nx7-4) — VERIFIED (existing coordinator, persist-before-seen, immutable request constraints/profiles, unique origin; core/SQLite contracts).
+- [x] [NX7.5 — deliver rule editor and decision history](07_SUBSCRIPTION_RULES.md#nx7-5) — VERIFIED (localized rule editor, read-only preview, profile refresh and explicit replay approval; `ExpansionM4UiTest`).
+- [x] [NX7.6 — prove rule behavior on real hosts](07_SUBSCRIPTION_RULES.md#nx7-6) — VERIFIED (Linux/Windows real host adapters, loopback and public RSS, Android API26/API36 WorkManager, multi-OS CI; validation ledger).
+- [x] [NX7.7 — optional Android background feasibility gate](07_SUBSCRIPTION_RULES.md#nx7-7) — VERIFIED / GO (official dependency/license/SDK review; real bounded WorkManager on API26/API36; physical scheduling/battery limits explicit).
+- [x] [NX7.8 — optional bounded Android background checks](07_SUBSCRIPTION_RULES.md#nx7-8) — VERIFIED (opt-in unique periodic discovery, no visible activity, actual RSS/SQLite queue, app-open execution gate and opt-out cancellation).
+- [ ] [NX7.9 — optional desktop closed-app checks](07_SUBSCRIPTION_RULES.md#nx7-9) — NO_GO for automatic OS registration; bounded manual CLI implemented. See OPTIONAL_GATES.md.
 
 ## NX8 — batch clip creation
 
-- [ ] [NX8.1 — probe the actual processing capabilities](08_BATCH_CLIPS.md#nx8-1) — PENDING.
-- [ ] [NX8.2 — model recipes and build a safe processing plan](08_BATCH_CLIPS.md#nx8-2) — PENDING.
-- [ ] [NX8.3 — run batches with cancellation and per-clip receipts](08_BATCH_CLIPS.md#nx8-3) — PENDING.
-- [ ] [NX8.4 — implement portrait rendering, captions and covers](08_BATCH_CLIPS.md#nx8-4) — PENDING.
-- [ ] [NX8.5 — deliver multi-range editing and preview UI](08_BATCH_CLIPS.md#nx8-5) — PENDING.
-- [ ] [NX8.6 — prove outputs and close milestone 4](08_BATCH_CLIPS.md#nx8-6) — PENDING.
+- [x] [NX8.1 — probe the actual processing capabilities](08_BATCH_CLIPS.md#nx8-1) — VERIFIED (actual encoder/filter enumeration on Linux, Windows and Android; unavailable controls disabled).
+- [x] [NX8.2 — model recipes and build a safe processing plan](08_BATCH_CLIPS.md#nx8-2) — VERIFIED (typed bounded recipes, safe filter grammar, Unicode/locale/source snapshots and storage estimate contracts).
+- [x] [NX8.3 — run batches with cancellation and per-clip receipts](08_BATCH_CLIPS.md#nx8-3) — VERIFIED (SQLite schema 26 migration, atomic receipts, observed process cancellation/reaping, interrupted recovery and idempotent retry).
+- [x] [NX8.4 — implement portrait rendering, captions and covers](08_BATCH_CLIPS.md#nx8-4) — VERIFIED (real portrait/caption pixels/covers, display rotation, anamorphic DAR preservation and owned cover retry).
+- [x] [NX8.5 — deliver multi-range editing and preview UI](08_BATCH_CLIPS.md#nx8-5) — VERIFIED (three shared Compose contracts, private real preview, partial retry, selected-batch counts and narrow/large-text layouts).
+- [x] [NX8.6 — prove outputs and close milestone 4](08_BATCH_CLIPS.md#nx8-6) — VERIFIED (Linux FFmpeg/VLC, installed Windows MSI/EXE three-clip playback, Android API26/API36 packaged FFmpeg/Media3, macOS rendering CI).
 
 ## NX9 — optional local transcription
 
-- [ ] [NX9.1 — dependency, binding and privacy feasibility](09_LOCAL_TRANSCRIPTION.md#nx9-1) — PENDING (optional).
-- [ ] [NX9.2 — benchmark bounded multilingual inference](09_LOCAL_TRANSCRIPTION.md#nx9-2) — PENDING (optional).
-- [ ] [NX9.3 — implement model acquisition and lifecycle](09_LOCAL_TRANSCRIPTION.md#nx9-3) — PENDING (optional).
-- [ ] [NX9.4 — integrate bounded transcription jobs](09_LOCAL_TRANSCRIPTION.md#nx9-4) — PENDING (optional).
-- [ ] [NX9.5 — add transcription UI and correction flow](09_LOCAL_TRANSCRIPTION.md#nx9-5) — PENDING (optional).
-- [ ] [NX9.6 — native offline proof and release decision](09_LOCAL_TRANSCRIPTION.md#nx9-6) — PENDING (optional).
+- [ ] [NX9.1 — dependency, binding and privacy feasibility](09_LOCAL_TRANSCRIPTION.md#nx9-1) — NO_GO shipping gate; no qualified production runtime/model distribution. See OPTIONAL_GATES.md.
+- [ ] [NX9.2 — benchmark bounded multilingual inference](09_LOCAL_TRANSCRIPTION.md#nx9-2) — BLOCKED by NX9.1 NO_GO; not implemented or advertised.
+- [ ] [NX9.3 — implement model acquisition and lifecycle](09_LOCAL_TRANSCRIPTION.md#nx9-3) — BLOCKED by NX9.1 NO_GO; not implemented or advertised.
+- [ ] [NX9.4 — integrate bounded transcription jobs](09_LOCAL_TRANSCRIPTION.md#nx9-4) — BLOCKED by NX9.1 NO_GO; not implemented or advertised.
+- [ ] [NX9.5 — add transcription UI and correction flow](09_LOCAL_TRANSCRIPTION.md#nx9-5) — BLOCKED by NX9.1 NO_GO; not implemented or advertised.
+- [ ] [NX9.6 — native offline proof and release decision](09_LOCAL_TRANSCRIPTION.md#nx9-6) — BLOCKED by NX9.1 NO_GO; not implemented or advertised.
 
 ## Execution evidence
+
+The dated handoffs below are historical records. Their former platform blockers
+are superseded by the current tracker, native matrix and validation ledger.
 
 ### NX0.1 — establish the actual baseline
 
@@ -997,20 +1008,41 @@ Verification output (final NX4.6 / M2 closure & v4.1.0 readiness):
 - Physical Android device (Xiaomi `2311DRK48G`, Android 16 / SDK 36, `arm64-v8a`): 22/24 passed on initial run (2 failures traced to `PlayerActivity.onCreate()` launching `POST_NOTIFICATIONS` permission dialog over the player; both `AndroidStudyFlowContractTest` and `PlaybackRegressionTest` passed once granted). Removed unsolicited `POST_NOTIFICATIONS` prompt from `PlayerActivity.onCreate()` and added `FLAG_ACTIVITY_CLEAR_TOP`; clean-install device re-run remains gated on manual HyperOS USB install prompt confirmation.
 ```
 
+### 2026-11-13 — Phases NX5 & NX6 (Portable Media Backup/Restore & Assisted Library Recovery — Pre-CI Validation)
+```
+Task: Implement NX5 (NX5.1–NX5.6) and NX6 (NX6.1–NX6.6) on branch `codex/m3-backup-recovery`, validate Linux/VLCJ/>4 GiB ZIP64/Android API 30 emulator locally, add Windows `"recovery"` harness contract, and prepare PR to `dev` for full multi-OS CI.
+Implemented items & fixes:
+- NX5.1–NX5.6 (`ab9d641`..`dd0a376`): `docs/spec/PORTABLE_BACKUP_FORMAT.md` (`formatVersion = 1`), SQLite Schema v25 (`24.sqm` `portable_operation` journal), streamed ZIP64 & SAF sequential pipe ports, cancellable snapshot export, hostile archive security bounds, journaled atomic ID-remapped restore with post-commit local FTS rebuild, `PortableBackupDialog`, pickers, and desktop/Android round-trip suites.
+- NX6.1–NX6.5 (`2b3d71a`..`80ac863`): Read-only health inspection, bounded filesystem/SAF candidate scan with `Mutex` sequential SHA-256 verification vs. metadata heuristics, confirmed relink plans, atomic `RelinkExecutor` (stopping active playback before relink, `COPY_SAF_TO_OWNED` on Android, selective study/subtitle staleness on content replacement), advisory record-only duplicate review, `RecoveryDialog`, `AppStrings` `ErrorStrings` extraction (avoiding JVM >255 parameter `ClassFormatError`), and `launchTracked` eager-completion race fix.
+- NX6.6 pre-CI additions & docs: `RelinkLocalTest` (including `OPENYT_RUN_PLAYBACK_TESTS=1` real VLCJ stop->move->relink->reopen), `AndroidPortableBackupTest` & `AndroidLibraryRecoveryTest`, `WindowsContractHarness` `"recovery"` mode + `scripts/validate-windows.ps1`, `.github/workflows/ci.yml` adding `RelinkLocalTest`, `docs/adr/0025-portable-backup-and-assisted-recovery.md`, `docs/architecture/OVERVIEW.md`, and `docs/planning/NEXT_EXPANSION/CONTRACTS.md`.
+Verification output (local Linux + ephemeral API 30 emulator):
+- Full local build/unit/migration/packaging suite (`:data:verifyCommonMainOpenYtDatabaseMigration :core:desktopTest :engine-ytdlp:desktopTest :data:desktopTest :media-ffmpeg:desktopTest :ui:desktopTest :desktopApp:test :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :desktopApp:packageDeb :desktopApp:windowsContractHarnessJar :browserExtension:packageHandoff`): `BUILD SUCCESSFUL` (`core`: `283/283`, `data`: `124` with `1` opt-in skip, `engine-ytdlp`: `29/29`, `media-ffmpeg`: `3` with `1` opt-in skip, `desktopApp`: `124` with `21` opt-in skips; `0` failures/errors across all suites).
+- UI regression suite (`./gradlew :desktopApp:test --tests '*UiTest'`): `13` suites, `65/65` passed (`0` failures, `0` skipped, including `PortableBackupUiTest` `4/4` and `RecoveryUiTest` `4/4`).
+- Real Linux VLCJ relink (`OPENYT_RUN_PLAYBACK_TESTS=1 xvfb-run -a ./gradlew :desktopApp:test --tests '*RelinkLocalTest' --rerun`): `3/3` passed (`0` skipped, `0` failures).
+- Incompressible >4 GiB ZIP64 proof (`OPENYT_RUN_ZIP64_INCOMPRESSIBLE_TESTS=1 ./gradlew :data:desktopTest --tests '*PortableZipStreamingTest' --rerun`): `4/4` passed (`0` skipped, `archiveBytes=4351322924`, `payloadBytes=4350000000`, `peakHeapDeltaMiB=7`).
+- Packaged Linux `.deb` + browser handoff (`node scripts/validate-browser-handoff.cjs` and `xvfb-run -a python3 scripts/validate-expansion.py desktopApp/build/compose/binaries/main/deb/*.deb`): exit `0`, all assertions passed.
+- Android local ephemeral API 30 `x86_64` emulator (`connectedDebugAndroidTest` filtered to `AndroidPortableBackupTest,AndroidLibraryRecoveryTest`): `3/3` passed (`0` failures, `0` skipped).
+Known limits / residual notes:
+- Physical Android device (`Xiaomi 2311DRK48G`, SDK 36): `connectedDebugAndroidTest` blocked at install by `INSTALL_FAILED_USER_RESTRICTED` (unattended HyperOS USB install prompt); Android coverage verified on ephemeral local API 30 emulator and CI `android-emulator` (`43470881057`, `32` tests collected: `27` executed & passed, `5` `AndroidEngineNetworkTest` skipped without `OPENYT_RUN_NETWORK_TESTS`).
+- Multi-OS GitHub Actions CI run `43470881057` (commit `4a84733`, PR #62 `codex/m3-backup-recovery -> dev`): ALL 5 active jobs `success` — `build` (`ubuntu-latest`, including `RelinkLocalTest`, `.deb`, and browser handoff), `desktop-compile (ubuntu-latest)`, `desktop-compile (windows-latest)` (`PASS msi` & `PASS exe` including `"recovery"` contract), `desktop-compile (macos-latest)` (`BUILD SUCCESSFUL` in `2m 36s`), and `android-emulator` (`Finished 32 tests`, `5` network skipped, `0` failed).
+```
+
 ## Native Matrix
 
-| Target / Environment | Capabilities Tested | Requirements & Tools | Current Baseline Status | Notes / Blockers |
+| Target / Environment | Capabilities Tested | Requirements & Tools | Current Status | Evidence / Limits |
 |---|---|---|---|---|
-| **Linux x86_64** | Pure KMP, SQLite, Compose UI, VLCJ playback, FFmpeg processing, yt-dlp loopback & online, deb packaging | Pop!_OS 24.04 LTS / Ubuntu CI, JDK 21, libvlc5, xvfb-run, bundled tools | **VERIFIED / ACTIVE** | Primary automated desktop test, study E2E, and packaging environment. |
-| **Android (Unit/Emulator)** | Core/Data KMP Android targets, AAR/APK assembly, Media3 playback, PiP, Study flow | Android SDK 34–37, GitHub `android-emulator` & local AVD | **VERIFIED / ACTIVE** | CI `android-emulator` and local API 30 emulator (`24/24` + 5 skipped network) passed. |
-| **Android (Device)** | Connected instrumentation (`connectedDebugAndroidTest`) | Xiaomi 2311DRK48G (API 36, arm64-v8a) | **PARTIAL / GATED** | Ran `22/24` before `PlayerActivity` notification-popup fix + isolated passes; clean reinstall gated on HyperOS USB install tap. |
-| **Windows x64** | MSI/EXE installer, JNA shell/Explorer integration, HKCU deep links, bundled VLC/FFmpeg | GitHub `windows-latest` runner, PowerShell, JNA | **VERIFIED (CI)** | `windows-latest` installed MSI & EXE contracts (`msi-study`/`exe-study`) passed. |
-| **macOS (x64/arm64)** | Desktop compilation & unit/native contracts | GitHub `macos-latest` runner | **VERIFIED (CI)** | `desktop-compile (macos-latest)` passed. |
+| **Linux x86_64** | Core/SQLite/Compose, VLC, FFmpeg, yt-dlp local & internet, DEB CLI/GUI, M1–M4 | Pop!_OS24.04 / Ubuntu CI, JDK21, libVLC, Xvfb, bundled tools | **VERIFIED** | 593 combined cases:586 passed/7 explicit skips; final DEB harness and separate6/6 internet tests passed. |
+| **Android emulators** | Full native flows, Media3/PiP/study, backup/recovery, clips, bounded WorkManager, provider icons/large text | Local API26/API36 and GitHub API30 | **VERIFIED** | API26:26 passed/5 internet skips; API36:31 passed including internet; final all-three-clip playback repeat passed. |
+| **Android physical device** | Earlier partial connected checks | Xiaomi API36, arm64-v8a | **NOT CERTIFIED** | OEM USB install restriction remains historical; no physical battery/thermal/performance claim. User selected local validation. |
+| **Windows x64** | Native MSI/EXE build/install, shortcut/icon/frame, exact shell/Explorer, VLC, study/recovery/offline/clips | Existing Docker VM `tbg-win11`; native JDK17/21, WiX; Windows CI | **VERIFIED** | Both installed formats exercised;243 matching source/build inputs. Local slow-start sample and timeout retained in ledger. |
+| **macOS runner** | Desktop compilation/unit contracts and actual FFmpeg clip rendering | GitHub `macos-latest`, external FFmpeg | **VERIFIED (CI)** | CI `43649055829` passed; final PR checks required. No physical Mac UI claim. |
 
 ## Decisions and blockers
 
 - **Phase NX0 Gate: PASSED.** Baseline measurements, redistributable synthetic timeline fixtures, and contract family mappings are verified offline.
-- **Milestone 1 (NX1: Download Profiles, NX2: Offline Library):** NX1 is complete; NX2.6 Linux offline evidence & CI desktop/emulator gates are verified, while physical-device clean reinstall remains gated on manual HyperOS confirmation.
+- **Milestone 1: CLOSED.** NX2.6 passed multi-OS CI `43492611769` attempt 2 and PR #63 merged.
 - **Milestone 2 (NX3: Timed Search, NX4: Study Mode): CLOSED (`M2 = NX3.7 + NX4.6` VERIFIED).**
-- Closed-app scheduling and transcription (`NX7.7`–`NX7.9`, `NX9`) remain optional and pending.
-- Open mandatory phases remaining: `NX5` (Portable Backup), `NX6` (Library Recovery), `NX7` (Subscription Rules), and `NX8` (Batch Clip Creation).
+- **Milestone 3 (NX5: Portable Backup, NX6: Library Recovery): CLOSED (`M3 = NX5.6 + NX6.6` VERIFIED via CI `43470881057`).**
+- **Milestone 4: CLOSED.** NX7.6/NX8.6 verified by executed local native checks and CI `43649055829`. The final PR delivery head must pass the same required checks before merge.
+- **Mandatory scope: 52/52 verified.** Optional Android discovery NX7.7/NX7.8 is verified. Automatic desktop registration NX7.9 and production ASR NX9.1 are NO_GO; NX9.2–NX9.6 remain blocked, not delivered.
+- Windows local VM startup is slow and one attempt exceeded90 seconds; later responding-frame evidence, successful native runs and separate CI timings are retained in the ledger. Physical Android battery/thermal and physical Mac UI validation are not certified.

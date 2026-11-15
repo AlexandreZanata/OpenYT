@@ -47,6 +47,8 @@ import com.openyt.core.application.FolderPicker
 import com.openyt.core.application.LibraryController
 import com.openyt.core.application.OrganizationPlanner
 import com.openyt.core.application.PlatformDiagnostics
+import com.openyt.core.application.PortableArchivePickerPort
+import com.openyt.core.application.PortableBackupUiController
 import com.openyt.core.application.SafDestinationPicker
 import com.openyt.core.application.SettingsController
 import com.openyt.core.automation.SubscriptionController
@@ -62,6 +64,8 @@ import com.openyt.core.domain.DownloadWindow
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.EngineCapabilities
 import com.openyt.core.domain.ThemeMode
+import com.openyt.ui.components.PortableBackupDialog
+import com.openyt.ui.components.PortableBackupDialogTab
 import com.openyt.ui.components.ProfileEditorDialog
 import com.openyt.ui.components.SubscriptionsDialog
 import com.openyt.ui.i18n.LocalStrings
@@ -87,9 +91,14 @@ fun SettingsScreen(
     subscriptions: SubscriptionController? = null,
     toolUpdater: com.openyt.core.application.ToolUpdater? = null,
     profileRepository: DownloadProfileRepository? = null,
+    portableBackupController: PortableBackupUiController? = null,
+    portableArchivePicker: PortableArchivePickerPort? = null,
+    nowEpochMillis: () -> Long = { 0L },
+    onPortableRestored: () -> Unit = {},
 ) {
     val strings = LocalStrings.current
     var showSubscriptions by remember { mutableStateOf(false) }
+    var portableBackupTab by remember { mutableStateOf<PortableBackupDialogTab?>(null) }
     val settings by settingsController.settings.collectAsState()
     val tasks by coordinator.tasks.collectAsState()
     val library by coordinator.library.collectAsState()
@@ -639,6 +648,49 @@ fun SettingsScreen(
 
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(strings.offline.assetBudgetLabel, style = MaterialTheme.typography.labelLarge)
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(
+                        256L * 1024L * 1024L to "256 MiB",
+                        512L * 1024L * 1024L to "512 MiB",
+                        1024L * 1024L * 1024L to "1 GiB",
+                        2048L * 1024L * 1024L to "2 GiB",
+                    ).forEach { (bytes, label) ->
+                        FilterChip(
+                            selected = settings.assetBudgetBytes == bytes,
+                            onClick = { settingsController.setAssetBudgetBytes(bytes) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+                Text(strings.offline.storageReserveLabel, style = MaterialTheme.typography.labelLarge)
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(
+                        64L * 1024L * 1024L to "64 MiB",
+                        128L * 1024L * 1024L to "128 MiB",
+                        256L * 1024L * 1024L to "256 MiB",
+                        512L * 1024L * 1024L to "512 MiB",
+                    ).forEach { (bytes, label) ->
+                        FilterChip(
+                            selected = settings.storageReserveBytes == bytes,
+                            onClick = { settingsController.setStorageReserveBytes(bytes) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+            }
+        }
+
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(strings.updatesTitle, style = MaterialTheme.typography.labelLarge)
                 SettingRow(strings.diagnosticsAppVersion, diagnostics?.appVersion ?: "—")
                 TextButton(
@@ -703,6 +755,27 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
+                }
+            }
+        }
+
+        if (portableBackupController != null) {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(strings.portable.actionTitle, style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        strings.portable.settingsHint,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { portableBackupTab = PortableBackupDialogTab.EXPORT }) {
+                            Text(strings.portable.tabExport)
+                        }
+                        TextButton(onClick = { portableBackupTab = PortableBackupDialogTab.RESTORE }) {
+                            Text(strings.portable.tabRestore)
+                        }
+                    }
                 }
             }
         }
@@ -799,6 +872,17 @@ fun SettingsScreen(
                     showEditorDialog = false
                 }
             },
+        )
+    }
+    val selectedPortableTab = portableBackupTab
+    if (selectedPortableTab != null && portableBackupController != null) {
+        PortableBackupDialog(
+            controller = portableBackupController,
+            picker = portableArchivePicker,
+            initialTab = selectedPortableTab,
+            nowEpochMillis = nowEpochMillis,
+            onRestored = onPortableRestored,
+            onDismiss = { portableBackupTab = null },
         )
     }
 

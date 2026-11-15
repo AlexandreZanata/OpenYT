@@ -53,12 +53,17 @@ class MainActivity : ComponentActivity() {
         val mediaImporter = AndroidMediaImporter(this, container.downloadsDirectory)
         val urlOpener = AndroidUrlOpener(this)
         val safDestinationPicker = AndroidSafDestinationPicker(this)
+        val portableArchivePicker = com.openyt.android.saf.AndroidPortableArchivePicker(this)
+        val recoveryLocationPicker = com.openyt.android.saf.AndroidRecoveryLocationPicker(this)
         val subtitlePicker = AndroidSubtitlePicker(this)
         val studyExporter = AndroidTextFileExporter(this)
         setContent {
             val pendingSharedUrl by sharedUrl.collectAsState()
             val entryRoute by pendingEntryRoute.collectAsState()
             val playback = remember { AndroidPlaybackLauncher(this, container.playbackStore) }
+            val libraryRecoveryController = remember(playback) {
+                container.createLibraryRecoveryController(playback)
+            }
             val studyCaptureService = remember(playback) {
                 container.createStudyCaptureAndNavigationService(playback)
             }
@@ -97,7 +102,7 @@ class MainActivity : ComponentActivity() {
                 folderImportService = container.folderImportService,
                 bulkFileService = container.bulkFileService,
                 playbackLauncher = playback,
-                mediaProcessor = remember { androidMediaProcessor(applicationContext) },
+                mediaProcessor = container.mediaProcessor,
                 mediaPreview = remember { EngineMediaPreview(container.engine, playback, java.io.File(cacheDir, "previews").apply { mkdirs() }.absolutePath, { java.util.UUID.randomUUID().toString() }) },
                 initialSharedUrl = pendingSharedUrl,
                 onSharedUrlConsumed = { sharedUrl.value = null },
@@ -122,6 +127,10 @@ class MainActivity : ComponentActivity() {
                 ),
                 initialEntryRoute = entryRoute,
                 onEntryRouteConsumed = { pendingEntryRoute.value = null },
+                portableBackupController = container.portableBackup?.controller,
+                portableArchivePicker = portableArchivePicker,
+                libraryRecoveryController = libraryRecoveryController,
+                recoveryLocationPicker = recoveryLocationPicker,
             )
         }
     }

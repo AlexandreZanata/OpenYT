@@ -78,7 +78,7 @@ class SubtitleImportService(
             // Validate format and content from staged file using computeSha256 and content check
             val targetLocator = "$entryId/sub-$opId.$ext"
             val available = stagingPort.getAvailableSpace()
-            val required = staged.byteCount + operator.storageReserveBytes
+            val required = staged.byteCount + operator.effectiveStorageReserveBytes()
             if (available < required) {
                 stagingPort.cleanupStaging(opId)
                 return Result.failure(AssetOperationFailure.DiskFull(available, required).toException())
@@ -151,7 +151,7 @@ class SubtitleImportService(
 
             val stagedBytes = validation.normalizedText.encodeToByteArray()
             val available = stagingPort.getAvailableSpace()
-            val required = stagedBytes.size.toLong() + operator.storageReserveBytes
+            val required = stagedBytes.size.toLong() + operator.effectiveStorageReserveBytes()
             if (available < required) {
                 stagingPort.cleanupStaging(opId)
                 return Result.failure(

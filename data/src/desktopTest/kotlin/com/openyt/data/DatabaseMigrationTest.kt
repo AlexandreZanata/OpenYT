@@ -80,6 +80,19 @@ class DatabaseMigrationTest {
 
             repository.insertSmartCollection(SmartCollection("smart-1", "Test"))
             assertEquals(1, repository.loadSmartCollections().size)
+
+            val journal = SqlDelightPortableOperationRepository(database)
+            journal.upsertOperation(
+                com.openyt.core.application.PortableOperationJournalRecord(
+                    id = "mig-op-1",
+                    direction = com.openyt.core.application.PortableOperationDirection.EXPORT,
+                    status = com.openyt.core.application.PortableOperationStatus.SUCCEEDED,
+                    archiveLocator = "mig.openyt-backup.zip",
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            )
+            assertEquals("mig-op-1", journal.getOperation("mig-op-1")?.id)
         } finally {
             file.delete()
         }

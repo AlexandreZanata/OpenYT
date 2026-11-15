@@ -31,6 +31,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
@@ -142,7 +145,7 @@ class DownloadProfileNativeFlowTest {
         assertEquals(1080, provenance.effectiveHeight)
 
         // 4. Simulate application restart (close coordinator 1, open coordinator 2 on same DB)
-        scope1.cancel()
+        scope1.coroutineContext[Job]!!.cancelAndJoin()
         val scope2 = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val engine2 = SimulatedEngine(autoEmitCompleted = true)
         val db2 = createOpenYtDatabase(dbFile.absolutePath)
@@ -190,10 +193,11 @@ class DownloadProfileNativeFlowTest {
         }
         assertEquals(DownloadStatus.COMPLETED, completedTask.status)
         assertEquals(provenance, completedTask.request.options.profileProvenance)
+        assertTrue(coordinator2.awaitPersistence())
+        assertEquals(retriedTask.id, repo2.loadLibrary().single().id)
+        assertEquals(provenance, repo2.loadTasks().single { it.id == retriedTask.id }.request.options.profileProvenance)
 
-        scope2.cancel()
-
-        scope2.cancel()
+        scope2.coroutineContext[Job]!!.cancelAndJoin()
     }
 
     @Test
@@ -230,6 +234,10 @@ class DownloadProfileNativeFlowTest {
         assertEquals("136+140", task.request.formatId)
         assertNull(task.request.options.profileProvenance, "Manual format task must not have profile provenance")
 
+        // A restart has one persistent owner. Stop and join the old writer before
+        // restoring, so it cannot overwrite the new INTERRUPTED state afterward.
+        scope.coroutineContext[Job]!!.cancelAndJoin()
+
         // 3. Restart and restore from DB
         val scope2 = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val engine2 = SimulatedEngine()
@@ -254,8 +262,7 @@ class DownloadProfileNativeFlowTest {
         assertEquals("136+140", retried.request.formatId)
         assertNull(retried.request.options.profileProvenance)
 
-        scope.cancel()
-        scope2.cancel()
+        scope2.coroutineContext[Job]!!.cancelAndJoin()
     }
 
     @Test
@@ -397,7 +404,7 @@ private class SimulatedEngine(var autoEmitCompleted: Boolean = false) : com.open
                 createNewFile()
             }.absolutePath
             emit(DownloadEvent.Completed(outputPath, 10_000_000L))
-        }
+        } else awaitCancellation()
     }
 
     override suspend fun cancel(downloadId: String) = Unit

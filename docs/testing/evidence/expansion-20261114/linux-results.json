@@ -1,0 +1,1111 @@
+{
+  "core": {
+    "task": "desktopTest",
+    "tests": 297,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "suites": [
+      {
+        "name": "com.openyt.core.application.ArtworkFetchServiceTest",
+        "tests": "7",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:08.840Z"
+      },
+      {
+        "name": "com.openyt.core.application.AutomationConcurrencyTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.226Z"
+      },
+      {
+        "name": "com.openyt.core.application.BulkFilePlannerTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.263Z"
+      },
+      {
+        "name": "com.openyt.core.application.ClipStorageEstimateTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.278Z"
+      },
+      {
+        "name": "com.openyt.core.application.CompanionArtifactConfirmationTest",
+        "tests": "8",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.281Z"
+      },
+      {
+        "name": "com.openyt.core.application.DiagnosticsTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.352Z"
+      },
+      {
+        "name": "com.openyt.core.application.DownloadCoordinatorTest",
+        "tests": "34",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.369Z"
+      },
+      {
+        "name": "com.openyt.core.application.DownloadNotificationTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.552Z"
+      },
+      {
+        "name": "com.openyt.core.application.DownloadProfileSnapshotTest",
+        "tests": "11",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.557Z"
+      },
+      {
+        "name": "com.openyt.core.application.DurableAssetOperatorTest",
+        "tests": "10",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.659Z"
+      },
+      {
+        "name": "com.openyt.core.application.EnqueuePlaylistUseCaseTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.733Z"
+      },
+      {
+        "name": "com.openyt.core.application.FolderImportServiceTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.756Z"
+      },
+      {
+        "name": "com.openyt.core.application.InspectMediaUseCaseTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.768Z"
+      },
+      {
+        "name": "com.openyt.core.application.LibraryArchiveServiceTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.779Z"
+      },
+      {
+        "name": "com.openyt.core.application.LibraryControllerTest",
+        "tests": "5",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.812Z"
+      },
+      {
+        "name": "com.openyt.core.application.LibraryHealthTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.842Z"
+      },
+      {
+        "name": "com.openyt.core.application.LibraryQueryTest",
+        "tests": "8",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.855Z"
+      },
+      {
+        "name": "com.openyt.core.application.MediaPreviewTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:09.993Z"
+      },
+      {
+        "name": "com.openyt.core.application.OfflineLibraryPresenterTest",
+        "tests": "9",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.048Z"
+      },
+      {
+        "name": "com.openyt.core.application.OpenYtLinkTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.101Z"
+      },
+      {
+        "name": "com.openyt.core.application.OrganizationPlannerTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.125Z"
+      },
+      {
+        "name": "com.openyt.core.application.PlaybackCheckpointTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.127Z"
+      },
+      {
+        "name": "com.openyt.core.application.PlaybackQueueTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.132Z"
+      },
+      {
+        "name": "com.openyt.core.application.PlaybackSessionControlTest",
+        "tests": "11",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.142Z"
+      },
+      {
+        "name": "com.openyt.core.application.PortableArchiveSecurityTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.163Z"
+      },
+      {
+        "name": "com.openyt.core.application.PortableExportTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.216Z"
+      },
+      {
+        "name": "com.openyt.core.application.PortableManifestTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.279Z"
+      },
+      {
+        "name": "com.openyt.core.application.RecoveryCandidateScannerTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.338Z"
+      },
+      {
+        "name": "com.openyt.core.application.RelinkPlannerTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.358Z"
+      },
+      {
+        "name": "com.openyt.core.application.SafeUrlSanitizerTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.379Z"
+      },
+      {
+        "name": "com.openyt.core.application.SettingsControllerTest",
+        "tests": "6",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.383Z"
+      },
+      {
+        "name": "com.openyt.core.application.ShareTextParserTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.399Z"
+      },
+      {
+        "name": "com.openyt.core.application.StorageAnalyzerTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.405Z"
+      },
+      {
+        "name": "com.openyt.core.application.StudyAbRepeatControllerTest",
+        "tests": "5",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.408Z"
+      },
+      {
+        "name": "com.openyt.core.application.StudyCaptureAndNavigationTest",
+        "tests": "9",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.501Z"
+      },
+      {
+        "name": "com.openyt.core.application.StudyExportAndLinkTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.649Z"
+      },
+      {
+        "name": "com.openyt.core.application.StudyRepositoryAndServiceTest",
+        "tests": "5",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.676Z"
+      },
+      {
+        "name": "com.openyt.core.application.SubtitleImportServiceTest",
+        "tests": "6",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.727Z"
+      },
+      {
+        "name": "com.openyt.core.application.SubtitleIndexRebuilderTest",
+        "tests": "8",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.765Z"
+      },
+      {
+        "name": "com.openyt.core.application.SubtitleValidatorTest",
+        "tests": "7",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.809Z"
+      },
+      {
+        "name": "com.openyt.core.application.SystemLanguageTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.813Z"
+      },
+      {
+        "name": "com.openyt.core.application.TimedSearchQueryValidatorTest",
+        "tests": "8",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.819Z"
+      },
+      {
+        "name": "com.openyt.core.application.TimedSearchUseCaseTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.835Z"
+      },
+      {
+        "name": "com.openyt.core.application.TimedSubtitleParserTest",
+        "tests": "9",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.849Z"
+      },
+      {
+        "name": "com.openyt.core.application.UpdateCheckerTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.867Z"
+      },
+      {
+        "name": "com.openyt.core.application.UpdateControllerTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.881Z"
+      },
+      {
+        "name": "com.openyt.core.application.UrlValidatorTest",
+        "tests": "7",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.896Z"
+      },
+      {
+        "name": "com.openyt.core.automation.DownloadExecutionConstraintsTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.899Z"
+      },
+      {
+        "name": "com.openyt.core.automation.SubscriptionControllerTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.923Z"
+      },
+      {
+        "name": "com.openyt.core.automation.SubscriptionRulesContractTest",
+        "tests": "9",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:10.961Z"
+      },
+      {
+        "name": "com.openyt.core.domain.DownloadProfileResolverTest",
+        "tests": "13",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:11.228Z"
+      },
+      {
+        "name": "com.openyt.core.domain.FtsCapabilityReportTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:11.243Z"
+      },
+      {
+        "name": "com.openyt.core.domain.OfflineReadinessTest",
+        "tests": "11",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:11.252Z"
+      },
+      {
+        "name": "com.openyt.core.testing.SyntheticTimelineFixturesTest",
+        "tests": "7",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:11.264Z"
+      }
+    ]
+  },
+  "engine-ytdlp": {
+    "task": "desktopTest",
+    "tests": 29,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "suites": [
+      {
+        "name": "com.openyt.engine.ytdlp.ParserRobustnessTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:05.272Z"
+      },
+      {
+        "name": "com.openyt.engine.ytdlp.YtDlpDownloadOptionsTest",
+        "tests": "8",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:05.371Z"
+      },
+      {
+        "name": "com.openyt.engine.ytdlp.YtDlpJsonParserTest",
+        "tests": "7",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:05.388Z"
+      },
+      {
+        "name": "com.openyt.engine.ytdlp.YtDlpSupportTest",
+        "tests": "13",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:05.403Z"
+      }
+    ]
+  },
+  "data": {
+    "task": "desktopTest",
+    "tests": 130,
+    "skipped": 1,
+    "failures": 0,
+    "errors": 0,
+    "suites": [
+      {
+        "name": "com.openyt.data.ArtworkAndSubtitleIntegrationTest",
+        "tests": "6",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:45.471Z"
+      },
+      {
+        "name": "com.openyt.data.ClipCoverPublicationTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:46.938Z"
+      },
+      {
+        "name": "com.openyt.data.ClipJobStoreTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:47.137Z"
+      },
+      {
+        "name": "com.openyt.data.ConfirmedEngineOutputTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:47.245Z"
+      },
+      {
+        "name": "com.openyt.data.DatabaseMigrationTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:47.248Z"
+      },
+      {
+        "name": "com.openyt.data.DownloadProfileRepositoryTest",
+        "tests": "8",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:47.620Z"
+      },
+      {
+        "name": "com.openyt.data.EncryptedCookieRepositoryTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:48.183Z"
+      },
+      {
+        "name": "com.openyt.data.FeedCancellationTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:48.236Z"
+      },
+      {
+        "name": "com.openyt.data.FileBulkFileOperatorTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:48.429Z"
+      },
+      {
+        "name": "com.openyt.data.FileFolderScannerTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:48.440Z"
+      },
+      {
+        "name": "com.openyt.data.JvmArtworkFetchPortTest",
+        "tests": "9",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:48.452Z"
+      },
+      {
+        "name": "com.openyt.data.JvmDurableAssetStorageTest",
+        "tests": "5",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:48.534Z"
+      },
+      {
+        "name": "com.openyt.data.JvmMediaHealthInspectorTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:49.106Z"
+      },
+      {
+        "name": "com.openyt.data.JvmOfflineAssetStoreTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:49.115Z"
+      },
+      {
+        "name": "com.openyt.data.JvmRecoveryCandidateScannerTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:49.483Z"
+      },
+      {
+        "name": "com.openyt.data.OfflineAssetCleanupTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:49.494Z"
+      },
+      {
+        "name": "com.openyt.data.OfflineAssetRepositoryTest",
+        "tests": "7",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:49.502Z"
+      },
+      {
+        "name": "com.openyt.data.OfflineMilestoneProofTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:49.796Z"
+      },
+      {
+        "name": "com.openyt.data.PlaybackStoreTest",
+        "tests": "6",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:49.932Z"
+      },
+      {
+        "name": "com.openyt.data.PortableArchiveSecurityLocalTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:50.407Z"
+      },
+      {
+        "name": "com.openyt.data.PortableExportLocalTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:50.572Z"
+      },
+      {
+        "name": "com.openyt.data.PortableRestoreJournalTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:50.612Z"
+      },
+      {
+        "name": "com.openyt.data.PortableSnapshotSourceTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:50.713Z"
+      },
+      {
+        "name": "com.openyt.data.PortableZipStreamingTest",
+        "tests": "4",
+        "skipped": "1",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:10:50.724Z"
+      },
+      {
+        "name": "com.openyt.data.RelinkJournalTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:11:03.800Z"
+      },
+      {
+        "name": "com.openyt.data.RssFeedReaderTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:11:03.883Z"
+      },
+      {
+        "name": "com.openyt.data.SettingsRepositoryTest",
+        "tests": "5",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:11:03.959Z"
+      },
+      {
+        "name": "com.openyt.data.SqlDelightAssetOperationRepositoryTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:11:04.471Z"
+      },
+      {
+        "name": "com.openyt.data.SqlDelightDownloadRepositoryTest",
+        "tests": "12",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:11:04.767Z"
+      },
+      {
+        "name": "com.openyt.data.SqlDelightStudyRepositoryTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:11:05.013Z"
+      },
+      {
+        "name": "com.openyt.data.SubscriptionHostContractTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:11:05.628Z"
+      },
+      {
+        "name": "com.openyt.data.SubscriptionRulesPersistenceTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:11:05.845Z"
+      },
+      {
+        "name": "com.openyt.data.VerifiedReleaseTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:11:05.952Z"
+      },
+      {
+        "name": "com.openyt.data.search.SqlDelightSubtitleIndexRepositoryTest",
+        "tests": "8",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:11:05.974Z"
+      },
+      {
+        "name": "com.openyt.data.search.SqlDelightTimedSearchRepositoryTest",
+        "tests": "9",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:11:07.008Z"
+      },
+      {
+        "name": "com.openyt.data.search.SqliteFtsCapabilityProbeTest",
+        "tests": "7",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:11:14.951Z"
+      }
+    ]
+  },
+  "media-ffmpeg": {
+    "task": "desktopTest",
+    "tests": 8,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "suites": [
+      {
+        "name": "com.openyt.media.ffmpeg.ClipRenderingContractTest",
+        "tests": "5",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:06.600Z"
+      },
+      {
+        "name": "com.openyt.media.ffmpeg.FfmpegProcessorTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:12.637Z"
+      }
+    ]
+  },
+  "desktopApp": {
+    "task": "test",
+    "tests": 129,
+    "skipped": 6,
+    "failures": 0,
+    "errors": 0,
+    "suites": [
+      {
+        "name": "com.openyt.desktop.DesktopDeepLinksTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:13.245Z"
+      },
+      {
+        "name": "com.openyt.desktop.DesktopDropParserTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:13.333Z"
+      },
+      {
+        "name": "com.openyt.desktop.DesktopInstanceTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:13.357Z"
+      },
+      {
+        "name": "com.openyt.desktop.PortableRoundTripTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:13.367Z"
+      },
+      {
+        "name": "com.openyt.desktop.RelinkLocalTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:16.606Z"
+      },
+      {
+        "name": "com.openyt.desktop.downloader.BundledToolsTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:20.558Z"
+      },
+      {
+        "name": "com.openyt.desktop.downloader.DesktopMediaProbeTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:20.561Z"
+      },
+      {
+        "name": "com.openyt.desktop.downloader.DesktopMediaTaggerTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:20.641Z"
+      },
+      {
+        "name": "com.openyt.desktop.downloader.DesktopPlaybackLocalTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:20.724Z"
+      },
+      {
+        "name": "com.openyt.desktop.downloader.DesktopYtDlpEngineIntegrationTest",
+        "tests": "6",
+        "skipped": "6",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:38.885Z"
+      },
+      {
+        "name": "com.openyt.desktop.downloader.DesktopYtDlpEngineTest",
+        "tests": "10",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:38.891Z"
+      },
+      {
+        "name": "com.openyt.desktop.downloader.DesktopYtDlpLocalTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:38.948Z"
+      },
+      {
+        "name": "com.openyt.desktop.downloader.DownloadProfileLocalTest",
+        "tests": "7",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:16:56.294Z"
+      },
+      {
+        "name": "com.openyt.desktop.downloader.DownloadProfileNativeFlowTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:12.181Z"
+      },
+      {
+        "name": "com.openyt.desktop.downloader.ExecutableLocatorTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:18.955Z"
+      },
+      {
+        "name": "com.openyt.desktop.downloader.FfprobeJsonParserTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:18.959Z"
+      },
+      {
+        "name": "com.openyt.desktop.downloader.InspectionCancellationTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:18.960Z"
+      },
+      {
+        "name": "com.openyt.desktop.downloader.StudyPlaybackLocalTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:19.076Z"
+      },
+      {
+        "name": "com.openyt.desktop.player.DesktopPlaybackSessionTest",
+        "tests": "5",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:31.705Z"
+      },
+      {
+        "name": "com.openyt.desktop.search.TimedSearchPlaybackEndToEndTest",
+        "tests": "2",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:31.746Z"
+      },
+      {
+        "name": "com.openyt.desktop.share.DesktopMediaActionsTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:33.791Z"
+      },
+      {
+        "name": "com.openyt.desktop.share.ExternalPlaybackTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:33.793Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.DownloadProfileUiTest",
+        "tests": "20",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:33.801Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.DownloadsUiTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:39.200Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.ExpansionM4UiTest",
+        "tests": "3",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:39.468Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.FileActionsUiTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:41.969Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.HomePlaylistUiTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:42.964Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.LibraryPlaybackUiTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:43.130Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.LibraryStorageUiTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:43.218Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.OfflineReadinessUiTest",
+        "tests": "6",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:43.562Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.PortableBackupUiTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:45.079Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.ProviderIconsUiTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:46.302Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.RecoveryUiTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:46.370Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.SettingsOfflineUiTest",
+        "tests": "1",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:48.796Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.StorageUiTest",
+        "tests": "8",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:49.461Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.StudyUiTest",
+        "tests": "4",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:51.525Z"
+      },
+      {
+        "name": "com.openyt.desktop.ui.TimedSearchUiTest",
+        "tests": "8",
+        "skipped": "0",
+        "failures": "0",
+        "errors": "0",
+        "timestamp": "2026-11-14T22:17:58.339Z"
+      }
+    ]
+  }
+}

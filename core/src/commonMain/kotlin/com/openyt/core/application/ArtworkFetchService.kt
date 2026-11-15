@@ -122,7 +122,7 @@ class ArtworkFetchService(
 
         // Check bounds against storage reserve and the asset budget
         val available = stagingPort.getAvailableSpace()
-        val required = metadata.byteCount + operator.storageReserveBytes
+        val required = metadata.byteCount + operator.effectiveStorageReserveBytes()
         if (available < required) {
             stagingPort.cleanupStaging(opId)
             return Result.failure(

@@ -1,0 +1,5 @@
+CREATE TABLE clip_job (
+    id TEXT NOT NULL PRIMARY KEY,
+    entry_id TEXT NOT NULL,
+    definition_json TEXT NOT NULL
+);

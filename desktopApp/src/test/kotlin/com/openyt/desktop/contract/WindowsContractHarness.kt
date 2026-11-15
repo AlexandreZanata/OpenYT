@@ -1,6 +1,9 @@
 package com.openyt.desktop.contract
 
 import com.openyt.core.application.FileAvailability
+import com.openyt.core.application.MediaHealthStatus
+import com.openyt.core.application.OfflineAssetMaintenance
+import com.openyt.core.application.OfflineLibraryPresenter
 import com.openyt.core.application.OpenYtEntryLink
 import com.openyt.core.application.OpenYtLink
 import com.openyt.core.application.OpenYtRoute
@@ -8,28 +11,45 @@ import com.openyt.core.application.PlayableMedia
 import com.openyt.core.application.PlaybackCheckpoint
 import com.openyt.core.application.PlaybackSessionListener
 import com.openyt.core.application.PlaybackSessionState
+import com.openyt.core.application.RelinkContentMode
+import com.openyt.core.application.SettingsController
 import com.openyt.core.application.StudyAbRepeatController
 import com.openyt.core.application.StudyCaptureAndNavigationService
 import com.openyt.core.application.StudyExportOptions
 import com.openyt.core.application.StudyHostLinkCapability
 import com.openyt.core.application.StudyMarkdownExporter
 import com.openyt.core.application.StudyService
+import com.openyt.core.application.SubtitleImportService
 import com.openyt.core.domain.AbRepeatResult
 import com.openyt.core.domain.AbRepeatStatus
 import com.openyt.core.domain.AppLanguage
+import com.openyt.core.domain.AppSettings
+import com.openyt.core.domain.AssetKind
+import com.openyt.core.domain.AssetOperationException
+import com.openyt.core.domain.AssetOperationFailure
 import com.openyt.core.domain.Collection
+import com.openyt.core.domain.CompanionArtifactReceipt
 import com.openyt.core.domain.LibraryEntry
 import com.openyt.core.domain.MediaKind
 import com.openyt.core.domain.MediaRevision
+import com.openyt.core.domain.ReadinessStatus
+import com.openyt.core.domain.RecoveryAction
 import com.openyt.core.domain.SavedStudyRange
 import com.openyt.core.domain.ShareableMedia
 import com.openyt.core.domain.StudyCaptureResult
 import com.openyt.core.domain.StudyNavigationResult
 import com.openyt.core.domain.StudyNote
 import com.openyt.core.domain.StudyResult
+import com.openyt.data.JvmMediaFileInspector
+import com.openyt.data.JvmOfflineAssetStore
+import com.openyt.data.SqlDelightAssetOperationRepository
 import com.openyt.data.SqlDelightDownloadRepository
+import com.openyt.data.SqlDelightOfflineAssetRepository
 import com.openyt.data.SqlDelightPlaybackStore
+import com.openyt.data.SqlDelightSettingsRepository
 import com.openyt.data.SqlDelightStudyRepository
+import com.openyt.data.SqlDelightSubtitleIndexRepository
+import com.openyt.data.createLibraryRecoveryRuntime
 import com.openyt.data.createOpenYtDatabase
 import com.openyt.desktop.DesktopDeepLinks
 import com.openyt.desktop.downloader.ExecutableLocator
@@ -70,6 +90,9 @@ object WindowsContractHarness {
                 "reveal" -> check(DesktopMediaActions().reveal(ShareableMedia(file.path, "Regression", MediaKind.VIDEO)))
                 "play" -> play(file)
                 "study" -> study(file)
+                "recovery" -> recovery(file)
+                "offline" -> offline(file)
+                "clips" -> verifyInstalledClipWorkflows(file)
                 else -> error("Unknown contract")
             }
             println("PASS ${args[0]} with the installed application runtime")
@@ -376,6 +399,336 @@ object WindowsContractHarness {
             launcher2?.close()
             scope1.cancel()
             scope2.cancel()
+        }
+    }
+
+    private fun recovery(sourceVideo: File) {
+        check(DesktopVlcRuntime.bundledDirectory() != null) { "Packaged VLC runtime missing" }
+        check(sourceVideo.isFile) { "Missing Windows recovery source video: ${sourceVideo.absolutePath}" }
+        val workDir = java.nio.file.Files.createTempDirectory("openyt-win-recovery-").toFile()
+        val origDir = File(workDir, "downloads").apply { mkdirs() }
+        val movedDir = File(workDir, "moved/Subfolder & Notas").apply { mkdirs() }
+        val origFile = File(origDir, sourceVideo.name)
+        sourceVideo.copyTo(origFile, overwrite = true)
+        val initialHash = sha256Hex(origFile)
+        val revision = MediaRevision(origFile.length(), origFile.lastModified(), initialHash)
+
+        val dbFile = File(workDir, "recovery-contract.db")
+        val db = createOpenYtDatabase(dbFile.absolutePath)
+        val repo = SqlDelightDownloadRepository(db)
+        val offlineRepo = SqlDelightOfflineAssetRepository(db)
+        val subIndexRepo = SqlDelightSubtitleIndexRepository(db)
+        val studyRepo = SqlDelightStudyRepository(db)
+        val playbackStore = SqlDelightPlaybackStore(db)
+
+        val scope1 = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val scope2 = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val launcher1 = DesktopPlaybackLauncher(playbackStore, { EnStrings }, scope1)
+        var launcher2: DesktopPlaybackLauncher? = null
+
+        try {
+            val entry = LibraryEntry(
+                id = "win-rec-1",
+                title = "Windows Recovery Fixture",
+                kind = MediaKind.VIDEO,
+                filePath = origFile.absolutePath,
+                sizeBytes = origFile.length(),
+                createdAtEpochMillis = System.currentTimeMillis(),
+                mediaRevision = revision,
+            )
+            runBlocking {
+                repo.insertLibraryEntry(entry)
+                repo.insertCollection(Collection("col-win-rec", "Windows Study"))
+                repo.addEntryToCollection("col-win-rec", entry.id)
+                playbackStore.savePosition(origFile.absolutePath, PlaybackCheckpoint(3_000L, 60_000L, entry.id), entry.id)
+                studyRepo.upsertNote(
+                    StudyNote("win-note-rec", entry.id, 3_000L, null, "Preserved on Windows move", revision, 100L, 100L),
+                )
+            }
+
+            // Open media in bundled Windows VLC, verify playing, then stop so NTFS file handle is released
+            val preRelinkCheckpoint = runBlocking {
+                check(launcher1.openAt(listOf(PlayableMedia(origFile.absolutePath, entry.title, MediaKind.VIDEO, entryId = entry.id)), 0, 3_000L))
+                var started = false
+                repeat(120) {
+                    val snap = launcher1.captureSnapshot()
+                    if (snap?.state == PlaybackSessionState.PLAYING && snap.positionMillis >= 1_000L) {
+                        started = true
+                        return@repeat
+                    }
+                    delay(100)
+                }
+                check(started) { "Windows VLC did not reach PLAYING before recovery stop" }
+                launcher1.stop()
+                delay(350)
+                playbackStore.position(origFile.absolutePath, entry.id)
+                    ?: error("Missing Windows playback checkpoint after stop")
+            }
+            check(preRelinkCheckpoint.positionMillis >= 1_000L) {
+                "Expected pre-relink Windows checkpoint >= 1000ms, got $preRelinkCheckpoint"
+            }
+
+            val movedFile = File(movedDir, "Moved-${origFile.name}")
+            java.nio.file.Files.move(origFile.toPath(), movedFile.toPath())
+
+            val runtime = createLibraryRecoveryRuntime(
+                database = db,
+                downloadRepository = repo,
+                offlineAssetRepository = offlineRepo,
+                subtitleIndexRepository = subIndexRepo,
+                studyRepository = studyRepo,
+                stagingRoot = File(workDir, "staging"),
+                ownedRecoveryRootProvider = { origDir.absolutePath },
+                playbackSessionControl = launcher1,
+            )
+
+            val relinkedFinalPath = runBlocking {
+                val health = runtime.controller.analyzeHealth()
+                check(health.entries.single().status == MediaHealthStatus.MISSING) {
+                    "Expected MISSING after Windows move, got ${health.entries.single().status}"
+                }
+                val scan = runtime.controller.scanCandidates(entry, listOf(movedDir.absolutePath), emptyList())
+                check(scan.exactMatches.size == 1) { "Expected 1 exact match after Windows move, got ${scan.exactMatches.size}" }
+                val plan = runtime.controller.buildRelinkPlan(entry, scan.exactMatches.single()).getOrThrow()
+                check(plan.contentMode == RelinkContentMode.IDENTICAL_CONTENT && !plan.requiresManualConfirmation)
+                val receipt = runtime.controller.executeRelink(plan, confirmedContentChange = false).getOrThrow()
+                check(File(receipt.finalPath).canonicalFile == movedFile.canonicalFile) {
+                    "Expected relinked canonical path ${movedFile.canonicalFile}, got ${File(receipt.finalPath).canonicalFile}"
+                }
+                receipt.finalPath
+            }
+
+            // Reopen DB & verify context + playback + Windows Explorer reveal on moved file
+            val reopenedDb = createOpenYtDatabase(dbFile.absolutePath)
+            val reopenedRepo = SqlDelightDownloadRepository(reopenedDb)
+            val reopenedEntry = runBlocking { reopenedRepo.loadLibrary().single() }
+            check(reopenedEntry.id == entry.id && File(reopenedEntry.filePath).canonicalFile == movedFile.canonicalFile) {
+                "Unexpected reopened entry: $reopenedEntry"
+            }
+            val reopenedCheckpoint = runBlocking { SqlDelightPlaybackStore(reopenedDb).position(relinkedFinalPath, entry.id) }
+            check(reopenedCheckpoint == preRelinkCheckpoint) {
+                "Windows relink checkpoint lost: expected=$preRelinkCheckpoint actual=$reopenedCheckpoint"
+            }
+            val reopenedBundle = runBlocking { SqlDelightStudyRepository(reopenedDb).loadEntryStudyBundle(entry.id) }
+            check(reopenedBundle.notes.single().body == "Preserved on Windows move" && !reopenedBundle.hasStaleAnchors)
+            check(sha256Hex(movedFile) == initialHash)
+
+            launcher2 = DesktopPlaybackLauncher(SqlDelightPlaybackStore(reopenedDb), { EnStrings }, scope2)
+            runBlocking {
+                check(launcher2.openAt(listOf(PlayableMedia(relinkedFinalPath, entry.title, MediaKind.VIDEO, entryId = entry.id)), 0, 3_000L))
+                var reopenedPlay = false
+                repeat(120) {
+                    val snap = launcher2.captureSnapshot()
+                    if (snap?.state == PlaybackSessionState.PLAYING) {
+                        reopenedPlay = true
+                        return@repeat
+                    }
+                    delay(100)
+                }
+                check(reopenedPlay) { "Windows VLC failed to play relinked file at $relinkedFinalPath" }
+                launcher2.stop()
+                delay(200)
+            }
+
+            check(DesktopMediaActions().reveal(ShareableMedia(relinkedFinalPath, entry.title, MediaKind.VIDEO))) {
+                "Windows Explorer reveal failed on moved recovered file"
+            }
+            println("PASS NX-R06 Windows VLC handle release, NTFS move, SQLite relink reopen, and Explorer reveal")
+        } finally {
+            launcher1.close()
+            launcher2?.close()
+            scope1.cancel()
+            scope2.cancel()
+            workDir.deleteRecursively()
+        }
+    }
+
+    private fun offline(sourceVideo: File) = runBlocking<Unit> {
+        val workDir = java.nio.file.Files.createTempDirectory("openyt-win-offline-").toFile()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val mediaDir = File(workDir, "Vídeo Offline çãõ").apply { mkdirs() }
+            val mediaFile = File(mediaDir, "fixture.mp4")
+            sourceVideo.copyTo(mediaFile, overwrite = true)
+            val initialHash = sha256Hex(mediaFile)
+
+            val dbFile = File(workDir, "offline.db")
+            val assetsDir = File(workDir, "offline-assets").apply { mkdirs() }
+            val cacheDir = File(workDir, "render-cache").apply { mkdirs() }
+            val stageDir = File(workDir, "staged").apply { mkdirs() }
+
+            val artFile = File(stageDir, "cover.jpg")
+            ImageIO.write(BufferedImage(64, 36, BufferedImage.TYPE_INT_RGB), "jpg", artFile)
+            val srtFile = File(stageDir, "captions.srt").apply {
+                writeText("1\n00:00:00,000 --> 00:00:01,500\nWindows offline fixture\n")
+            }
+            val extraSrt = File(stageDir, "extra.srt").apply {
+                writeText("1\n00:00:02,000 --> 00:00:04,000\nOver budget subtitle payload\n")
+            }
+            File(cacheDir, "render-thumb.cache").writeBytes(ByteArray(2048) { 7 })
+
+            val db1 = createOpenYtDatabase(dbFile.absolutePath)
+            val settingsRepo1 = SqlDelightSettingsRepository(db1)
+            val settingsController1 = SettingsController(settingsRepo1, scope)
+            settingsController1.restore()
+            val customBudget = artFile.length() + srtFile.length() + 12L
+            val customReserve = 64L * 1024L * 1024L
+            settingsRepo1.save(
+                AppSettings(
+                    assetBudgetBytes = customBudget,
+                    storageReserveBytes = customReserve,
+                ),
+            )
+            settingsController1.restore()
+
+            val downloadRepo1 = SqlDelightDownloadRepository(db1)
+            val assetRepo1 = SqlDelightOfflineAssetRepository(db1)
+            val opRepo1 = SqlDelightAssetOperationRepository(db1)
+            val inspector = JvmMediaFileInspector()
+            val store1 = JvmOfflineAssetStore(
+                assetsDirectory = assetsDir,
+                repository = assetRepo1,
+                operationRepository = opRepo1,
+                fileInspector = inspector,
+                storageReserveBytesProvider = { 1024L },
+                assetBudgetBytesProvider = { settingsController1.settings.value.assetBudgetBytes },
+            )
+            val entry = LibraryEntry(
+                id = "win-off-1",
+                title = "Windows Offline Fixture",
+                kind = MediaKind.VIDEO,
+                filePath = mediaFile.canonicalPath,
+                sizeBytes = mediaFile.length(),
+                thumbnailUrl = "https://unreachable.invalid/win-offline-thumb.jpg",
+                mediaRevision = MediaRevision(mediaFile.length(), mediaFile.lastModified(), initialHash),
+            )
+            downloadRepo1.insertLibraryEntry(entry)
+
+            val artResult = store1.storeConfirmedArtifact(
+                entryId = entry.id,
+                receipt = CompanionArtifactReceipt(
+                    kind = AssetKind.ARTWORK,
+                    filePath = artFile.canonicalPath,
+                    isRequired = true,
+                ),
+                mediaRevision = entry.mediaRevision!!,
+                allowedRoots = listOf(stageDir.canonicalPath),
+            )
+            val artAsset = artResult.getOrThrow()
+
+            val subService1 = SubtitleImportService(store1.operator, assetRepo1, store1.stagingPort, inspector)
+            val subAsset = subService1.importSubtitleFile(
+                entryId = entry.id,
+                sourcePath = srtFile.canonicalPath,
+                language = "en",
+                mediaRevision = entry.mediaRevision!!,
+            ).getOrThrow()
+
+            // Exceeding configured asset budget fails cleanly without evicting assets or touching media.
+            val overBudget = subService1.importSubtitleFile(
+                entryId = entry.id,
+                sourcePath = extraSrt.canonicalPath,
+                language = "pt",
+                mediaRevision = entry.mediaRevision!!,
+            )
+            check(overBudget.isFailure) { "Expected budget rejection, got $overBudget" }
+            val failure = (overBudget.exceptionOrNull() as? AssetOperationException)?.failure
+            check(failure is AssetOperationFailure.StorageBudgetExceeded) {
+                "Expected StorageBudgetExceeded, got ${overBudget.exceptionOrNull()}"
+            }
+
+            val initialCacheSize = cacheDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+            val preReopen = OfflineLibraryPresenter.present(
+                entry = entry,
+                assets = assetRepo1.loadAssetsForEntry(entry.id),
+                remoteArtworkUrl = entry.thumbnailUrl,
+                renderingCacheBytes = initialCacheSize,
+                fileInspector = inspector,
+                resolveAssetPath = { store1.resolveAssetPath(it) },
+            )
+            check(preReopen.readiness.status == ReadinessStatus.READY) { "Expected READY, got ${preReopen.readiness}" }
+            check(preReopen.storage.originalMediaBytes == mediaFile.length())
+            check(preReopen.storage.durableAssetBytes == artAsset.byteCount + subAsset.byteCount)
+            check(preReopen.storage.renderingCacheBytes == initialCacheSize)
+
+            // Wipe volatile rendering cache + reopen SQLite DB offline.
+            check(cacheDir.deleteRecursively())
+            val db2 = createOpenYtDatabase(dbFile.absolutePath)
+            val settingsRepo2 = SqlDelightSettingsRepository(db2)
+            val reopenedSettings = settingsRepo2.load()
+            check(reopenedSettings.assetBudgetBytes == customBudget && reopenedSettings.storageReserveBytes == customReserve) {
+                "Reopened settings mismatch: $reopenedSettings"
+            }
+            val assetRepo2 = SqlDelightOfflineAssetRepository(db2)
+            val store2 = JvmOfflineAssetStore(
+                assetsDirectory = assetsDir,
+                repository = assetRepo2,
+                operationRepository = SqlDelightAssetOperationRepository(db2),
+                fileInspector = inspector,
+                storageReserveBytes = 1024L,
+                assetBudgetBytes = reopenedSettings.assetBudgetBytes,
+            )
+            val postCacheClear = OfflineLibraryPresenter.present(
+                entry = entry,
+                assets = assetRepo2.loadAssetsForEntry(entry.id),
+                remoteArtworkUrl = entry.thumbnailUrl,
+                renderingCacheBytes = 0L,
+                fileInspector = inspector,
+                resolveAssetPath = { store2.resolveAssetPath(it) },
+            )
+            check(postCacheClear.readiness.status == ReadinessStatus.READY)
+            check(postCacheClear.hasVerifiedLocalArtwork)
+            val resolvedArt = File(postCacheClear.localArtworkPath!!).canonicalFile
+            check(resolvedArt.isFile && resolvedArt.path.startsWith(assetsDir.canonicalPath)) {
+                "Local artwork must survive rendering cache clear in owned storage: $resolvedArt"
+            }
+
+            // Pin artwork, cleanup removes only unpinned subtitle while leaving original media intact.
+            val maintenance = OfflineAssetMaintenance(assetRepo2, store2)
+            check(maintenance.setPinned(entry.id, artAsset.id, true).isSuccess)
+            val preview = maintenance.cleanupPreview(entry.id)
+            check(preview.map { it.id } == listOf(subAsset.id)) { "Expected only unpinned subtitle in cleanup preview, got $preview" }
+            check(maintenance.cleanup(entry.id, preview.map { it.id }.toSet()).getOrThrow() == 1)
+            check(resolvedArt.isFile)
+            check(sha256Hex(mediaFile) == initialHash)
+
+            // Modify media bytes -> STALE + REVERIFY; remove media -> UNAVAILABLE + RELINK_MEDIA.
+            mediaFile.appendBytes(byteArrayOf(0x01, 0x02))
+            val staleState = OfflineLibraryPresenter.present(
+                entry = entry,
+                assets = assetRepo2.loadAssetsForEntry(entry.id),
+                remoteArtworkUrl = entry.thumbnailUrl,
+                renderingCacheBytes = 0L,
+                fileInspector = inspector,
+                resolveAssetPath = { store2.resolveAssetPath(it) },
+            )
+            check(
+                staleState.readiness.status == ReadinessStatus.STALE &&
+                    staleState.readiness.missingRequirements.any { it.suggestedAction == RecoveryAction.REVERIFY },
+            ) {
+                "Expected STALE/REVERIFY, got ${staleState.readiness}"
+            }
+
+            check(mediaFile.delete())
+            val missingState = OfflineLibraryPresenter.present(
+                entry = entry,
+                assets = assetRepo2.loadAssetsForEntry(entry.id),
+                remoteArtworkUrl = entry.thumbnailUrl,
+                renderingCacheBytes = 0L,
+                fileInspector = inspector,
+                resolveAssetPath = { store2.resolveAssetPath(it) },
+            )
+            check(
+                missingState.readiness.status == ReadinessStatus.UNAVAILABLE &&
+                    missingState.readiness.missingRequirements.any { it.suggestedAction == RecoveryAction.RELINK_MEDIA },
+            ) {
+                "Expected UNAVAILABLE/RELINK_MEDIA, got ${missingState.readiness}"
+            }
+
+            println("NX-O06 Windows offline reopen/cache/quota/stale/missing PASSED")
+        } finally {
+            scope.cancel()
+            workDir.deleteRecursively()
         }
     }
 

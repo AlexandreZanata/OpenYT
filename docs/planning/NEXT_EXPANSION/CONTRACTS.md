@@ -1,8 +1,8 @@
 # Verification contracts for the next expansion
 
-Status: **specification, not an executed test report**. IDs below name behavior
-that future tests must establish. The phase documents supply exact edge cases.
-Do not mark a contract passed until an executable assertion and evidence exist.
+This register maps requirements to executable assertions. Per-platform execution
+and remaining gates are recorded in [the validation ledger](../../testing/NEXT_EXPANSION_VALIDATION.md).
+The phase documents supply edge cases; a suggested name alone is not evidence.
 
 ## Test layers
 
@@ -325,55 +325,90 @@ Suggested groups: `StudyRepositoryTest`, `StudySessionTest`, `StudyLinkTest`,
 
 ### Backup — NX-B
 
-Suggested groups: `PortableManifestTest`, `PortableArchiveSecurityTest`,
-`PortableRestoreJournalTest`, `PortableBackupUiTest`, host `PortableRoundTripTest`.
+Implemented & verified suites: `PortableManifestTest`, `PortableSnapshotSourceTest`,
+`PortableZipStreamingTest`, `PortableExportTest`, `PortableExportLocalTest`,
+`PortableArchiveSecurityTest`, `PortableArchiveSecurityLocalTest`,
+`PortableRestoreJournalTest`, `PortableBackupUiTest` (`4/4` UI configurations),
+`PortableRoundTripTest` (`1/1`), `AndroidPortableBackupTest` (`2/2` on API 30 emulator).
 
-- **NX-B01:** independent manifest version, consistent metadata and safe fields.
-- **NX-B02:** measured streaming/ZIP64 support including >4 GiB native fixture.
-- **NX-B03:** complete export receipt, cancellation and source-change detection.
-- **NX-B04:** hostile archive bounds, traversal/collision/symlink/digest rejection.
-- **NX-B05:** journaled restore, complete ID remapping and no existing changes.
-- **NX-B06:** desktop–Android–desktop round-trip with media hashes and context.
+- **NX-B01:** independent manifest version, consistent metadata and safe fields — **VERIFIED** (`PortableManifestTest`, `PortableSnapshotSourceTest`, golden manifest v1 fixture; URLs/cookies/local paths/FTS tables strictly excluded).
+- **NX-B02:** measured streaming/ZIP64 support including >4 GiB native fixture — **VERIFIED** (`PortableZipStreamingTest`: opt-in `OPENYT_RUN_ZIP64_INCOMPRESSIBLE_TESTS=1` streamed `4,350,000,000`-byte incompressible payload into `4,351,322,924`-byte ZIP64 archive and extracted via `JvmPortableArchiveReader` with `7 MiB` peak heap delta; default suite tests >4 GiB sparse stream + cancellation + SAF non-seekable pipes `4/4`).
+- **NX-B03:** complete export receipt, cancellation and source-change detection — **VERIFIED** (`PortableExportTest`, `PortableExportLocalTest`, `DatabaseMigrationTest` Schema v25 `portable_operation` journal + startup reconciliation).
+- **NX-B04:** hostile archive bounds, traversal/collision/symlink/digest rejection — **VERIFIED** (`PortableArchiveSecurityTest`, `PortableArchiveSecurityLocalTest`, `AndroidPortableBackupTest`; rejects symlinks, `.` / `..`, drive/UNC, NUL, case-folded duplicates, >16 MiB manifest, undeclared entries, and digest mismatches).
+- **NX-B05:** journaled restore, complete ID remapping and no existing changes — **VERIFIED** (`PortableRestoreJournalTest`, fault-injected commit & restart reconciliation, full ID remapping across entries/assets/collections/smart collections/profiles/checkpoints/study, post-commit local FTS rebuild).
+- **NX-B06:** desktop–Android–desktop round-trip with media hashes and context — **VERIFIED** (`PortableRoundTripTest`, `AndroidPortableBackupTest` `FileProvider` `content://` round-trip + SQLite reopen + FTS4 search, `PortableBackupUiTest` `4/4`).
 
 ### Recovery — NX-R
 
-Suggested groups: `LibraryHealthTest`, `RelinkPlannerTest`, `RelinkJournalTest`,
-`RecoveryUiTest`, host `RelinkLocalTest`.
+Implemented suites: `LibraryHealthTest`, `JvmMediaHealthInspectorTest`,
+`RecoveryCandidateScannerTest`, `JvmRecoveryCandidateScannerTest`, `RelinkPlannerTest`,
+`RelinkJournalTest`, `RecoveryUiTest` (`4/4`), `AndroidLibraryRecoveryTest` (`1/1` on
+API 30 emulator), host `RelinkLocalTest` (`3/3` Linux VLCJ), and `WindowsContractHarness`
+(`"recovery"`).
 
-- **NX-R01:** read-only accurate health/permission/content states.
-- **NX-R02:** bounded root scan/hash, verified identity vs heuristics.
-- **NX-R03:** exact preview/confirmation, active playback and stale-plan rejection.
-- **NX-R04:** same entry/context/checkpoint after relink and interrupted retry.
-- **NX-R05:** advisory duplicates and record-only removal with authored context.
-- **NX-R06:** native moved-file recovery, reopen and Windows shell/player behavior.
+- **NX-R01:** read-only accurate health/permission/content states — **VERIFIED** (`LibraryHealthTest`, `JvmMediaHealthInspectorTest`, `AndroidLibraryRecoveryTest`; `AVAILABLE`, `MISSING`, `PERMISSION_LOST`, `CHANGED_CONTENT`, `UNKNOWN` without mutating DB/files).
+- **NX-R02:** bounded root scan/hash, verified identity vs heuristics — **VERIFIED** (`RecoveryCandidateScannerTest`, `JvmRecoveryCandidateScannerTest`; bounded depth/count, symlink loop guard, `Mutex` sequential SHA-256, `EXACT_CONTENT` vs `HEURISTIC_METADATA`).
+- **NX-R03:** exact preview/confirmation, active playback and stale-plan rejection — **VERIFIED** (`RelinkPlannerTest`, `RelinkJournalTest`, `RelinkLocalTest`, `RecoveryUiTest` `4/4`; stops active player before relink and checks stale plan state).
+- **NX-R04:** same entry/context/checkpoint after relink and interrupted retry — **VERIFIED** (`RelinkJournalTest`, `RelinkLocalTest`, `AndroidLibraryRecoveryTest`; preserves `LibraryEntry.id`, collections, study records, checkpoints; selectively stamps stale anchors & invalidates FTS on `CHANGED_CONTENT_REPLACEMENT`).
+- **NX-R05:** advisory duplicates and record-only removal with authored context — **VERIFIED** (`LibraryHealthTest`, `RecoveryUiTest` `4/4`; duplicate review unlinks record only without touching user media files).
+- **NX-R06:** native moved-file recovery, reopen and Windows shell/player behavior — **VERIFIED** (`RelinkLocalTest` `3/3` passed on Linux with `OPENYT_RUN_PLAYBACK_TESTS=1` real VLCJ stop-relink-reopen and in CI run `43470881057` `build` job; `AndroidLibraryRecoveryTest` passed in API 30 emulator locally and in CI `android-emulator` `43470881057` (`27` executed, `5` network skipped, `0` failed); `WindowsContractHarness` `"recovery"` passed in CI `desktop-compile (windows-latest)` `43470881057` for both installed MSI and EXE packages; `desktop-compile (macos-latest)` passed in `43470881057`).
 
 ### Subscription rules — NX-A
 
-Suggested groups: `SubscriptionRuleTest`, `SubscriptionCandidateStoreTest`,
-`SubscriptionConstraintTest`, `SubscriptionRulesUiTest`, host scheduling tests.
+Executable groups: `SubscriptionRulesContractTest`,
+`DownloadExecutionConstraintsTest`, `SubscriptionRulesPersistenceTest`,
+`SubscriptionHostContractTest`, `RssFeedReaderTest`, `FeedCancellationTest`,
+`InspectionCancellationTest`, `AndroidInspectionCancellationTest`, `ExpansionM4UiTest`,
+`AndroidBackgroundSubscriptionTest`.
 
-- **NX-A01:** versioned filters/profiles/caps and explicit unknown decisions.
-- **NX-A02:** persisted candidate backlog and no surprise legacy catch-up.
-- **NX-A03:** real network/power/space capability semantics; no disallowed request.
-- **NX-A04:** enqueue-before-seen and exactly one task per stable originKey.
-- **NX-A05:** preview/explanations and foreground scheduling scope are clear.
-- **NX-A06:** real app-alive constraints/restart/backlog behavior on native hosts.
-- **NX-A07 (optional):** background feasibility/ownership/quota prototype evidence.
-- **NX-A08 (optional):** opted-in bounded Android work and actual device behavior.
-- **NX-A09 (optional):** opted-in OS scheduling and single-owner CLI per desktop OS.
+- **NX-A01:** versioned JSON defaults, duration/profile/cap validation, distinct
+  Wi-Fi/unmetered/charging/unknown decisions — core rule contracts.
+- **NX-A02:** persisted deferred candidates, baseline-first, filtered archive and
+  fair inspection rotation — core contracts plus SQLite reopen tests.
+- **NX-A03:** real adapter network/space capability reads, queued/active constraints
+  rechecked, manual tasks not starved — host and execution-gate contracts.
+- **NX-A04:** persistence before seen-set, stable origin keys and exactly one task
+  across restart — core and real loopback RSS/SQLite host contract.
+- **NX-A05:** read-only preview, refreshed profiles, explicit replay confirmation,
+  localized narrow/large-text controls — shared Compose contracts.
+- **NX-A06:** local feed duration/size, actual network/space, reserve, restart and
+  single queue — JVM host contract (Linux and native CI); Android WorkManager test
+  also reads actual destination/power/connection capability. Injected state
+  transitions are separate deterministic execution-gate evidence, not physical
+  Wi-Fi or battery manipulation. Slow real HTTP/process contracts prove bounded
+  cancellation and cleanup while preserving another active download.
+- **NX-A07 / NX-A08 (optional):** real opted-in WorkManager job without an activity,
+  bounded queue-only discovery, opt-out cancellation; emulator evidence is in the
+  ledger. Inexact scheduling and physical battery/thermal limits stay explicit.
+- **NX-A09 (optional):** **NO_GO** for automatic OS registration. Bounded manual
+  CLI discovery is available; no system timer/task/LaunchAgent is installed.
+  See [optional decisions](OPTIONAL_GATES.md).
 
 ### Batch clips — NX-CL
 
-Suggested groups: `ClipRecipeTest`, `ClipBatchJournalTest`, `ClipEditorUiTest`,
-host `ClipRenderingLocalTest`. `NX-CL` is distinct from the common invariants
-`NX-C01`–`NX-C08`.
+Executable groups: `ClipRenderingContractTest`, `ClipJobStoreTest`,
+`ClipCoverPublicationTest`, `ClipStorageEstimateTest`, `ExpansionM4UiTest`, installed Windows `clips` harness,
+`AndroidClipContractsTest`. `NX-CL` is distinct from common invariants `NX-C01`–`NX-C08`.
 
-- **NX-CL01:** actual packaged encoder/filter/renderer capability proof.
-- **NX-CL02:** validated typed recipes, safe args, modes and unique output paths.
-- **NX-CL03:** per-clip receipts, partial success, cancel/crash and original hashes.
-- **NX-CL04:** actual dimensions/codecs/rotation/captions/cover/timebase rendering.
-- **NX-CL05:** matching preview/export recipe and understandable batch results.
-- **NX-CL06:** real three-range output playback/probes and partial failure evidence.
+- **NX-CL01:** actual FFmpeg encoder/filter enumeration; unavailable controls stay
+  disabled. Native ledger records the platform/package, not assumed parity.
+- **NX-CL02:** typed recipes, safe fixed filter grammar, Unicode paths, bounded
+  ranges/captions and unique job IDs — real rendering and pure recipe assertions.
+- **NX-CL03:** atomic library/receipt publication, SQLite reopen, source hashes,
+  real encoding cancellation/reaping and failure after cover commit with a
+  single-cover budget — journal, rendering and cover publication contracts.
+- **NX-CL04:** real portrait dimensions/codecs/timebase, caption pixels, cover and
+  anamorphic DAR preservation and display rotation before fit/crop, selected-time
+  cover pixels — FFmpeg/FFprobe/image assertions.
+- **NX-CL05:** same preview recipe, private preview cleanup, partial results,
+  retry only failed clips, preserve inherited author, selected-batch counts
+  despite old receipts and bounded source-bitrate space estimates — rendering/UI
+  and estimate contracts.
+- **NX-CL06:** three native Windows exports with actual VLC playback, durable cover
+  and reopened receipts; Linux real rendering/decode; Android packaged FFmpeg,
+  probes, assets and actual Media3 playback of all three exports. Native macOS
+  rendering runs in CI.
+  Refer to the ledger for executed results and limits.
 
 ### Transcription — NX-TX (optional)
 

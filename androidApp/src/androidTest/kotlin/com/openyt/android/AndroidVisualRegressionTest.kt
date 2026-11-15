@@ -133,13 +133,21 @@ class AndroidVisualRegressionTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val automation = instrumentation.uiAutomation
         fun shell(command: String) { automation.executeShellCommand(command).use { descriptor -> java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() } } }
-        var activity: MainActivity? = null
+        var scenario: androidx.test.core.app.ActivityScenario<MainActivity>? = null
         try {
-            shell("wm size 1600x1000")
-            shell("wm density 160")
             val context = instrumentation.targetContext
-            activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)) as MainActivity
-            instrumentation.runOnMainSync { (activity.application as OpenYtApplication).container.settingsController.setLanguage(com.openyt.core.domain.AppLanguage.EN) }
+            scenario = androidx.test.core.app.ActivityScenario.launch(Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+            scenario.onActivity { (it.application as OpenYtApplication).container.settingsController.setLanguage(com.openyt.core.domain.AppLanguage.EN) }
+            // API 26 SurfaceFlinger cannot capture a virtual display wider than
+            // its physical framebuffer. Both sizes exercise the expanded rail.
+            val expandedSize = if (android.os.Build.VERSION.SDK_INT < 28) "1000x1600" else "1600x1000"
+            shell("wm size $expandedSize")
+            shell("wm density 160")
+            automation.waitForIdle(500, 10_000)
+            // Track the resumed instance after asynchronous display recreation;
+            // launching during API 26's launcher restart can lose the launch intent.
+            scenario.onActivity { assertTrue("Expanded rail requires tablet width", it.resources.configuration.screenWidthDp >= 840) }
             awaitText(com.openyt.ui.i18n.EnStrings.tabLibrary)
             val homeRoot = awaitText(com.openyt.ui.i18n.EnStrings.tabHome)
             var focus = nodesWithText(homeRoot, com.openyt.ui.i18n.EnStrings.tabHome).first()
@@ -154,9 +162,12 @@ class AndroidVisualRegressionTest {
             saveValidationScreenshot("android-tablet-dpad.png")
         } finally {
             runCatching { saveValidationScreenshot("android-tablet-final-state.png") }
-            activity?.let { current -> instrumentation.runOnMainSync { current.finish() } }
+            scenario?.close()
             shell("wm size reset")
             shell("wm density reset")
+            // Density reset also restarts the API 26 launcher asynchronously.
+            // Keep that system transition out of the next activity's launch.
+            automation.waitForIdle(2_000, 15_000)
         }
     }
 

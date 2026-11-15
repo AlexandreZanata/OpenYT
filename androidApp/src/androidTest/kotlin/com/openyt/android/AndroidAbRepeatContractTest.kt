@@ -34,6 +34,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -124,15 +125,12 @@ class AndroidAbRepeatContractTest {
             }
             mediaController = future!!.get(30, TimeUnit.SECONDS)
 
-            repeat(150) {
-                val snap = launcher.captureSnapshot()
-                if (snap != null &&
-                    snap.state == PlaybackSessionState.PLAYING &&
-                    (snap.knownDurationMillis ?: 0L) > 5_000L
-                ) {
-                    return@repeat
+            withTimeout(15_000) {
+                while (true) {
+                    val snap = launcher.captureSnapshot()
+                    if (snap?.state == PlaybackSessionState.PLAYING && (snap.knownDurationMillis ?: 0L) > 5_000L) break
+                    delay(100)
                 }
-                delay(100)
             }
 
             // Still inactive after media starts until explicit action
@@ -140,7 +138,7 @@ class AndroidAbRepeatContractTest {
 
             val positions = CopyOnWriteArrayList<Pair<Int, Long>>()
             val unregister = launcher.registerSessionListener(PlaybackSessionListener { snap ->
-                if (snap != null && snap.state == PlaybackSessionState.PLAYING) {
+                if (snap != null && snap.state == PlaybackSessionState.PLAYING && controller.state.value.status == AbRepeatStatus.ACTIVE) {
                     positions += controller.state.value.loopCount to snap.positionMillis
                 }
             })
@@ -155,14 +153,25 @@ class AndroidAbRepeatContractTest {
                 if (controller.state.value.loopCount >= 2 && !checkedPause) {
                     checkedPause = true
                     launcher.pause()
-                    delay(350)
+                    repeat(40) {
+                        if (controller.state.value.status == AbRepeatStatus.PAUSED) return@repeat
+                        delay(100)
+                    }
                     assertEquals(AbRepeatStatus.PAUSED, controller.state.value.status)
-                    val pausedPos = launcher.captureSnapshot()?.positionMillis ?: 0L
+                    var pausedPos = 0L
+                    instrumentation.runOnMainSync {
+                        assertTrue("The native Media3 player must acknowledge pause", !mediaController!!.isPlaying)
+                        pausedPos = mediaController!!.currentPosition
+                    }
                     delay(400)
-                    val pausedPosAfter = launcher.captureSnapshot()?.positionMillis ?: 0L
-                    assertTrue("Pause must keep position stationary", abs(pausedPosAfter - pausedPos) <= 250L)
+                    var pausedPosAfter = 0L
+                    instrumentation.runOnMainSync { pausedPosAfter = mediaController!!.currentPosition }
+                    assertTrue("Pause must keep position stationary: $pausedPos -> $pausedPosAfter", abs(pausedPosAfter - pausedPos) <= 250L)
                     launcher.play()
-                    delay(150)
+                    repeat(40) {
+                        if (controller.state.value.status == AbRepeatStatus.ACTIVE) return@repeat
+                        delay(100)
+                    }
                     assertEquals(AbRepeatStatus.ACTIVE, controller.state.value.status)
                 }
                 delay(80)
