@@ -60,6 +60,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val pendingSharedUrl by sharedUrl.collectAsState()
             val entryRoute by pendingEntryRoute.collectAsState()
+            val uiReady by container.uiReady.collectAsState()
             val playback = remember { AndroidPlaybackLauncher(this, container.playbackStore) }
             val libraryRecoveryController = remember(playback) {
                 container.createLibraryRecoveryController(playback)
@@ -131,6 +132,7 @@ class MainActivity : ComponentActivity() {
                 portableArchivePicker = portableArchivePicker,
                 libraryRecoveryController = libraryRecoveryController,
                 recoveryLocationPicker = recoveryLocationPicker,
+                isStartupReady = uiReady,
             )
         }
     }
