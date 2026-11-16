@@ -121,4 +121,6 @@ enum class FeatureText(val portuguese: String, val english: String) {
     TV_STRICT_LABEL("Compatibilidade estrita com TV (AVC/AAC)", "Strict TV compatibility (AVC/AAC)"),
     LABEL_SUBTITLE("Legenda", "Subtitle"),
     LABEL_EMBEDDED("embutida", "embedded"),
+    STARTUP_LOADING_LABEL("Carregando o OpenYT", "Loading OpenYT"),
+    STARTUP_PREPARING("Preparando biblioteca e preferências…", "Preparing library and preferences…"),
 }

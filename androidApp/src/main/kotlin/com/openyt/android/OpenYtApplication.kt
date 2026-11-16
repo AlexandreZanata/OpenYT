@@ -64,6 +64,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.asStateFlow
 
 class OpenYtApplication : Application() {
     val container: AppContainer by lazy { AppContainer(this) }
@@ -87,6 +89,8 @@ class AppContainer(context: Context) {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val foreground = kotlinx.coroutines.flow.MutableStateFlow(false)
     private val initialized = kotlinx.coroutines.CompletableDeferred<Boolean>()
+    private val _uiReady = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val uiReady: kotlinx.coroutines.flow.StateFlow<Boolean> = _uiReady.asStateFlow()
     val isAppVisible: Boolean get() = foreground.value
     val backgroundScheduler = AndroidSubscriptionScheduler(appContext)
     suspend fun awaitInitialization(): Boolean = initialized.await()
@@ -298,22 +302,33 @@ class AppContainer(context: Context) {
     }
 
     init {
-        cleanStaleTemporaryFiles(File(downloadsDirectory))
-        appScope.launch {
+        appScope.launch(Dispatchers.IO) {
             try {
-            coordinator.restore()
-            settingsController.restore()
-            libraryController.restore()
-            subscriptions?.restore()
-            if (foreground.value) subscriptions?.start()
-            cleanStaleTemporaryFiles(
-                File(settingsController.settings.value.downloadsDirectory ?: downloadsDirectory),
-            )
-            portableBackup?.reconcileOnStartup()
-            if (backgroundScheduler.enabled.value) backgroundScheduler.setEnabled(true)
-            initialized.complete(true)
-            } catch (e: kotlinx.coroutines.CancellationException) { initialized.complete(false); throw e }
-            catch (_: Exception) { initialized.complete(false); android.util.Log.w("OpenYT", "Application initialization could not complete") }
+                coroutineScope {
+                    launch { settingsController.restore() }
+                    launch { coordinator.restore() }
+                    launch { libraryController.restore() }
+                }
+                _uiReady.value = true
+                subscriptions?.restore()
+                if (foreground.value) subscriptions?.start()
+                cleanStaleTemporaryFiles(File(downloadsDirectory))
+                val customDirectory = settingsController.settings.value.downloadsDirectory
+                if (!customDirectory.isNullOrBlank() && customDirectory != downloadsDirectory) {
+                    cleanStaleTemporaryFiles(File(customDirectory))
+                }
+                portableBackup?.reconcileOnStartup()
+                if (backgroundScheduler.enabled.value) backgroundScheduler.setEnabled(true)
+                initialized.complete(true)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                _uiReady.value = true
+                initialized.complete(false)
+                throw e
+            } catch (_: Exception) {
+                _uiReady.value = true
+                initialized.complete(false)
+                android.util.Log.w("OpenYT", "Application initialization could not complete")
+            }
         }
     }
 }

@@ -9,8 +9,9 @@ fun createOpenYtDatabase(databasePath: String): OpenYtDatabase {
     val file = File(databasePath)
     file.parentFile?.mkdirs()
     val url = "jdbc:sqlite:${file.absolutePath}"
-    val hasSchema = file.exists() && tableExists(url, "download_task")
-    val storedVersion = if (hasSchema) readUserVersion(url) else 0L
+    val header = if (file.exists()) readDatabaseHeader(url) else DatabaseHeader(hasSchema = false, userVersion = 0L)
+    val hasSchema = header.hasSchema
+    val storedVersion = header.userVersion
     val target = OpenYtDatabase.Schema.version
 
     val driver = JdbcSqliteDriver(url)
@@ -43,21 +44,27 @@ fun defaultDatabasePath(): String {
     return File(base, "OpenYT/openyt.db").absolutePath
 }
 
-private fun readUserVersion(url: String): Long =
-    DriverManager.getConnection(url).use { connection ->
-        connection.createStatement().use { statement ->
-            statement.executeQuery("PRAGMA user_version").use { result ->
-                if (result.next()) result.getLong(1) else 0L
-            }
-        }
-    }
+private data class DatabaseHeader(
+    val hasSchema: Boolean,
+    val userVersion: Long,
+)
 
-private fun tableExists(url: String, table: String): Boolean =
+private fun readDatabaseHeader(url: String): DatabaseHeader =
     DriverManager.getConnection(url).use { connection ->
-        connection.prepareStatement(
+        val hasSchema = connection.prepareStatement(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
         ).use { statement ->
-            statement.setString(1, table)
+            statement.setString(1, "download_task")
             statement.executeQuery().use { result -> result.next() }
         }
+        val userVersion = if (hasSchema) {
+            connection.createStatement().use { statement ->
+                statement.executeQuery("PRAGMA user_version").use { result ->
+                    if (result.next()) result.getLong(1) else 0L
+                }
+            }
+        } else {
+            0L
+        }
+        DatabaseHeader(hasSchema = hasSchema, userVersion = userVersion)
     }

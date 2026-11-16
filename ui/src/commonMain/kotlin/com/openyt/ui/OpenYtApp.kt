@@ -1,5 +1,7 @@
 package com.openyt.ui
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -78,6 +80,7 @@ import com.openyt.core.domain.OrganizationPreset
 import com.openyt.core.domain.DownloadEngine
 import com.openyt.core.domain.ThemeMode
 import com.openyt.ui.components.BrandMark
+import com.openyt.ui.components.StartupLoadingScreen
 import com.openyt.ui.components.UpdateBanner
 import com.openyt.ui.i18n.stringsFor
 import com.openyt.ui.i18n.AppStrings
@@ -149,6 +152,7 @@ fun OpenYtApp(
     libraryRecoveryController: com.openyt.core.application.LibraryRecoveryUiController? = null,
     recoveryLocationPicker: com.openyt.core.application.RecoveryLocationPickerPort? = null,
     onLibraryRecovered: () -> Unit = {},
+    isStartupReady: Boolean = true,
 ) {
     val ready by coordinator.ready.collectAsState()
     val settings by settingsController.settings.collectAsState()
@@ -205,9 +209,14 @@ fun OpenYtApp(
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background,
             ) {
-                if (!ready) {
-                    androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
-                } else AppShell(
+                Crossfade(
+                    targetState = ready && isStartupReady,
+                    animationSpec = tween(durationMillis = 220),
+                    label = "startup-transition",
+                ) { startupComplete ->
+                    if (!startupComplete) {
+                        StartupLoadingScreen()
+                    } else AppShell(
                     engine = engine,
                     coordinator = coordinator,
                     settingsController = settingsController,
@@ -254,7 +263,8 @@ fun OpenYtApp(
                     libraryRecoveryController = libraryRecoveryController,
                     recoveryLocationPicker = recoveryLocationPicker,
                     onLibraryRecovered = onLibraryRecovered,
-                )
+                    )
+                }
             }
         }
     }
@@ -322,6 +332,7 @@ private fun AppShell(
     libraryRecoveryController: com.openyt.core.application.LibraryRecoveryUiController? = null,
     recoveryLocationPicker: com.openyt.core.application.RecoveryLocationPickerPort? = null,
     onLibraryRecovered: () -> Unit = {},
+    isStartupReady: Boolean = true,
 ) {
     val strings = LocalStrings.current
     val tabs = listOf(
